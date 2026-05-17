@@ -1,0 +1,2505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Utilities · Family Hub</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#181621">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hub.css">
+<style>
+/* ──────────────────────────────────────────────────────────────────────────
+   Fonts — Migra for display chrome, Hanken Grotesk for all data and UI.
+   Per the design brief: NO Migra inside data figures.
+   ────────────────────────────────────────────────────────────────────────── */
+/* Tokens, Migra @font-face, cursor and the App-Shell chrome are the
+   canonical ones in css/hub.css. utilities.html keeps only its own
+   dashboard composition below. Token names used here (--ink*, --rule*,
+   --stack-*, --temp*, --space-*, --t-*, --dur-*, --ease-*, --z-*) all
+   resolve to the single canonical value via hub.css. The internal
+   table/drawer/chart reclass onto §6 primitives is honest remaining
+   depth, deferred until it can be browser-verified against the Plot
+   mutation hazard (AGENT.md #12). */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  background: var(--ground);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  font-size: var(--t-body);
+  line-height: 1.55;
+  font-feature-settings: "kern" 1;
+  text-rendering: optimizeLegibility;
+}
+@media (pointer: fine) { body { cursor: none; } }
+
+/* cursor + App-Shell chrome: css/hub.css (canonical). */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Page frame
+   ────────────────────────────────────────────────────────────────────────── */
+main {
+  flex: 1;
+  padding: var(--space-lg) clamp(var(--space-lg), 4vw, var(--space-3xl)) var(--space-3xl);
+  display: flex; flex-direction: column;
+  gap: var(--space-2xl);
+}
+.section { display: flex; flex-direction: column; gap: var(--space-md); }
+.section-eyebrow {
+  font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 500;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Hero block — eyebrow, headline, subtitle, TTM total + per-meter avgs
+   ────────────────────────────────────────────────────────────────────────── */
+/* Ribbon + the stat strip are the shared page framework now
+   (css/hub.css .hub-head / .hub-strip, rendered by js/hub-header.js).
+   No page-local hero/ttm CSS. */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Main chart (desktop only — mobile gets the month list)
+   ────────────────────────────────────────────────────────────────────────── */
+.chart-block { display: none; flex-direction: column; gap: var(--space-md); }
+@media (min-width: 900px) { .chart-block { display: flex; } }
+
+/* The legend is utilities-specific content; it lives in the shared
+   header's control-row left slot (hub.crLeft). Its styling stays
+   page-local. */
+.legend {
+  display: flex; gap: var(--space-lg);
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.legend .key { display: inline-flex; align-items: center; gap: var(--space-xs); }
+.legend .sw  { width: 10px; height: 10px; }
+/* Hover readout — the legend strip becomes the month's figures while
+   hovering any Weather chart, then reverts to the keys. */
+.legend .legend-readout {
+  display: inline-flex; align-items: baseline; min-width: 0;
+  text-transform: none; letter-spacing: 0;
+  font-size: var(--t-meta); color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.legend .lr-mo  { text-transform: uppercase; letter-spacing: 0.3em; color: var(--text); }
+.legend .lr-seg::before {
+  content: "·"; margin: 0 var(--space-sm); color: var(--text-faint);
+}
+.legend .sw.gas      { background: var(--series-1); }
+.legend .sw.water    { background: var(--series-2); }
+.legend .sw.electric { background: var(--series-3); }
+.legend .sw.temp     { background: transparent; border-top: 1px dashed var(--series-ref-strong); height: 0; width: 14px; }
+
+/* Shared time-window navigation. Arrows flank the chart on left/right;
+   range label + Now sit centered below the chart. */
+.chart-frame {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.chart-frame .chart-host { min-width: 0; }
+
+.nav-arrow {
+  background: none; border: none;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: clamp(1.75rem, 2.5vw, 2.5rem);
+  line-height: 1;
+  color: var(--text);
+  padding: var(--space-md) var(--space-sm);
+  transition: color var(--dur-mid) var(--ease-out), opacity var(--dur-mid) var(--ease-out), transform var(--dur-mid) var(--ease-out);
+}
+.nav-arrow:hover:not(:disabled) { color: var(--text); transform: translateX(0); }
+.nav-arrow.nav-prev:hover:not(:disabled) { transform: translateX(-3px); }
+.nav-arrow.nav-next:hover:not(:disabled) { transform: translateX( 3px); }
+.nav-arrow:disabled { opacity: 0.22; pointer-events: none; }
+.nav-arrow:focus-visible {
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1px;
+}
+.nav-arrow[hidden] { display: none; }
+
+.chart-caption {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: var(--space-md);
+  font-size: var(--t-eyebrow);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: var(--space-xs);
+}
+.chart-caption .nav-range {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.chart-caption .nav-range.swapping { opacity: 0; }
+.chart-caption .nav-now {
+  background: none; border: none;
+  font: inherit;
+  letter-spacing: inherit; text-transform: inherit;
+  color: var(--text-muted);
+  padding: 0;
+  transition: color var(--dur-mid) var(--ease-out);
+}
+.chart-caption .nav-now:hover { color: var(--text); }
+.chart-caption .nav-now:focus-visible {
+  outline: none; color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.chart-caption .nav-now[hidden] { display: none; }
+@media (pointer: fine) { .nav-arrow, .chart-caption .nav-now { cursor: none; } }
+
+/* Hairline scrubber under the chart — position-only, not a slider. */
+.scrub {
+  position: relative;
+  height: 1px;
+  background: var(--line);
+  margin-top: var(--space-xs);
+}
+.scrub-seg {
+  position: absolute;
+  top: -1px;
+  height: 3px;
+  background: var(--text);
+  transition: left 240ms var(--ease-out), width 240ms var(--ease-out);
+}
+
+.chart-host {
+  position: relative;
+  min-height: 420px;
+  transition: opacity var(--dur-mid) var(--ease-out);
+}
+.chart-host.fading { opacity: 0; }
+.chart-host svg { display: block; max-width: 100%; height: auto; }
+/* Hovered-month emphasis: the hovered month's real stacked bars switch
+   to the ochre highlight ramp (others untouched). fill is set inline by
+   setupBarHover (attribute-only, so the styleChartSvg observer is never
+   tripped). */
+.chart-host svg g[aria-label="bar"] rect {
+  transition: fill var(--dur-fast) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-host svg g[aria-label="bar"] rect { transition: none; }
+}
+
+.chart-anomaly-list {
+  display: flex; flex-direction: column; gap: var(--space-2xs);
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-lead); color: var(--text-muted); line-height: 1.5;
+}
+.chart-anomaly-list span.tag { color: var(--accent); margin-right: var(--space-xs); }
+.chart-anomaly-empty {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-h3); color: var(--text-muted);
+  padding: var(--space-lg) 0;
+}
+
+/* Weather view — three usage-vs-driver panels */
+.cmp-panel { margin-bottom: var(--space-md); position: relative; }
+.cmp-panel:last-child { margin-bottom: 0; }
+/* .month-guide is the shared chart-sync primitive (css/hub.css +
+   js/chart-sync.js); no local copy. */
+.cmp-label {
+  display: flex; align-items: center; gap: var(--space-xs);
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 500;
+  margin-bottom: var(--space-2xs);
+}
+.cmp-label .sw { width: 9px; height: 9px; display: inline-block; }
+.cmp-label .sw.gas      { background: var(--series-1); }
+.cmp-label .sw.water    { background: var(--series-2); }
+.cmp-label .sw.electric { background: var(--series-3); }
+.cmp-empty {
+  display: flex; align-items: center;
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-lead); color: var(--text-faint);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Per-meter usage strips (desktop only)
+   ────────────────────────────────────────────────────────────────────────── */
+.strips-block { display: none; flex-direction: column; gap: var(--space-md); }
+@media (min-width: 900px) { .strips-block { display: flex; } }
+
+.strips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2xl);
+}
+.strip { display: flex; flex-direction: column; gap: var(--space-xs); }
+.strip-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--space-xs);
+}
+.strip-name {
+  font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 500;
+}
+.strip-host { min-height: 110px; position: relative; }
+.strip-host svg { display: block; max-width: 100%; height: auto; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Mobile month list (mobile only — replaces chart-block + strips-block)
+   ────────────────────────────────────────────────────────────────────────── */
+.mlist-block { display: flex; flex-direction: column; gap: var(--space-md); }
+@media (min-width: 900px) { .mlist-block { display: none; } }
+
+.mlist { display: flex; flex-direction: column; }
+.mlist-head {
+  display: grid; grid-template-columns: 80px 1fr 70px;
+  gap: var(--space-sm);
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted); padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--line);
+}
+.mlist-row {
+  display: grid; grid-template-columns: 80px 1fr 70px;
+  gap: var(--space-sm); align-items: center;
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  background: none; border-left: 0; border-right: 0; border-top: 0;
+  color: inherit; font: inherit; width: 100%;
+}
+.mlist-row:last-child { border-bottom: 1px solid var(--line); }
+.mlist-row .m-month {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-lead); color: var(--text);
+}
+.mlist-row .m-bar {
+  display: flex; height: 14px; gap: 1px;
+  background: var(--line-soft);
+}
+.mlist-row .m-bar span { display: block; height: 100%; }
+.mlist-row .m-bar .gas      { background: var(--series-1); }
+.mlist-row .m-bar .water    { background: var(--series-2); }
+.mlist-row .m-bar .electric { background: var(--series-3); }
+.mlist-row .m-total {
+  font-size: var(--t-body); color: var(--text); font-weight: 500;
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+.mlist-row:focus-visible { outline: 1px solid var(--text); outline-offset: 4px; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Recent entries table
+   ────────────────────────────────────────────────────────────────────────── */
+/* "All bills" is the shared .data-table (css/hub.css): sticky head,
+   .label month cell, .num amounts, .strong total, .is-cued row wash.
+   The .recent-row class is kept on each <tr> only as the hook the
+   custom cursor (HOVER_SEL) and the synced month-guide already
+   target; it carries no layout of its own. No bespoke table chrome
+   lives here any more. */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Footer / enter-bill action
+   ────────────────────────────────────────────────────────────────────────── */
+.page-foot {
+  display: flex; justify-content: flex-end;
+  padding-top: var(--space-md);
+}
+
+.enter-btn {
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid var(--text-secondary);
+  color: var(--text);
+  padding: var(--space-md) var(--space-2xl);
+  transition: background var(--dur-mid) var(--ease-out),
+              color var(--dur-mid) var(--ease-out),
+              border-color var(--dur-mid) var(--ease-out);
+}
+.enter-btn:hover { background: var(--text); color: var(--ground); border-color: var(--text); }
+.enter-btn:focus-visible { outline: 1px solid var(--text); outline-offset: 3px; }
+@media (pointer: fine) { .enter-btn, .mlist-row, .recent-row.is-button { cursor: none; } }
+
+/* On phones the enter button is sticky at the bottom edge. */
+@media (max-width: 899px) {
+  .page-foot {
+    position: sticky;
+    bottom: 0;
+    left: 0; right: 0;
+    background: linear-gradient(to top, var(--ground) 60%, oklch(0.18 0.018 305 / 0));
+    padding: var(--space-md) clamp(var(--space-lg), 4vw, var(--space-2xl));
+    padding-bottom: max(var(--space-md), env(safe-area-inset-bottom));
+    margin: 0 calc(-1 * clamp(var(--space-lg), 4vw, var(--space-3xl)));
+    z-index: var(--z-sticky);
+  }
+  .enter-btn { width: 100%; }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   States: loading, empty
+   ────────────────────────────────────────────────────────────────────────── */
+.loading-bar {
+  height: 1px; background: var(--line);
+  position: relative; overflow: hidden;
+}
+.loading-bar::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to right, transparent, var(--text-secondary), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1400ms linear infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+.empty {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: clamp(1.5rem, 4vw, 2rem); line-height: 1.3;
+  color: var(--text-muted);
+  max-width: 32ch;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Drawer (native <dialog>)
+   ────────────────────────────────────────────────────────────────────────── */
+dialog.drawer {
+  background: var(--ground);
+  color: var(--text);
+  border: none;
+  padding: 0;
+  margin: 0; margin-left: auto;     /* anchor right edge on desktop */
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh; max-height: 100vh;
+  border-left: 1px solid var(--line);
+}
+dialog.drawer::backdrop {
+  background: oklch(0.10 0.012 305 / 0.6);
+  backdrop-filter: none;
+}
+dialog.drawer[open] { animation: slide-in var(--dur-slow) var(--ease-out) forwards; }
+@keyframes slide-in {
+  from { transform: translateX(40px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@media (max-width: 640px) {
+  dialog.drawer {
+    max-width: 100%;
+    border-left: none;
+    margin: 0 auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.drawer[open] { animation: none; }
+}
+
+.drawer-inner {
+  padding: var(--space-2xl) var(--space-2xl);
+  padding-bottom: max(var(--space-2xl), env(safe-area-inset-bottom));
+  padding-top: max(var(--space-2xl), env(safe-area-inset-top));
+  display: flex; flex-direction: column; gap: var(--space-lg);
+  min-height: 100vh;
+}
+
+.drawer-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--space-md);
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--line);
+}
+.drawer-eyebrow {
+  font-size: var(--t-eyebrow); letter-spacing: 0.4em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.drawer-close {
+  background: none; border: none; padding: var(--space-2xs);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+}
+.drawer-close:hover { color: var(--text); }
+
+.drawer-title {
+  font-family: 'Migra', serif; font-weight: 800;
+  font-size: clamp(2rem, 6vw, 2.75rem); line-height: 0.96;
+  letter-spacing: -0.015em; color: var(--text);
+}
+.drawer-title .it { font-weight: 200; font-style: italic; }
+.drawer-helper {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  color: var(--text-secondary);
+  font-size: var(--t-lead); line-height: 1.5; max-width: 30ch;
+}
+
+/* Step 1 — meter pick */
+.meter-pick { display: flex; flex-direction: column; gap: var(--space-xs); margin-top: var(--space-md); }
+.meter-pick button {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-align: left;
+  padding: var(--space-lg) var(--space-md);
+  display: flex; align-items: center; gap: var(--space-md);
+  font: inherit;
+  transition: background var(--dur-mid) var(--ease-out),
+              border-color var(--dur-mid) var(--ease-out);
+}
+.meter-pick button:hover { background: var(--veil); border-color: var(--text-muted); }
+.meter-pick button:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
+.meter-pick .meter-name {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-h3);
+}
+.meter-pick .meter-sw {
+  width: 12px; height: 12px;
+}
+.meter-pick .meter-sw.gas      { background: var(--series-1); }
+.meter-pick .meter-sw.water    { background: var(--series-2); }
+.meter-pick .meter-sw.electric { background: var(--series-3); }
+.meter-pick .meter-aside {
+  margin-left: auto;
+  font-size: var(--t-meta); color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Step 2 — form */
+.form-row { display: flex; flex-direction: column; gap: var(--space-xs); }
+.form-row label, .form-legend {
+  font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 500;
+}
+.form-row .period-pair {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);
+}
+.form-row .num-with-suffix, .form-row .num-with-prefix {
+  display: flex; align-items: baseline; gap: var(--space-xs);
+  border-bottom: 1px solid var(--text-faint);
+  padding-bottom: var(--space-2xs);
+  transition: border-bottom-color var(--dur-mid) var(--ease-out);
+}
+.form-row .num-with-suffix:focus-within,
+.form-row .num-with-prefix:focus-within,
+.form-row input[type="date"]:focus { border-color: var(--text); }
+.form-row input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--t-lead);
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  flex: 1;
+  caret-color: var(--accent);
+  width: 100%;
+}
+.form-row input[type="date"] {
+  border-bottom: 1px solid var(--text-faint);
+  padding: var(--space-xs) 0;
+  color-scheme: dark;
+}
+.form-row .suffix, .form-row .prefix {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-lead); color: var(--text-muted);
+}
+.form-row .period-aside {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-meta); color: var(--text-muted);
+}
+
+.itemize {
+  margin-top: var(--space-xs);
+  border: 1px solid var(--line-soft);
+  padding: 0;
+}
+.itemize summary {
+  list-style: none;
+  padding: var(--space-md);
+  font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.itemize summary::-webkit-details-marker { display: none; }
+.itemize[open] summary { border-bottom: 1px solid var(--line-soft); color: var(--text); }
+.itemize-grid {
+  padding: var(--space-md);
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);
+}
+
+.form-error {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-lead); color: var(--error);
+  line-height: 1.4;
+}
+
+.drawer-foot {
+  margin-top: auto;
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+  gap: var(--space-md);
+}
+.drawer-delete {
+  background: none; border: none; color: var(--text-muted);
+  font: inherit; font-size: var(--t-eyebrow);
+  letter-spacing: 0.3em; text-transform: uppercase;
+  padding: var(--space-xs) 0;
+}
+.drawer-delete:hover { color: var(--error); }
+.drawer-save {
+  font-family: inherit; font-size: var(--t-eyebrow);
+  letter-spacing: 0.35em; text-transform: uppercase; font-weight: 500;
+  background: var(--text); color: var(--ground); border: 1px solid var(--text);
+  padding: var(--space-md) var(--space-2xl);
+  margin-left: auto;
+  transition: opacity var(--dur-mid) var(--ease-out);
+}
+.drawer-save:disabled { opacity: 0.4; }
+.drawer-save:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (pointer: fine) {
+  .drawer-close, .drawer-save, .drawer-delete, .meter-pick button { cursor: none; }
+  .r-cell, .r-stmt-btn, .stmt-attach, .stmt-view, .stmt-act, .reader-close { cursor: none; }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Bill statements — drawer row, table mark, reading view
+   Functional voice: Hanken Grotesk, not Migra. Quiet by default; the
+   statement is the bill's paper trail, not a feature to advertise.
+   ────────────────────────────────────────────────────────────────────────── */
+.stmt {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: var(--space-xs);
+  font-family: 'Hanken Grotesk', sans-serif;
+}
+.stmt-attach, .stmt-view, .stmt-act {
+  background: none; border: none; padding: var(--space-2xs) 0;
+  font: inherit; font-size: var(--t-body);
+  color: var(--text-muted);
+  text-decoration: underline; text-underline-offset: 4px;
+  text-decoration-color: var(--text-faint);
+  transition: color var(--dur-mid) var(--ease-out),
+              text-decoration-color var(--dur-mid) var(--ease-out);
+}
+.stmt-view { color: var(--text); text-decoration-color: var(--text-muted); }
+.stmt-attach:hover, .stmt-view:hover, .stmt-act:hover {
+  color: var(--text); text-decoration-color: var(--text);
+}
+.stmt-attach:focus-visible, .stmt-view:focus-visible, .stmt-act:focus-visible {
+  outline: 1px solid var(--text); outline-offset: 3px;
+}
+.stmt-filed { display: flex; align-items: baseline; gap: var(--space-lg); }
+.stmt-staged { display: flex; align-items: baseline; gap: var(--space-md); }
+.stmt-name {
+  font-size: var(--t-body); color: var(--text);
+  max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stmt-prog { display: flex; align-items: center; gap: var(--space-md); }
+.stmt-prog-track {
+  position: relative; display: block;
+  width: 140px; height: 2px; background: var(--veil);
+}
+.stmt-prog-fill {
+  position: absolute; inset: 0 auto 0 0; width: 100%;
+  background: var(--text); transform: scaleX(0); transform-origin: left;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.stmt-prog-label {
+  font-size: var(--t-meta); letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--text-muted); font-variant-numeric: tabular-nums;
+}
+.stmt-msg {
+  font-size: var(--t-meta); line-height: 1.5; color: var(--error);
+  max-width: 42ch;
+}
+
+/* Recent-table per-cell controls + the "documented" mark */
+.r-cell {
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; color: inherit; text-align: left;
+  transition: color var(--dur-mid) var(--ease-out);
+}
+.r-cell:hover, .r-cell:focus-visible { color: var(--text); }
+.r-cell:focus-visible { outline: 1px solid var(--text); outline-offset: 4px; }
+.r-stmt-btn {
+  display: inline-flex; align-items: center;
+  background: none; border: none; padding: 4px;
+  margin-left: var(--space-sm); vertical-align: middle;
+  color: var(--text-muted); line-height: 0;
+  transition: color var(--dur-mid) var(--ease-out);
+}
+.r-stmt-btn:hover { color: var(--accent); }
+.r-stmt-btn:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; color: var(--text); }
+
+/* Reading view — a focused panel, not a generic modal */
+dialog.reader {
+  background: var(--ground); color: var(--text);
+  border: 1px solid var(--line); padding: 0; margin: auto;
+  width: min(1100px, 92vw); height: min(90vh, 100%);
+  max-width: 92vw; max-height: 92vh;
+}
+dialog.reader::backdrop {
+  background: oklch(0.10 0.012 305 / 0.72); backdrop-filter: none;
+}
+dialog.reader[open] { animation: reader-in var(--dur-slow) var(--ease-out) forwards; }
+@keyframes reader-in {
+  from { transform: scale(0.985); opacity: 0; }
+  to   { transform: scale(1);     opacity: 1; }
+}
+.reader-inner { display: flex; flex-direction: column; height: 100%; }
+.reader-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-xl);
+  border-bottom: 1px solid var(--line);
+}
+.reader-title {
+  font-family: 'Migra', serif; font-weight: 800;
+  font-size: var(--t-h3); letter-spacing: -0.01em; color: var(--text);
+}
+.reader-title .it { font-weight: 200; font-style: italic; }
+.reader-close {
+  background: none; border: none; padding: var(--space-2xs);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted);
+  transition: color var(--dur-mid) var(--ease-out);
+}
+.reader-close:hover { color: var(--text); }
+.reader-close:focus-visible { outline: 1px solid var(--text); outline-offset: 3px; }
+.reader-body {
+  flex: 1; min-height: 0; overflow: auto;
+  display: grid; place-items: center;
+  padding: var(--space-lg);
+}
+.reader-status {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-lead); color: var(--text-muted);
+}
+.reader-doc { width: 100%; height: 100%; border: none; background: var(--bone); }
+.reader-img {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+  background: var(--bone); padding: var(--space-lg);
+  cursor: zoom-in;
+}
+.reader-img.zoomed {
+  max-width: none; max-height: none; cursor: zoom-out;
+  width: auto; height: auto;
+}
+@media (pointer: fine) { .reader-img { cursor: none; } }
+@media (max-width: 640px) {
+  dialog.reader { width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.reader[open] { animation: none; }
+  .stmt-prog-fill { transition: none; }
+}
+
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="ring"></div>
+
+<main id="main">
+
+  <!-- LOADING -->
+  <div class="loading-bar" id="state-loading" hidden></div>
+
+  <!-- EMPTY -->
+  <div class="empty" id="state-empty" hidden>No bills logged yet. The first bill is the hardest one.</div>
+
+  <!-- DESKTOP CHART BLOCK -->
+  <section class="chart-block section" id="chart-block" hidden>
+    <div class="chart-frame" id="chart-frame">
+      <button type="button" class="nav-arrow nav-prev" id="nav-prev" aria-label="Earlier six months" hidden>&larr;</button>
+      <div class="chart-host" id="chart-host"></div>
+      <button type="button" class="nav-arrow nav-next" id="nav-next" aria-label="Later six months" hidden>&rarr;</button>
+    </div>
+    <div class="chart-caption" id="chart-nav" hidden>
+      <span class="nav-range" id="nav-range" aria-live="polite">&nbsp;</span>
+      <button type="button" class="nav-now" id="nav-now" hidden>Now</button>
+    </div>
+    <div class="scrub" id="scrub" hidden><div class="scrub-seg" id="scrub-seg"></div></div>
+    <div id="anomaly-area"></div>
+  </section>
+
+  <!-- DESKTOP PER-METER STRIPS -->
+  <section class="strips-block section" id="strips-block" hidden>
+    <div class="section-eyebrow">Usage by meter · shared timescale</div>
+    <div class="strips">
+      <div class="strip">
+        <div class="strip-header">
+          <span class="strip-name">Gas · CCF</span>
+        </div>
+        <div class="strip-host" id="strip-gas"></div>
+      </div>
+      <div class="strip">
+        <div class="strip-header">
+          <span class="strip-name">Water · kgal</span>
+        </div>
+        <div class="strip-host" id="strip-water"></div>
+      </div>
+      <div class="strip">
+        <div class="strip-header">
+          <span class="strip-name">Electric · kWh</span>
+        </div>
+        <div class="strip-host" id="strip-electric"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MOBILE MONTH LIST -->
+  <section class="mlist-block section" id="mlist-block" hidden>
+    <div class="section-eyebrow">Twelve months · most recent first</div>
+    <div class="mlist">
+      <div class="mlist-head">
+        <span>Month</span>
+        <span>Split</span>
+        <span style="text-align:right">Total</span>
+      </div>
+      <div id="mlist"></div>
+    </div>
+  </section>
+
+  <!-- RECENT ENTRIES TABLE -->
+  <section class="section" id="recent-section" hidden>
+    <div class="section-head"><span class="title">All bills</span></div>
+    <div class="data-table-scroll">
+      <table class="data-table" aria-label="All bills">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th class="num">Gas</th>
+            <th class="num">Water</th>
+            <th class="num">Electric</th>
+            <th class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody id="recent-list"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="page-foot">
+    <button class="enter-btn" id="enter-btn" hidden>Enter a bill</button>
+  </div>
+</main>
+
+<!-- DRAWER -->
+<dialog class="drawer" id="drawer" aria-labelledby="drawer-title">
+  <form method="dialog" class="drawer-inner" id="drawer-form" novalidate>
+    <div class="drawer-head">
+      <span class="drawer-eyebrow" id="drawer-eyebrow">A new bill</span>
+      <button type="button" class="drawer-close" id="drawer-close-x" aria-label="Close">Close</button>
+    </div>
+
+    <!-- Step 1 — meter pick -->
+    <div id="drawer-step-1">
+      <h2 class="drawer-title" id="drawer-title">Which <span class="it">bill?</span></h2>
+      <p class="drawer-helper">Pick the meter. Period and amount come next.</p>
+      <div class="meter-pick">
+        <button type="button" data-meter="gas">
+          <span class="meter-sw gas"></span>
+          <span class="meter-name">Gas</span>
+          <span class="meter-aside" id="aside-gas">—</span>
+        </button>
+        <button type="button" data-meter="water">
+          <span class="meter-sw water"></span>
+          <span class="meter-name">Water + Sewer</span>
+          <span class="meter-aside" id="aside-water">—</span>
+        </button>
+        <button type="button" data-meter="electric">
+          <span class="meter-sw electric"></span>
+          <span class="meter-name">Electric</span>
+          <span class="meter-aside" id="aside-electric">—</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2 — form -->
+    <div id="drawer-step-2" hidden>
+      <h2 class="drawer-title" id="drawer-step2-title">
+        New <span class="it" id="drawer-meter-label">gas</span> bill
+      </h2>
+
+      <div class="form-row">
+        <span class="form-legend">Period</span>
+        <div class="period-pair">
+          <input type="date" id="period-start" name="period_start" required>
+          <input type="date" id="period-end"   name="period_end"   required>
+        </div>
+        <span class="period-aside" id="period-days"></span>
+      </div>
+
+      <div class="form-row">
+        <label for="usage">Usage</label>
+        <div class="num-with-suffix">
+          <input type="text" inputmode="decimal" id="usage" name="usage" required autocomplete="off">
+          <span class="suffix" id="usage-suffix">ccf</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label for="invoice">Invoice</label>
+        <div class="num-with-prefix">
+          <span class="prefix">$</span>
+          <input type="text" inputmode="decimal" id="invoice" name="invoice" required autocomplete="off">
+        </div>
+      </div>
+
+      <details class="itemize" id="itemize" hidden>
+        <summary>Itemize charges</summary>
+        <div class="itemize-grid">
+          <div class="form-row">
+            <label for="water_amt">Water</label>
+            <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="water_amt"></div>
+          </div>
+          <div class="form-row">
+            <label for="sewer_amt">Sewer</label>
+            <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="sewer_amt"></div>
+          </div>
+          <div class="form-row">
+            <label for="city_amt">City</label>
+            <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="city_amt"></div>
+          </div>
+          <div class="form-row">
+            <label for="fire_amt">Fire</label>
+            <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="fire_amt"></div>
+          </div>
+        </div>
+      </details>
+
+      <div class="form-row stmt-row">
+        <span class="form-legend">Statement</span>
+        <div class="stmt" id="stmt">
+          <div class="stmt-filed" id="stmt-filed" hidden>
+            <button type="button" class="stmt-view" id="stmt-view">View statement</button>
+            <button type="button" class="stmt-act" id="stmt-replace">Replace</button>
+          </div>
+          <button type="button" class="stmt-attach" id="stmt-attach">Attach a PDF or photo</button>
+          <div class="stmt-staged" id="stmt-staged" hidden>
+            <span class="stmt-name" id="stmt-name"></span>
+            <button type="button" class="stmt-act" id="stmt-clear">Remove</button>
+          </div>
+          <div class="stmt-prog" id="stmt-prog" hidden>
+            <span class="stmt-prog-track" aria-hidden="true"><span class="stmt-prog-fill" id="stmt-prog-fill"></span></span>
+            <span class="stmt-prog-label" id="stmt-prog-label">Preparing…</span>
+          </div>
+          <p class="stmt-msg" id="stmt-msg" hidden></p>
+          <input type="file" id="stmt-file" accept="application/pdf,image/jpeg,image/png" hidden>
+        </div>
+      </div>
+
+      <div class="form-error" id="form-error" hidden></div>
+
+      <div class="drawer-foot">
+        <button type="button" class="drawer-delete" id="drawer-delete" hidden>Delete this bill</button>
+        <button type="button" class="drawer-save"   id="drawer-save">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<!-- READING VIEW -->
+<dialog class="reader" id="reader" aria-labelledby="reader-title">
+  <div class="reader-inner">
+    <div class="reader-head">
+      <span class="reader-title" id="reader-title">Statement</span>
+      <button type="button" class="reader-close" id="reader-close" aria-label="Close">Close</button>
+    </div>
+    <div class="reader-body" id="reader-body">
+      <p class="reader-status" id="reader-status">Preparing…</p>
+    </div>
+  </div>
+</dialog>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import * as Plot from 'https://esm.sh/@observablehq/plot@0.6'
+import * as d3   from 'https://esm.sh/d3@7'
+import {
+  supabase, getAAL, signOut, getCurrentRole, hasMinRole,
+  listBills, listTemps, upsertBill, deleteBill,
+  getStatementUrl, getStatementUploadUrl, uploadStatement, setBillStatementMime,
+} from './js/supabase-client.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+import { mountChartSync } from './js/chart-sync.js'
+
+/* ──────────────────────────────────────────────────────────────────────────
+   State
+   ────────────────────────────────────────────────────────────────────────── */
+let allBills = []     // raw rows from listBills
+let temps    = {}     // { 'YYYY-MM': deg_f }
+let role     = null
+let canWrite = false
+let currentView = 'trend'
+
+// The shared page framework. Utilities supplies only its content: the
+// ribbon words, the three chart tabs, and (via renderTtm -> setStrip)
+// the trailing-twelve strip. The legend is utilities content that
+// lives in the header's control-row left slot.
+const hub = mountHubHeader({
+  app: 'Utilities',
+  eyebrow: 'Family Hub · Utilities',
+  grace: 'four years on the grid.',
+  tabs: [
+    { id: 'trend',     label: 'Trend' },
+    { id: 'compare',   label: 'Weather' },
+    { id: 'anomalies', label: 'Anomalies' },
+  ],
+  onTab: onViewChange,
+})
+hub.crLeft.innerHTML = '<div class="legend" id="legend-trend"></div>'
+setBaseLegend('trend')
+
+// Shared time-window state. `offset` is in months, 0 = window anchored to
+// most-recent month. Negative values shift backward into history. Every
+// chart on the page reads from this single source of truth.
+const WINDOW_SIZE = 24
+const WINDOW_STEP = 6
+let windowOffset = 0
+
+// Editing state inside the drawer
+let editingBillId = null
+let pickedMeter   = null
+let stagedFile    = null   // statement chosen in the drawer, uploaded on Save
+
+const METERS = ['gas', 'water', 'electric']
+const METER_LABEL = { gas: 'Gas', water: 'Water + Sewer', electric: 'Electric' }
+const UNIT = { gas: 'ccf', water: 'kgal', electric: 'kWh' }
+
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+const COLOR = {
+  ink:    css('--text'),
+  mute:   css('--text-muted'),
+  faint:  css('--text-faint'),
+  rule:   css('--line'),
+  ground: css('--ground'),
+  groundUp: css('--ground-up'),
+  gas:    css('--series-1'),
+  water:  css('--series-2'),
+  electric: css('--series-3'),
+  temp:   css('--series-ref'),
+  tempStrong: css('--series-ref-strong'),
+  accent: css('--accent'),
+  error:  css('--error'),
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Helpers
+   ────────────────────────────────────────────────────────────────────────── */
+const monthKey = d => String(d).slice(0, 7)
+// Rounded top of the climate-load (degree-day) axis for a set of values.
+function loadAxisMax(vals) {
+  const m = Math.max(0, ...vals.filter(v => v != null))
+  return Math.max(100, Math.ceil(m / 100) * 100)
+}
+// Plain-language weather block for tooltips — never raw degree-days.
+// Temperature in °C; the heating/cooling balance becomes one human tag;
+// rain in mm, only when it fell. Returns 0–2 short lines.
+function tipWeather(d) {
+  const out = []
+  if (d.temp != null) {
+    const c = Math.round((d.temp - 32) / 1.8)
+    let tag = 'mild'
+    if (d.cdd != null && d.hdd != null) {
+      if (d.cdd > d.hdd * 1.5) tag = 'cooling-led'
+      else if (d.hdd > d.cdd * 1.5) tag = 'heating-led'
+    }
+    out.push(`Outdoor ${c}°C, ${tag}`)
+  }
+  if (d.precip) out.push(`Rain ${Math.round(d.precip * 25.4)} mm`)
+  return out
+}
+
+const fmt$  = n => n == null ? '—' : '$' + Math.round(n).toLocaleString('en-US')
+const fmt$c = n => n == null ? '—' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtMonthShort = ym => {
+  const [y, m] = ym.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short' })
+}
+const fmtMonth = ym => {
+  const [y, m] = ym.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+const todayISO = () => new Date().toISOString().slice(0, 10)
+const addDaysISO = (iso, n) => {
+  const d = new Date(iso + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+const daysBetween = (a, b) => {
+  if (!a || !b) return 0
+  return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000) + 1
+}
+const usageFmt = (meter, v) => {
+  if (v == null) return '—'
+  if (meter === 'water')    return d3.format(',.1f')(v) + ' kgal'
+  if (meter === 'electric') return d3.format(',')(Math.round(v)) + ' kWh'
+  return d3.format(',')(Math.round(v)) + ' CCF'
+}
+const unitCostFmt = (meter, dollars, units) => {
+  if (!dollars || !units) return '—'
+  const u = dollars / units
+  if (meter === 'water')    return '$' + u.toFixed(2) + '/kgal'
+  if (meter === 'electric') return '$' + u.toFixed(3) + '/kWh'
+  return '$' + u.toFixed(2) + '/CCF'
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Aggregation
+   ────────────────────────────────────────────────────────────────────────── */
+// Build a map keyed by YYYY-MM of period_end. Each entry has per-meter
+// invoice + usage + bill-id, plus temperature for that month.
+function buildMonthly(bills, tempMap) {
+  const map = new Map()
+  for (const b of bills) {
+    const ym = monthKey(b.period_end)
+    if (!map.has(ym)) {
+      map.set(ym, {
+        ym,
+        gas: null, water: null, electric: null,
+        usageGas: null, usageWater: null, usageElectric: null,
+        idGas: null, idWater: null, idElectric: null,
+        temp:   tempMap[ym]?.deg_f  ?? null,
+        hdd:    tempMap[ym]?.hdd    ?? null,
+        cdd:    tempMap[ym]?.cdd    ?? null,
+        precip: tempMap[ym]?.precip ?? null,
+        // Climate load = heating + cooling degree-days: "how far the
+        // month was from comfortable" — the single line that explains
+        // the seasonal swing of the stacked bill.
+        load: (tempMap[ym]?.hdd != null && tempMap[ym]?.cdd != null)
+          ? tempMap[ym].hdd + tempMap[ym].cdd : null,
+      })
+    }
+    const r = map.get(ym)
+    const Cap = b.meter[0].toUpperCase() + b.meter.slice(1)
+    r[b.meter] = Number(b.invoice)
+    r['usage' + Cap] = Number(b.usage)
+    r['id' + Cap] = b.id
+    // Per-bill weather over this bill's exact service period — what the
+    // Weather view pairs each meter's usage against (postpaid-aligned).
+    r['wx' + Cap] = {
+      deg_f:  b.wx_deg_f     == null ? null : Number(b.wx_deg_f),
+      hdd:    b.wx_hdd       == null ? null : Number(b.wx_hdd),
+      cdd:    b.wx_cdd       == null ? null : Number(b.wx_cdd),
+      precip: b.wx_precip_in == null ? null : Number(b.wx_precip_in),
+    }
+  }
+  return map
+}
+
+// Returns a sorted array of all YM keys spanning the bill history range,
+// including months that have no bills (gap-filled). This is the shared
+// x-axis domain used by every chart.
+function fullYmDomain(monthly) {
+  const yms = [...monthly.keys()].sort()
+  if (yms.length === 0) return []
+  const [y0, m0] = yms[0].split('-').map(Number)
+  const [y1, m1] = yms[yms.length - 1].split('-').map(Number)
+  const out = []
+  let y = y0, m = m0
+  while (y < y1 || (y === y1 && m <= m1)) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`)
+    m++; if (m > 12) { m = 1; y++ }
+  }
+  return out
+}
+
+// 24-month window ending at the most recent month with any bill.
+function recentDomain(domain, n = 24) {
+  return domain.slice(-n)
+}
+
+// Returns the active sliding window plus bounds metadata. The window is
+// `size` months wide and ends at `domain.length + offset`, both clamped so
+// the slice always stays within the full bill history.
+function getWindow(domain, offset = windowOffset, size = WINDOW_SIZE) {
+  const n = domain.length
+  if (n === 0) return { slice: [], startIdx: 0, endIdx: 0, atStart: true, atEnd: true, canScroll: false }
+  const maxEnd = n
+  const minEnd = Math.min(size, n)
+  const rawEnd = n + offset
+  const endIdx = Math.max(minEnd, Math.min(maxEnd, rawEnd))
+  const startIdx = Math.max(0, endIdx - size)
+  return {
+    slice: domain.slice(startIdx, endIdx),
+    startIdx, endIdx,
+    atStart: startIdx === 0,
+    atEnd: endIdx === n,
+    canScroll: n > size,
+  }
+}
+
+// Snap windowOffset back to the nearest legal value for the current domain.
+// Called after a re-fetch in case the data range shifted under our feet.
+function clampWindowOffset(domain) {
+  const n = domain.length
+  if (n <= WINDOW_SIZE) { windowOffset = 0; return }
+  const minOffset = -(n - WINDOW_SIZE)
+  if (windowOffset > 0) windowOffset = 0
+  if (windowOffset < minOffset) windowOffset = minOffset
+}
+
+// Twelve-month rolling totals + cost-per-unit averages.
+function summarise(monthly, domain) {
+  const last12 = domain.slice(-12)
+  const prior12 = domain.slice(-24, -12)
+  const sumInv = (yms, meter) => yms.reduce((s, ym) => {
+    const r = monthly.get(ym); return s + (r?.[meter] ?? 0)
+  }, 0)
+  const sumUsage = (yms, meter) => {
+    const k = 'usage' + meter[0].toUpperCase() + meter.slice(1)
+    return yms.reduce((s, ym) => {
+      const r = monthly.get(ym); return s + (r?.[k] ?? 0)
+    }, 0)
+  }
+  const sumTotal = yms => yms.reduce((s, ym) => {
+    const r = monthly.get(ym); if (!r) return s
+    return s + (r.gas ?? 0) + (r.water ?? 0) + (r.electric ?? 0)
+  }, 0)
+  const ttm = sumTotal(last12)
+  const prior = sumTotal(prior12)
+  const delta = prior > 0 ? (ttm - prior) / prior : null
+  const avg = {}
+  for (const m of METERS) avg[m] = {
+    dollars: sumInv(last12, m),
+    units:   sumUsage(last12, m),
+  }
+  return { ttm, delta, avg, last12, prior12 }
+}
+
+// Anomaly: a meter's usage in month M >= 2× its usage in month M-12.
+function anomalies(monthly, domain) {
+  const out = []
+  for (const ym of domain) {
+    const r = monthly.get(ym); if (!r) continue
+    const [y, m] = ym.split('-').map(Number)
+    const prevYM = `${y - 1}-${String(m).padStart(2, '0')}`
+    const prev = monthly.get(prevYM); if (!prev) continue
+    for (const meter of METERS) {
+      const k = 'usage' + meter[0].toUpperCase() + meter.slice(1)
+      const cur = r[k], pri = prev[k]
+      if (cur && pri && pri > 0) {
+        const ratio = cur / pri
+        if (ratio >= 2.0) out.push({ ym, meter, ratio })
+      }
+    }
+  }
+  return out
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Auth + bootstrap
+   ────────────────────────────────────────────────────────────────────────── */
+async function gate() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) { location.href = 'hub.html'; return false }
+  const { data: aal } = await getAAL()
+  if (!aal || aal.currentLevel !== 'aal2') { location.href = 'hub.html'; return false }
+  role     = (await getCurrentRole()) || 'child'
+  canWrite = await hasMinRole('parent')
+  return true
+}
+
+async function init() {
+  if (!(await gate())) return
+
+  document.getElementById('signoutBtn').hidden = false
+  document.getElementById('signoutBtn').addEventListener('click', async () => {
+    await signOut(); location.href = 'hub.html'
+  })
+
+  if (role === 'child') {
+    hub.setGrace('four years on the grid · view only.')
+  }
+
+  startIdleTimeout(() => { location.href = 'hub.html' })
+
+  // Loading bar only shows after 600ms so quick loads stay silent.
+  const lbar = document.getElementById('state-loading')
+  const lbarTimer = setTimeout(() => { lbar.hidden = false }, 600)
+
+  try {
+    const [bills, tempMap] = await Promise.all([listBills(), listTemps()])
+    allBills = bills || []
+    temps    = tempMap || {}
+  } catch (e) {
+    console.error('Failed to load utility data', e)
+    allBills = []
+    temps    = {}
+  }
+  clearTimeout(lbarTimer)
+  lbar.hidden = true
+
+  if (canWrite) document.getElementById('enter-btn').hidden = false
+
+  render()
+  wireEvents()
+  initCursor()
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Render entrypoint
+   ────────────────────────────────────────────────────────────────────────── */
+function render() {
+  if (!allBills.length) {
+    document.getElementById('state-empty').hidden = false
+    return
+  }
+  document.getElementById('state-empty').hidden = true
+
+  const monthly = buildMonthly(allBills, temps)
+  const domain  = fullYmDomain(monthly)
+  clampWindowOffset(domain)
+  const win     = getWindow(domain)
+  const summary = summarise(monthly, domain)
+  const anom    = anomalies(monthly, domain)
+
+  renderTtm(summary)
+
+  // Desktop blocks
+  document.getElementById('chart-block').hidden  = false
+  document.getElementById('strips-block').hidden = false
+  // Mobile block
+  document.getElementById('mlist-block').hidden  = false
+  // Recent entries — shown on both
+  document.getElementById('recent-section').hidden = false
+
+  renderChart(monthly, win.slice, anom)
+  renderStrips(monthly, win.slice)
+  renderMlist(monthly, domain, win)
+  renderRecent(monthly)
+  renderWindowChrome(domain, win)
+  scheduleMonthGuides()
+}
+
+// Re-renders only the parts that depend on the window. Called when the
+// user scrolls back/forward — cheaper than a full render() and leaves
+// TTM/avg numbers (which are fixed to the trailing twelve) untouched.
+function renderWindow() {
+  if (!allBills.length) return
+  const monthly = buildMonthly(allBills, temps)
+  const domain  = fullYmDomain(monthly)
+  clampWindowOffset(domain)
+  const win     = getWindow(domain)
+  const anom    = anomalies(monthly, domain)
+  renderChart(monthly, win.slice, anom)
+  renderStrips(monthly, win.slice)
+  renderMlist(monthly, domain, win)
+  renderRecent(monthly)
+  renderWindowChrome(domain, win)
+  scheduleMonthGuides()
+}
+
+// Updates the nav controls and scrubber to reflect the current window.
+function renderWindowChrome(domain, win) {
+  const capEl   = document.getElementById('chart-nav')   // caption row
+  const scrubEl = document.getElementById('scrub')
+  const prevEl  = document.getElementById('nav-prev')
+  const nextEl  = document.getElementById('nav-next')
+  if (!win.canScroll) {
+    capEl.hidden   = true
+    scrubEl.hidden = true
+    prevEl.hidden  = true
+    nextEl.hidden  = true
+    return
+  }
+  capEl.hidden   = false
+  scrubEl.hidden = false
+  prevEl.hidden  = false
+  nextEl.hidden  = false
+
+  const rangeEl = document.getElementById('nav-range')
+  const newLabel = win.slice.length
+    ? `${fmtMonth(win.slice[0])} to ${fmtMonth(win.slice[win.slice.length - 1])}`
+    : ''
+  if (rangeEl.textContent.trim() !== newLabel) {
+    rangeEl.classList.add('swapping')
+    setTimeout(() => {
+      rangeEl.textContent = newLabel
+      rangeEl.classList.remove('swapping')
+    }, 120)
+  }
+
+  prevEl.disabled = win.atStart
+  nextEl.disabled = win.atEnd
+  document.getElementById('nav-now').hidden = win.atEnd
+
+  // Scrubber segment: position + width as % of full history.
+  const seg = document.getElementById('scrub-seg')
+  const total = domain.length
+  const left  = (win.startIdx / total) * 100
+  const width = (win.slice.length / total) * 100
+  seg.style.left  = left + '%'
+  seg.style.width = width + '%'
+}
+
+// The trailing-twelve strip. App-wide and tab-stable (the same across
+// Trend/Weather/Anomalies), so it is set once per data load. Hero =
+// TTM total + delta; one secondary per meter = its 12-mo unit cost.
+const TTM_LABEL = { gas: 'Gas', water: 'Water', electric: 'Electric' }
+function renderTtm(s) {
+  let delta = null
+  if (s.delta != null) {
+    const up = s.delta >= 0
+    delta = `<span class="glyph">${up ? '▲' : '▼'}</span>${Math.abs(s.delta * 100).toFixed(1)}% vs prior twelve`
+  }
+  hub.setStrip({
+    hero: { value: fmt$(s.ttm), label: 'Trailing twelve months', delta },
+    stats: METERS.map(m => ({
+      label: TTM_LABEL[m],
+      value: unitCostFmt(m, s.avg[m].dollars, s.avg[m].units),
+      context: '12-mo avg',
+    })),
+  })
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Main chart — three views over the same domain
+   ────────────────────────────────────────────────────────────────────────── */
+function renderChart(monthly, domain, anom) {
+  const host = document.getElementById('chart-host')
+  host.classList.add('fading')
+  // Wait one frame so the opacity transition starts cleanly.
+  requestAnimationFrame(() => {
+    // Drop the previous build's bar-hover listeners before its SVG is
+    // wiped (host element persists across renders).
+    if (host._mh) {
+      host.removeEventListener('pointermove', host._mh.m)
+      host.removeEventListener('pointerleave', host._mh.l)
+      host._mh = null
+    }
+    host.innerHTML = ''
+    document.getElementById('anomaly-area').innerHTML = ''
+
+    if (currentView === 'trend')     buildTrend(host, monthly, domain)
+    if (currentView === 'compare')   buildCompare(host, monthly, domain)
+    if (currentView === 'anomalies') buildAnomalies(host, monthly, domain, anom)
+
+    requestAnimationFrame(() => host.classList.remove('fading'))
+  })
+}
+
+/* — TREND: stacked monthly bars, temperature dotted line overlay — */
+function buildTrend(host, monthly, domain) {
+  // Long-form rows for Plot.barY (stacked by meter).
+  const stackRows = []
+  for (const ym of domain) {
+    const r = monthly.get(ym); if (!r) continue
+    for (const meter of METERS) {
+      const v = r[meter]
+      if (v != null && v > 0) stackRows.push({ ym, meter, value: v })
+    }
+  }
+  // Pair (ym, total) for tip + temperature line.
+  const totals = domain.map(ym => {
+    const r = monthly.get(ym) || {}
+    const total = (r.gas ?? 0) + (r.water ?? 0) + (r.electric ?? 0)
+    return {
+      ym, total,
+      gas: r.gas ?? 0, water: r.water ?? 0, electric: r.electric ?? 0,
+      usageGas: r.usageGas, usageWater: r.usageWater, usageElectric: r.usageElectric,
+      temp: r.temp, hdd: r.hdd, cdd: r.cdd, precip: r.precip, load: r.load,
+    }
+  })
+  const maxTotal = Math.max(...totals.map(d => d.total))
+  const yDollar  = Math.ceil(maxTotal / 100) * 100
+  const loadMax  = loadAxisMax(totals.map(d => d.load))
+
+  // Two y scales: dollars (left, bars), °F (right, temp curve).
+  // Plot's `axis: null` on the temperature plot is overlaid manually.
+  const chart = Plot.plot({
+    width: host.clientWidth || 900,
+    height: 420,
+    marginTop: 28, marginRight: 60, marginBottom: 36, marginLeft: 64,
+    style: {
+      background: 'transparent',
+      color: COLOR.mute,
+      fontFamily: 'Hanken Grotesk, system-ui, sans-serif',
+      fontSize: '11px',
+      fontVariantNumeric: 'tabular-nums',
+    },
+    x: {
+      domain,
+      tickFormat: ym => ym.endsWith('-01') ? ym.slice(0, 4) : fmtMonthShort(ym),
+      ticks: domain.filter(ym => ym.endsWith('-01') || ym.endsWith('-07')),
+      tickSize: 0,
+      label: null,
+    },
+    y: {
+      grid: false, label: null, tickSize: 0,
+      tickFormat: d => '$' + d3.format(',')(d),
+      ticks: 4,
+      domain: [0, yDollar],
+    },
+    color: {
+      domain: METERS,
+      range: [COLOR.gas, COLOR.water, COLOR.electric],
+      legend: false,
+    },
+    marks: [
+      Plot.barY(stackRows, {
+        x: 'ym', y: 'value', fill: 'meter',
+        order: 'meter',
+      }),
+      // Climate-load curve (heating + cooling degree-days) — the single
+      // line that explains the seasonal swing of the bill. Same visual
+      // language as the old temp line (ochre dotted), values scaled into
+      // the dollar y-domain so Plot keeps one y-scale.
+      Plot.line(totals.filter(d => d.load != null), {
+        x: 'ym',
+        y: d => d.load / loadMax * yDollar,
+        stroke: COLOR.tempStrong,
+        strokeWidth: 2,
+        strokeDasharray: '3,4',
+        curve: 'monotone-x',
+      }),
+      // Right axis = degree-days. Tick positions live in the dollar scale
+      // (Plot's actual layout scale); labels are the load values.
+      Plot.axisY({
+        anchor: 'right',
+        ticks: [0, 0.5, 1].map(f => f * yDollar),
+        tickFormat: pos => Math.round(pos / yDollar * loadMax).toLocaleString('en-US'),
+        tickSize: 0,
+        color: COLOR.faint,
+      }),
+      Plot.ruleY([0], { stroke: COLOR.rule }),
+      // Native pointer tip. Channels surface in the tooltip.
+      Plot.tip(totals, Plot.pointerX({
+        x: 'ym',
+        y: 'total',
+        title: d => formatTipTotal(d),
+      })),
+    ],
+  })
+  styleChartSvg(chart)
+  host.appendChild(chart)
+}
+
+// Bar-hover highlight is now the shared chart-sync controller's job
+// (js/chart-sync.js, via the barRamp config below): the hovered month's
+// bars recolour as part of the same synced pass. No local copy.
+
+// One fact per line, label then value, no faux columns: a proportional
+// font can't align padded text, so we don't imply a table.
+// Blank lines group; sections joined so omitted meters leave no gap.
+function formatTipTotal(d) {
+  const money = (lbl, $, usage) =>
+    `${lbl}  $${Math.round($)}` + (usage && usage !== '—' ? ` (${usage})` : '')
+  const meters = []
+  if (d.gas)      meters.push(money('Gas', d.gas, usageFmt('gas', d.usageGas)))
+  if (d.water)    meters.push(money('Water', d.water, usageFmt('water', d.usageWater)))
+  if (d.electric) meters.push(money('Electric', d.electric, usageFmt('electric', d.usageElectric)))
+  meters.push(`Total  $${Math.round(d.total)}`)
+  const sections = [[fmtMonth(d.ym)], meters]
+  const w = tipWeather(d)
+  if (w.length) sections.push(w)
+  return sections.map(s => s.join('\n')).join('\n\n')
+}
+
+/* — COMPARE (Weather): three stacked panels, each utility's usage laid
+   over the weather that drives it. gas↔heating, electric↔cooling,
+   water↔rain. Each series self-normalised so shape-correlation reads
+   without competing axes. — */
+// Driver = the weather over THAT meter's own bill period (postpaid-
+// aligned), not the calendar month.
+const CMP_PANELS = [
+  { meter: 'gas',      uKey: 'usageGas',      label: 'Gas vs heating',      drv: r => r.wxGas?.hdd      ?? null },
+  { meter: 'electric', uKey: 'usageElectric', label: 'Electric vs cooling', drv: r => r.wxElectric?.cdd ?? null },
+  { meter: 'water',    uKey: 'usageWater',    label: 'Water vs rainfall',   drv: r => r.wxWater?.precip ?? null },
+]
+
+function buildCompare(host, monthly, domain) {
+  if (domain.length < 2) {
+    host.innerHTML = '<div class="chart-anomaly-empty">Not enough months in view yet.</div>'
+    return
+  }
+  const W = host.clientWidth || 900
+  const panelH = 118
+
+  document.getElementById('legend-trend').innerHTML = `
+    <span class="key"><span class="sw" style="background:${COLOR.ink}"></span>What we used</span>
+    <span class="key"><span class="sw" style="background:${COLOR.tempStrong};opacity:0.5"></span>Weather that drives it</span>
+  `
+
+  CMP_PANELS.forEach((p, i) => {
+    const isLast = i === CMP_PANELS.length - 1
+    const rows = domain.map(ym => {
+      const r = monthly.get(ym) || {}
+      return { ym, usage: r[p.uKey] ?? null, drv: p.drv(r) ?? null }
+    })
+    const hasUsage = rows.some(r => r.usage != null)
+
+    const block = document.createElement('div')
+    block.className = 'cmp-panel'
+    const lab = document.createElement('div')
+    lab.className = 'cmp-label'
+    lab.innerHTML = `<span class="sw ${p.meter}"></span>${p.label}`
+    block.appendChild(lab)
+
+    if (!hasUsage) {
+      const empty = document.createElement('div')
+      empty.className = 'cmp-empty'
+      empty.style.height = panelH + 'px'
+      empty.textContent = `No ${p.meter} bills in this window.`
+      block.appendChild(empty)
+      host.appendChild(block)
+      return
+    }
+
+    // Self-normalise each series to its own range within the window so
+    // the two unlike-unit shapes overlay (constant series → flat mid).
+    const norm = (vals) => {
+      const present = vals.filter(v => v != null)
+      const lo = Math.min(...present), hi = Math.max(...present)
+      return v => v == null ? null : (hi > lo ? (v - lo) / (hi - lo) : 0.5)
+    }
+    const nU = norm(rows.map(r => r.usage))
+    const nD = norm(rows.map(r => r.drv))
+    const data = rows.map(r => ({ ym: r.ym, u: nU(r.usage), d: nD(r.drv) }))
+
+    const chart = Plot.plot({
+      width: W,
+      height: panelH,
+      marginTop: 6,
+      marginRight: 8,
+      marginBottom: isLast ? 22 : 4,
+      marginLeft: 8,
+      style: {
+        background: 'transparent', color: COLOR.mute,
+        fontFamily: 'Hanken Grotesk, system-ui, sans-serif',
+        fontSize: '11px', fontVariantNumeric: 'tabular-nums',
+      },
+      x: {
+        domain,
+        tickFormat: ym => ym.endsWith('-01') ? ym.slice(0, 4) : fmtMonthShort(ym),
+        ticks: isLast ? domain.filter(ym => ym.endsWith('-01') || ym.endsWith('-07')) : [],
+        tickSize: 0,
+        label: null,
+      },
+      y: { axis: null, domain: [0, 1] },
+      marks: [
+        // Driver: recessed weather ground.
+        Plot.areaY(data.filter(d => d.d != null), {
+          x: 'ym', y: 'd',
+          fill: COLOR.tempStrong, fillOpacity: 0.16,
+          curve: 'monotone-x',
+        }),
+        // Usage: the hero bone line.
+        Plot.line(data.filter(d => d.u != null), {
+          x: 'ym', y: 'u',
+          stroke: COLOR.ink, strokeWidth: 2,
+          curve: 'monotone-x',
+        }),
+        Plot.ruleY([0], { stroke: COLOR.rule }),
+        // No per-panel tooltip: the month's full readout lives in the
+        // shared legend strip (driven by the synced-hover controller),
+        // so all three panels read symmetrically.
+      ],
+    })
+    block.appendChild(chart)
+    host.appendChild(block)
+    styleChartSvg(chart)
+  })
+}
+
+// Heating/cooling character of a bill's own period.
+function wxTag(wx) {
+  if (!wx || wx.hdd == null || wx.cdd == null) return ''
+  if (wx.cdd > wx.hdd * 1.5) return 'cooling-led'
+  if (wx.hdd > wx.cdd * 1.5) return 'heating-led'
+  return 'mild'
+}
+
+// One horizontal readout line for the shared legend strip: the month
+// then each meter's usage paired with the weather over its OWN bill
+// period (postpaid-aligned). Middle-dot separators, never em-dash.
+// Returns an HTML string (values are numbers / fixed words — safe).
+function formatPairLine(ym, monthly) {
+  const r = monthly.get(ym) || {}
+  const segs = []
+  if (r.usageGas != null) {
+    const t = wxTag(r.wxGas)
+    segs.push(`Gas ${usageFmt('gas', r.usageGas)}` + (t ? `, ${t}` : ''))
+  }
+  if (r.usageElectric != null) {
+    const t = wxTag(r.wxElectric)
+    segs.push(`Electric ${usageFmt('electric', r.usageElectric)}` + (t ? `, ${t}` : ''))
+  }
+  if (r.usageWater != null) {
+    const p = r.wxWater?.precip
+    const rain = p == null ? '' : (p > 0 ? `, rain ${Math.round(p * 25.4)} mm` : ', no rain')
+    segs.push(`Water ${usageFmt('water', r.usageWater)}${rain}`)
+  }
+  return `<span class="legend-readout"><span class="lr-mo">${fmtMonth(ym)}</span>`
+    + segs.map(s => `<span class="lr-seg">${s}</span>`).join('')
+    + `</span>`
+}
+
+/* — ANOMALIES: same stacked geometry as trend, non-anomalous bars dimmed — */
+function buildAnomalies(host, monthly, domain, anomList) {
+  const anomYms = new Set(anomList.map(a => a.ym))
+  const anomByYm = new Map()
+  for (const a of anomList) {
+    if (!anomByYm.has(a.ym)) anomByYm.set(a.ym, [])
+    anomByYm.get(a.ym).push(a)
+  }
+
+  const stackRows = []
+  for (const ym of domain) {
+    const r = monthly.get(ym); if (!r) continue
+    const isAnom = anomYms.has(ym)
+    for (const meter of METERS) {
+      const v = r[meter]
+      if (v != null && v > 0) {
+        stackRows.push({ ym, meter, value: v, opacity: isAnom ? 1 : 0.22 })
+      }
+    }
+  }
+  const totals = domain.map(ym => {
+    const r = monthly.get(ym) || {}
+    return {
+      ym,
+      total: (r.gas ?? 0) + (r.water ?? 0) + (r.electric ?? 0),
+      gas: r.gas ?? 0, water: r.water ?? 0, electric: r.electric ?? 0,
+      usageGas: r.usageGas, usageWater: r.usageWater, usageElectric: r.usageElectric,
+      anom: anomYms.has(ym),
+    }
+  })
+  const maxTotal = Math.max(...totals.map(d => d.total))
+
+  const chart = Plot.plot({
+    width: host.clientWidth || 900,
+    height: 420,
+    marginTop: 28, marginRight: 28, marginBottom: 36, marginLeft: 64,
+    style: {
+      background: 'transparent', color: COLOR.mute,
+      fontFamily: 'Hanken Grotesk, system-ui, sans-serif',
+      fontSize: '11px', fontVariantNumeric: 'tabular-nums',
+    },
+    x: {
+      domain,
+      tickFormat: ym => ym.endsWith('-01') ? ym.slice(0, 4) : fmtMonthShort(ym),
+      ticks: domain.filter(ym => ym.endsWith('-01') || ym.endsWith('-07')),
+      tickSize: 0,
+      label: null,
+    },
+    y: {
+      grid: false, label: null, tickSize: 0,
+      tickFormat: d => '$' + d3.format(',')(d),
+      ticks: 4,
+      domain: [0, Math.ceil(maxTotal / 100) * 100],
+    },
+    color: {
+      domain: METERS,
+      range: [COLOR.gas, COLOR.water, COLOR.electric],
+      legend: false,
+    },
+    marks: [
+      Plot.barY(stackRows, {
+        x: 'ym', y: 'value', fill: 'meter',
+        fillOpacity: 'opacity',
+        order: 'meter',
+      }),
+      // Anomaly tick above each anomalous bar
+      Plot.tickY(domain.filter(ym => anomYms.has(ym)).map(ym => ({ ym })), {
+        x: 'ym',
+        y: () => Math.ceil(maxTotal / 100) * 100,
+        stroke: COLOR.accent, strokeWidth: 2,
+        dy: -8, frameAnchor: 'top',
+      }),
+      Plot.ruleY([0], { stroke: COLOR.rule }),
+      Plot.tip(totals, Plot.pointerX({
+        x: 'ym', y: 'total',
+        title: d => {
+          const base = formatTipTotal(d)
+          const hits = anomByYm.get(d.ym)
+          if (!hits) return base
+          const lines = hits.map(a =>
+            `▲ ${a.meter} ${a.ratio.toFixed(2)}× same month a year earlier`)
+          return base + '\n\n' + lines.join('\n')
+        },
+      })),
+    ],
+  })
+  styleChartSvg(chart)
+  host.appendChild(chart)
+
+  // Footnotes
+  const area = document.getElementById('anomaly-area')
+  if (anomList.length === 0) {
+    area.innerHTML = '<div class="chart-anomaly-empty">No month has used twice what its twin used a year before. The house is steady.</div>'
+  } else {
+    const list = document.createElement('div')
+    list.className = 'chart-anomaly-list'
+    list.style.marginTop = '12px'
+    const sortedAnom = [...anomList].sort((a, b) => a.ym.localeCompare(b.ym))
+    for (const a of sortedAnom) {
+      const line = document.createElement('div')
+      line.innerHTML =
+        `<span class="tag">●</span>${fmtMonth(a.ym)}: ${a.meter} ${a.ratio.toFixed(1)}× same month a year earlier.`
+      list.appendChild(line)
+    }
+    area.appendChild(list)
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Per-meter strips — same x-axis domain, USAGE only (no cost, no temp)
+   ────────────────────────────────────────────────────────────────────────── */
+function renderStrips(monthly, domain) {
+  for (const meter of METERS) {
+    const host = document.getElementById('strip-' + meter)
+    host.innerHTML = ''
+    const k = 'usage' + meter[0].toUpperCase() + meter.slice(1)
+    const rows = domain.map(ym => ({ ym, v: monthly.get(ym)?.[k] ?? null }))
+    const dataRows = rows.filter(r => r.v != null)
+    const maxV = Math.max(1, ...dataRows.map(r => r.v))
+
+    const chart = Plot.plot({
+      width: host.clientWidth || 320,
+      height: 110,
+      marginTop: 12, marginRight: 8, marginBottom: 22, marginLeft: 40,
+      style: {
+        background: 'transparent', color: COLOR.faint,
+        fontFamily: 'Hanken Grotesk, system-ui, sans-serif',
+        fontSize: '10px', fontVariantNumeric: 'tabular-nums',
+      },
+      x: {
+        domain,
+        tickFormat: ym => ym.endsWith('-01') ? ym.slice(2, 4) : '',
+        ticks: domain.filter(ym => ym.endsWith('-01')),
+        tickSize: 0, label: null,
+      },
+      y: {
+        grid: false, label: null, tickSize: 0,
+        ticks: 2,
+        domain: [0, maxV * 1.1],
+        tickFormat: d => {
+          if (meter === 'electric' && d >= 1000) return d3.format('.1s')(d).replace('k', 'k')
+          if (meter === 'water')    return d3.format('.0f')(d)
+          return d3.format('.0f')(d)
+        },
+      },
+      marks: [
+        Plot.areaY(dataRows, {
+          x: 'ym', y: 'v',
+          fill: COLOR[meter], fillOpacity: 0.22, curve: 'monotone-x',
+        }),
+        Plot.line(dataRows, {
+          x: 'ym', y: 'v',
+          stroke: COLOR[meter], strokeWidth: 1.5, curve: 'monotone-x',
+        }),
+        Plot.ruleY([0], { stroke: COLOR.rule }),
+        Plot.tip(dataRows, Plot.pointerX({
+          x: 'ym', y: 'v',
+          title: d => `${fmtMonth(d.ym)}\n${usageFmt(meter, d.v)}`,
+        })),
+      ],
+    })
+    styleChartSvg(chart)
+    host.appendChild(chart)
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Synchronized month guide — the shared chart-sync controller
+   (js/chart-sync.js). Utilities supplies only WHAT a month means: which
+   SVGs to guide for the active view, the recent-table rows that map to
+   months (reverse hover + .is-cued), the Weather-view legend readout,
+   and the gas/water/electric bar highlight ramp. All geometry, the
+   pointer loop, and mistake-#12 safety live in the shared module.
+   ────────────────────────────────────────────────────────────────────────── */
+// Burnt-ochre to amber ramp; rank 0/1/2 = ascending luminance = gas/water/electric.
+const BAR_HI = ['oklch(0.58 0.150 40)', 'oklch(0.72 0.165 45)', 'oklch(0.87 0.120 58)']
+let legendIdle = ''
+
+const chartSync = mountChartSync({
+  // Snapshot the legend BEFORE a refresh so leave restores exactly what
+  // was there (Weather has no setBaseLegend; idle is whatever it held).
+  onRefresh: () => {
+    const el = document.getElementById('legend-trend')
+    legendIdle = el ? el.innerHTML : ''
+  },
+  svgs: () => {
+    const onCompare = currentView === 'compare'
+    if (!onCompare && currentView !== 'trend' && currentView !== 'anomalies') return []
+    return [
+      ...document.querySelectorAll(
+        onCompare ? '#chart-host .cmp-panel svg' : '#chart-host svg'),
+      ...['strip-gas', 'strip-water', 'strip-electric']
+        .map(id => document.getElementById(id)?.querySelector('svg'))
+        .filter(Boolean),
+    ]
+  },
+  reverse: () => [...document.querySelectorAll('.recent-row[data-ym]')]
+    .map(r => ({ key: r.dataset.ym, el: r })),
+  // Weather view: the legend strip becomes the hovered month's readout.
+  // Trend/Anomalies keep their meter keys; idle is restored on leave.
+  onEnter: (ym) => {
+    if (currentView !== 'compare') return
+    const el = document.getElementById('legend-trend')
+    if (el) el.innerHTML = formatPairLine(ym, buildMonthly(allBills, temps))
+  },
+  onLeave: () => {
+    const el = document.getElementById('legend-trend')
+    if (el) el.innerHTML = legendIdle
+  },
+  barRamp: (_rect, rankIndex) => BAR_HI[Math.min(rankIndex, 2)],
+})
+
+// Charts build a frame late (renderChart defers via rAF); wait two
+// frames so every SVG + its layout exists before measuring geometry.
+function scheduleMonthGuides() {
+  requestAnimationFrame(() => requestAnimationFrame(() => chartSync.refresh()))
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Mobile month list — last 12 months, vertical
+   ────────────────────────────────────────────────────────────────────────── */
+function renderMlist(monthly, domain, win) {
+  const host = document.getElementById('mlist')
+  host.innerHTML = ''
+  // Take the 12 months ending at the window's right edge so the mobile
+  // list stays in sync with the desktop chart. When the window is anchored
+  // to the present (the usual mobile case), this is the most recent 12.
+  const end = win ? win.endIdx : domain.length
+  const yms = domain.slice(Math.max(0, end - 12), end)
+    .filter(ym => monthly.has(ym))
+    .reverse()
+  const allTotals = yms.map(ym => {
+    const r = monthly.get(ym)
+    return (r.gas ?? 0) + (r.water ?? 0) + (r.electric ?? 0)
+  })
+  const maxTotal = Math.max(1, ...allTotals)
+  for (const ym of yms) {
+    const r = monthly.get(ym)
+    const total = (r.gas ?? 0) + (r.water ?? 0) + (r.electric ?? 0)
+    const widthPct = (total / maxTotal) * 100
+    const gasPct = total ? (r.gas ?? 0) / total * widthPct : 0
+    const watPct = total ? (r.water ?? 0) / total * widthPct : 0
+    const elePct = total ? (r.electric ?? 0) / total * widthPct : 0
+    const editable = canWrite
+    const row = document.createElement(editable ? 'button' : 'div')
+    if (editable) {
+      row.type = 'button'
+      row.addEventListener('click', () => openDrawerForMonth(r))
+    }
+    row.className = 'mlist-row'
+    row.innerHTML = `
+      <div class="m-month">${fmtMonth(ym)}</div>
+      <div class="m-bar" aria-hidden="true">
+        <span class="gas"      style="width:${gasPct}%"></span>
+        <span class="water"    style="width:${watPct}%"></span>
+        <span class="electric" style="width:${elePct}%"></span>
+      </div>
+      <div class="m-total">${fmt$(total)}</div>
+    `
+    host.appendChild(row)
+  }
+}
+
+function openDrawerForMonth(r) {
+  // Pick the first present meter in the row; open editing if so.
+  const meter = (r.gas != null) ? 'gas' : (r.water != null) ? 'water' : (r.electric != null) ? 'electric' : null
+  if (!meter) { openDrawerNew(); return }
+  const id = r['id' + meter[0].toUpperCase() + meter.slice(1)]
+  const bill = allBills.find(b => b.id === id)
+  if (bill) openDrawerEdit(bill); else openDrawerNew()
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Recent entries — last six months
+   ────────────────────────────────────────────────────────────────────────── */
+const R_LABEL = { gas: 'Gas', water: 'Water', electric: 'Electric' }
+
+// A visible, focusable document icon = "this bill has a statement".
+// Clicking it opens the invoice immediately (one click, no drawer).
+function stmtViewButton(bill) {
+  const b = document.createElement('button')
+  b.type = 'button'
+  b.className = 'r-stmt-btn'
+  b.title = 'View statement'
+  b.setAttribute('aria-label', `View ${R_LABEL[bill.meter]} statement`)
+  b.innerHTML =
+    '<svg viewBox="0 0 14 16" width="13" height="15" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.4" aria-hidden="true">' +
+    '<path d="M2 1.5h6l4 4v9H2z"/><path d="M8 1.5v4h4"/>' +
+    '<path d="M4.5 8.5h5M4.5 11h5"/></svg>'
+  b.addEventListener('click', e => { e.stopPropagation(); openReader(bill) })
+  return b
+}
+
+// One meter cell. Each cell IS one bill. The amount opens the edit drawer
+// (parent/admin only); the document icon, when a statement is on file,
+// opens the invoice directly for anyone.
+function recentCell(meter, r, byId) {
+  const amt = r[meter]
+  const lbl = R_LABEL[meter]
+  if (amt == null) {
+    const d = document.createElement('td')
+    d.className = 'num muted'; d.textContent = '—'
+    return d
+  }
+  const id = r['id' + meter[0].toUpperCase() + meter.slice(1)]
+  const bill = id ? byId.get(id) : null
+  const documented = !!(bill && bill.statement_mime)
+
+  const cell = document.createElement('td')
+  cell.className = 'num'; void lbl
+
+  if (canWrite && bill) {
+    const amtBtn = document.createElement('button')
+    amtBtn.type = 'button'; amtBtn.className = 'r-cell'
+    amtBtn.textContent = fmt$c(amt)
+    amtBtn.addEventListener('click', () => openDrawerEdit(bill))
+    cell.append(amtBtn)
+  } else {
+    cell.append(document.createTextNode(fmt$c(amt)))
+  }
+  if (documented) cell.append(stmtViewButton(bill))
+  return cell
+}
+
+function renderRecent(monthly) {
+  const host = document.getElementById('recent-list')
+  host.innerHTML = ''
+  const byId = new Map(allBills.map(b => [b.id, b]))
+  // Every month with bills, newest first. The container is scroll-capped.
+  const yms = [...monthly.keys()].sort().reverse()
+  for (const ym of yms) {
+    const r = monthly.get(ym)
+    const total = (r.gas ?? 0) + (r.water ?? 0) + (r.electric ?? 0)
+    const row = document.createElement('tr')
+    row.className = 'recent-row'
+    row.dataset.ym = ym   // for the synced hover row-cue
+    const m = document.createElement('td')
+    m.className = 'label'; m.textContent = fmtMonth(ym)
+    row.append(m)
+    for (const meter of METERS) row.append(recentCell(meter, r, byId))
+    const t = document.createElement('td')
+    t.className = 'num strong'; t.textContent = fmt$c(total)
+    row.append(t)
+    host.appendChild(row)
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Plot tooltip styling — apply to every SVG figure after render
+   ────────────────────────────────────────────────────────────────────────── */
+// Observer registry so re-renders can disconnect old observers.
+const tipObservers = new WeakMap()
+
+function styleTipNode(g, observer) {
+  // Pause the observer while we mutate attributes to prevent re-entry.
+  if (observer) observer.disconnect()
+  g.querySelectorAll('path').forEach(p => {
+    p.setAttribute('fill', COLOR.groundUp)
+    p.setAttribute('stroke', COLOR.ink)
+    p.setAttribute('stroke-opacity', '0.85')
+  })
+  g.querySelectorAll('text, tspan').forEach(t => {
+    t.setAttribute('fill', COLOR.ink)
+    t.style.fontFamily = 'Hanken Grotesk, system-ui, sans-serif'
+    t.style.fontVariantNumeric = 'tabular-nums'
+    t.style.fontSize = '11px'
+  })
+  if (observer) observer.observe(observer.__root, { childList: true, subtree: true })
+}
+
+function styleChartSvg(figure) {
+  // Disconnect any prior observer attached to this figure (defensive).
+  const prior = tipObservers.get(figure)
+  if (prior) prior.disconnect()
+
+  // Watch ONLY child additions, NOT attribute mutations — otherwise the
+  // setAttribute calls inside styleTipNode would re-trigger this observer
+  // and lock the browser in an infinite loop.
+  const observer = new MutationObserver(muts => {
+    for (const m of muts) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType !== 1) continue
+        if (node.getAttribute && node.getAttribute('aria-label') === 'tip') {
+          styleTipNode(node, observer)
+        } else if (node.querySelectorAll) {
+          node.querySelectorAll('g[aria-label="tip"]').forEach(g => styleTipNode(g, observer))
+        }
+      }
+    }
+  })
+  observer.__root = figure
+  observer.observe(figure, { childList: true, subtree: true })
+  tipObservers.set(figure, observer)
+  // Pre-style any tip that's already there.
+  figure.querySelectorAll('g[aria-label="tip"]').forEach(g => styleTipNode(g, observer))
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   View toggle
+   ────────────────────────────────────────────────────────────────────────── */
+// Seeds the control-row legend for trend/anomalies (compare sets its
+// own legend in buildCompare). The legend lives in the shared header's
+// cr-left slot now, not a page-local toolbar.
+function setBaseLegend(view) {
+  const el = document.getElementById('legend-trend')
+  if (!el) return
+  el.innerHTML = `
+    <span class="key"><span class="sw gas"></span>Gas</span>
+    <span class="key"><span class="sw water"></span>Water</span>
+    <span class="key"><span class="sw electric"></span>Electric</span>
+    ${view === 'trend' ? '<span class="key"><span class="sw temp"></span>Climate load</span>' : ''}`
+}
+
+// Tab change is driven by the shared header (config.onTab). The header
+// repaints the active tab itself; utilities only reacts to the change.
+function onViewChange(view) {
+  if (view === currentView) return
+  currentView = view
+  if (view !== 'compare') setBaseLegend(view)
+  const monthly = buildMonthly(allBills, temps)
+  const domain  = fullYmDomain(monthly)
+  const win     = getWindow(domain)
+  const anom    = anomalies(monthly, domain)
+  renderChart(monthly, win.slice, anom)
+  renderWindowChrome(domain, win)
+  scheduleMonthGuides()
+}
+
+function wireEvents() {
+  // Shared time-window navigation. Six months per click; all charts shift
+  // together via renderWindow().
+  const shiftWindow = (deltaMonths) => {
+    if (!allBills.length) return
+    const monthly = buildMonthly(allBills, temps)
+    const domain  = fullYmDomain(monthly)
+    if (domain.length <= WINDOW_SIZE) return
+    const minOffset = -(domain.length - WINDOW_SIZE)
+    const next = Math.max(minOffset, Math.min(0, windowOffset + deltaMonths))
+    if (next === windowOffset) return
+    windowOffset = next
+    renderWindow()
+  }
+  document.getElementById('nav-prev').addEventListener('click', () => shiftWindow(-WINDOW_STEP))
+  document.getElementById('nav-next').addEventListener('click', () => shiftWindow( WINDOW_STEP))
+  document.getElementById('nav-now').addEventListener('click', () => {
+    if (windowOffset === 0) return
+    windowOffset = 0
+    renderWindow()
+  })
+
+  // Keyboard nav — left/right arrow keys when focus is inside the chart
+  // block (or on body and chart-block is visible).
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    // Ignore when typing in a field or drawer is open.
+    const tag = (e.target.tagName || '').toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return
+    if (document.getElementById('drawer')?.open) return
+    const prevEl = document.getElementById('nav-prev')
+    if (!prevEl || prevEl.hidden) return
+    e.preventDefault()
+    shiftWindow(e.key === 'ArrowLeft' ? -WINDOW_STEP : WINDOW_STEP)
+  })
+
+  // Enter-a-bill
+  document.getElementById('enter-btn').addEventListener('click', openDrawerNew)
+
+  // Drawer
+  const drawer = document.getElementById('drawer')
+  document.getElementById('drawer-close-x').addEventListener('click', () => drawer.close())
+  drawer.addEventListener('click', e => {
+    if (e.target === drawer) drawer.close()  // backdrop click
+  })
+  drawer.addEventListener('close', () => resetDrawer())
+
+  document.querySelectorAll('.meter-pick button[data-meter]').forEach(btn => {
+    btn.addEventListener('click', () => goStep2(btn.dataset.meter))
+  })
+
+  document.getElementById('drawer-save').addEventListener('click', saveBill)
+  document.getElementById('drawer-delete').addEventListener('click', deleteCurrent)
+
+  // Statement controls in the drawer
+  const filePick = () => document.getElementById('stmt-file').click()
+  document.getElementById('stmt-attach').addEventListener('click', filePick)
+  document.getElementById('stmt-replace').addEventListener('click', filePick)
+  document.getElementById('stmt-clear').addEventListener('click', () => resetStmtUI(currentDrawerBill()))
+  document.getElementById('stmt-file').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0]
+    if (f) stageFile(f)
+  })
+  document.getElementById('stmt-view').addEventListener('click', () => {
+    const b = currentDrawerBill()
+    if (b) openReader(b)
+  })
+  // Reading view — Esc closes natively (showModal); no backdrop-click close
+  // so a stray click while reading a document can't dismiss it.
+  document.getElementById('reader-close').addEventListener('click', () => {
+    document.getElementById('reader').close()
+  })
+
+  // Re-render charts when the viewport changes size in a way that crosses
+  // the 900px breakpoint (chart-host width changes).
+  let lastWide = window.innerWidth >= 900
+  window.addEventListener('resize', () => {
+    const wide = window.innerWidth >= 900
+    if (wide !== lastWide) {
+      lastWide = wide
+      if (allBills.length) {
+        const monthly = buildMonthly(allBills, temps)
+        const domain  = fullYmDomain(monthly)
+        const win     = getWindow(domain)
+        const anom    = anomalies(monthly, domain)
+        renderChart(monthly, win.slice, anom)
+        renderStrips(monthly, win.slice)
+        renderWindowChrome(domain, win)
+      }
+    }
+  })
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Drawer — open, close, step-2, save, delete
+   ────────────────────────────────────────────────────────────────────────── */
+function openDrawerNew() {
+  editingBillId = null
+  pickedMeter   = null
+  document.getElementById('drawer-step-1').hidden = false
+  document.getElementById('drawer-step-2').hidden = true
+  document.getElementById('drawer-eyebrow').textContent = 'A new bill'
+  document.getElementById('drawer-delete').hidden = true
+  populateAsides()
+  document.getElementById('drawer').showModal()
+}
+
+function openDrawerEdit(bill) {
+  editingBillId = bill.id
+  pickedMeter   = bill.meter
+  document.getElementById('drawer-eyebrow').textContent = 'Edit ' + bill.meter + ' bill'
+  document.getElementById('drawer').showModal()
+  // Skip step 1 — go straight to the form for this meter
+  goStep2(bill.meter, bill)
+  if (role === 'admin') {
+    document.getElementById('drawer-delete').hidden = false
+  }
+}
+
+function populateAsides() {
+  // Show last-bill summary next to each meter button.
+  for (const meter of METERS) {
+    const latest = [...allBills].filter(b => b.meter === meter)
+      .sort((a, b) => b.period_end.localeCompare(a.period_end))[0]
+    const el = document.getElementById('aside-' + meter)
+    el.textContent = latest
+      ? `last ${fmtMonth(monthKey(latest.period_end))} · ${fmt$(latest.invoice)}`
+      : 'no bills yet'
+  }
+}
+
+function goStep2(meter, bill = null) {
+  pickedMeter = meter
+  document.getElementById('drawer-step-1').hidden = true
+  document.getElementById('drawer-step-2').hidden = false
+  document.getElementById('drawer-meter-label').textContent = METER_LABEL[meter].toLowerCase()
+  document.getElementById('usage-suffix').textContent = UNIT[meter]
+  document.getElementById('itemize').hidden = meter !== 'water'
+  document.getElementById('form-error').hidden = true
+  resetStmtUI(bill)
+
+  // Pre-fill period dates
+  const psEl = document.getElementById('period-start')
+  const peEl = document.getElementById('period-end')
+  if (bill) {
+    psEl.value = bill.period_start
+    peEl.value = bill.period_end
+    document.getElementById('usage').value   = bill.usage
+    document.getElementById('invoice').value = bill.invoice
+    if (meter === 'water') {
+      document.getElementById('water_amt').value = bill.water_amt ?? ''
+      document.getElementById('sewer_amt').value = bill.sewer_amt ?? ''
+      document.getElementById('city_amt').value  = bill.city_amt  ?? ''
+      document.getElementById('fire_amt').value  = bill.fire_amt  ?? ''
+      if (bill.water_amt || bill.sewer_amt || bill.city_amt || bill.fire_amt) {
+        document.getElementById('itemize').open = true
+      }
+    }
+  } else {
+    const latest = [...allBills].filter(b => b.meter === meter)
+      .sort((a, b) => b.period_end.localeCompare(a.period_end))[0]
+    psEl.value = latest ? addDaysISO(latest.period_end, 1) : addDaysISO(todayISO(), -30)
+    peEl.value = todayISO()
+    document.getElementById('usage').value   = ''
+    document.getElementById('invoice').value = ''
+    document.getElementById('water_amt').value = ''
+    document.getElementById('sewer_amt').value = ''
+    document.getElementById('city_amt').value  = ''
+    document.getElementById('fire_amt').value  = ''
+  }
+  updateDays()
+  ;[psEl, peEl].forEach(el => el.addEventListener('change', updateDays, { once: false }))
+  // Focus the first empty primary field
+  requestAnimationFrame(() => {
+    const usage = document.getElementById('usage')
+    if (!usage.value) usage.focus()
+  })
+}
+
+function updateDays() {
+  const ps = document.getElementById('period-start').value
+  const pe = document.getElementById('period-end').value
+  document.getElementById('period-days').textContent = (ps && pe) ? `${daysBetween(ps, pe)} days` : ''
+}
+
+function resetDrawer() {
+  editingBillId = null
+  pickedMeter   = null
+  document.getElementById('drawer-step-1').hidden = false
+  document.getElementById('drawer-step-2').hidden = true
+  document.getElementById('form-error').hidden = true
+  document.getElementById('drawer-delete').hidden = true
+}
+
+async function saveBill() {
+  const saveBtn = document.getElementById('drawer-save')
+  const errEl = document.getElementById('form-error')
+  errEl.hidden = true
+
+  const period_start = document.getElementById('period-start').value
+  const period_end   = document.getElementById('period-end').value
+  const usageRaw   = document.getElementById('usage').value.trim()
+  const invoiceRaw = document.getElementById('invoice').value.trim()
+
+  // Validation
+  if (!period_start || !period_end) return showFormError('Pick both period dates.')
+  if (period_end <= period_start) return showFormError('Period end must come after start.')
+  if (!usageRaw || isNaN(Number(usageRaw)) || Number(usageRaw) < 0) return showFormError('Usage must be a non-negative number.')
+  if (!invoiceRaw || isNaN(Number(invoiceRaw)) || Number(invoiceRaw) < 0) return showFormError('Invoice must be a non-negative number.')
+
+  const bill = {
+    meter: pickedMeter,
+    period_start,
+    period_end,
+    usage: Number(usageRaw),
+    invoice: Number(invoiceRaw),
+  }
+  if (editingBillId) bill.id = editingBillId
+  if (pickedMeter === 'water') {
+    const get = id => {
+      const v = document.getElementById(id).value.trim()
+      return v ? Number(v) : null
+    }
+    bill.water_amt = get('water_amt')
+    bill.sewer_amt = get('sewer_amt')
+    bill.city_amt  = get('city_amt')
+    bill.fire_amt  = get('fire_amt')
+  }
+
+  saveBtn.disabled = true
+  saveBtn.textContent = 'Saving…'
+  try {
+    const saved = await upsertBill(bill)
+    if (stagedFile) await uploadStagedStatement(saved.id)
+    // Re-fetch + re-render
+    allBills = await listBills()
+    render()
+    document.getElementById('drawer').close()
+  } catch (e) {
+    console.error(e)
+    // The bill itself may have saved before a statement-upload failure —
+    // refresh so closing the drawer reveals the true state. The statement
+    // error is already shown inline; don't double up with a form error.
+    try { allBills = await listBills(); render() } catch (_) {}
+    if (!e.statementError) showFormError(e?.message || 'Could not save the bill.')
+  } finally {
+    saveBtn.disabled = false
+    saveBtn.textContent = 'Save'
+  }
+}
+
+function showFormError(msg) {
+  const el = document.getElementById('form-error')
+  el.textContent = "That doesn't look right. " + msg
+  el.hidden = false
+}
+
+async function deleteCurrent() {
+  if (!editingBillId) return
+  if (!confirm('Delete this bill? This cannot be undone.')) return
+  const btn = document.getElementById('drawer-delete')
+  btn.disabled = true
+  try {
+    await deleteBill(editingBillId)
+    allBills = await listBills()
+    render()
+    document.getElementById('drawer').close()
+  } catch (e) {
+    showFormError(e?.message || 'Could not delete.')
+  } finally {
+    btn.disabled = false
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Bill statements — drawer attach/replace + reading view
+   ────────────────────────────────────────────────────────────────────────── */
+const STMT_OK = ['application/pdf', 'image/jpeg', 'image/png']
+const STMT_MAX = 25 * 1024 * 1024  // 25 MB — a generous cap on a scan
+
+// The bill currently open in the drawer (null for a brand-new bill).
+function currentDrawerBill() {
+  return editingBillId ? allBills.find(b => b.id === editingBillId) || null : null
+}
+
+function showStmtMsg(text) {
+  const m = document.getElementById('stmt-msg')
+  m.textContent = text
+  m.hidden = false
+}
+
+// Reset the statement row to its resting state for the given bill:
+// a filed bill shows View/Replace; anything else shows Attach.
+function resetStmtUI(bill) {
+  stagedFile = null
+  document.getElementById('stmt-file').value = ''
+  document.getElementById('stmt-msg').hidden = true
+  document.getElementById('stmt-prog').hidden = true
+  document.getElementById('stmt-staged').hidden = true
+  document.getElementById('stmt-prog-fill').style.transform = 'scaleX(0)'
+  const filed = !!(bill && bill.statement_mime)
+  document.getElementById('stmt-filed').hidden = !filed
+  document.getElementById('stmt-attach').hidden = filed
+}
+
+function stageFile(file) {
+  if (!STMT_OK.includes(file.type)) { showStmtMsg('Use a PDF, JPG or PNG.'); return }
+  if (file.size > STMT_MAX) { showStmtMsg('That file is over 25 MB. Use a smaller scan.'); return }
+  stagedFile = file
+  document.getElementById('stmt-name').textContent = file.name
+  document.getElementById('stmt-filed').hidden  = true
+  document.getElementById('stmt-attach').hidden = true
+  document.getElementById('stmt-prog').hidden   = true
+  document.getElementById('stmt-msg').hidden    = true
+  document.getElementById('stmt-staged').hidden = false
+}
+
+// Called from saveBill after the bill row is persisted (so we have an id).
+// Throws with .statementError = true so saveBill can keep the drawer open
+// for a retry without overwriting the message.
+async function uploadStagedStatement(billId) {
+  const file = stagedFile
+  const ct = file.type
+  const prog  = document.getElementById('stmt-prog')
+  const fill  = document.getElementById('stmt-prog-fill')
+  const label = document.getElementById('stmt-prog-label')
+  document.getElementById('stmt-staged').hidden = true
+  document.getElementById('stmt-msg').hidden = true
+  prog.hidden = false
+  fill.style.transform = 'scaleX(0)'
+  label.textContent = 'Preparing…'
+  try {
+    const { url, filename } = await getStatementUploadUrl(billId, ct)
+    label.textContent = 'Uploading 0%'
+    await uploadStatement(url, file, ct, p => {
+      fill.style.transform = `scaleX(${p})`
+      label.textContent = `Uploading ${Math.round(p * 100)}%`
+    }, filename)
+    label.textContent = 'Recording…'
+    await setBillStatementMime(billId, ct)
+    fill.style.transform = 'scaleX(1)'
+  } catch (e) {
+    prog.hidden = true
+    document.getElementById('stmt-staged').hidden = false
+    const err = new Error(`Bill saved, but the statement didn’t upload (${e.message}). It’s still staged. Save again to retry.`)
+    err.statementError = true
+    showStmtMsg(err.message)
+    throw err
+  }
+}
+
+// Focused reading view. PDF → native <object>; image → zoomable <img> on a
+// bone mat. A URL must be minted first, hence the brief "Preparing…".
+async function openReader(bill) {
+  const r = document.getElementById('reader')
+  const body = document.getElementById('reader-body')
+  const title = document.getElementById('reader-title')
+  title.innerHTML = ''
+  title.append(
+    document.createTextNode(fmtMonth(monthKey(bill.period_end)) + ' · '),
+  )
+  const it = document.createElement('span')
+  it.className = 'it'
+  it.textContent = R_LABEL[bill.meter]
+  title.append(it)
+  body.replaceChildren(Object.assign(document.createElement('p'), {
+    className: 'reader-status', textContent: 'Preparing…',
+  }))
+  if (!r.open) r.showModal()
+  try {
+    const { url, mime } = await getStatementUrl(bill.id)
+    if (mime === 'application/pdf') {
+      const obj = document.createElement('object')
+      obj.className = 'reader-doc'; obj.type = 'application/pdf'; obj.data = url
+      const a = document.createElement('a')
+      a.href = url; a.target = '_blank'; a.rel = 'noopener'
+      a.textContent = 'Open statement'
+      obj.append(a)
+      body.replaceChildren(obj)
+    } else {
+      const img = document.createElement('img')
+      img.className = 'reader-img'; img.alt = 'Bill statement'; img.src = url
+      img.addEventListener('click', () => img.classList.toggle('zoomed'))
+      body.replaceChildren(img)
+    }
+  } catch (e) {
+    console.error(e)
+    body.replaceChildren(Object.assign(document.createElement('p'), {
+      className: 'reader-status', textContent: 'Couldn’t open the statement. Try again.',
+    }))
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Custom cursor — fine pointer only
+   ────────────────────────────────────────────────────────────────────────── */
+function initCursor() {
+  if (!matchMedia('(pointer: fine)').matches) return
+  const cur  = document.getElementById('cursor')
+  const ring = document.getElementById('ring')
+  let mx = 0, my = 0, rx = 0, ry = 0
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY })
+  ;(function tick() {
+    cur.style.left = mx + 'px'; cur.style.top = my + 'px'
+    rx += (mx - rx) * 0.14; ry += (my - ry) * 0.14
+    ring.style.left = rx + 'px'; ring.style.top = ry + 'px'
+    requestAnimationFrame(tick)
+  })()
+  // Event delegation — single pair of listeners on document, NO observer.
+  // The MutationObserver pattern from photos.html locks up here because
+  // Plot mutates the SVG continuously during pointer movement.
+  const HOVER_SEL = 'a, button, input, select, textarea, .recent-row, .mlist-row, .r-cell, .r-stmt-btn, .reader-img'
+  document.addEventListener('mouseover', e => {
+    if (e.target.closest && e.target.closest(HOVER_SEL)) {
+      ring.style.width = '52px'; ring.style.height = '52px'
+    }
+  }, { passive: true })
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest && e.target.closest(HOVER_SEL)) {
+      ring.style.width = '32px'; ring.style.height = '32px'
+    }
+  }, { passive: true })
+}
+
+init()
+</script>
+</body>
+</html>

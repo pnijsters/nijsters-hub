@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Hub · The Nijsters</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#181621">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hub.css">
+<style>
+/* hub.html — auth states are the Flow archetype (§7.E, centred column);
+   the dashboard is an app (ribbon + full-frame Tile grid, §5.3/§6.11).
+   No tokens, no chrome, no generic components here: those are in
+   css/hub.css. Zero legacy aliases referenced. */
+html { scroll-behavior: smooth; }
+body { min-height: 100vh; display: flex; flex-direction: column; }
+@media (pointer:fine){ body { cursor: none; } }
+
+form { display: flex; flex-direction: column; gap: var(--space-lg); margin-top: var(--space-2xs); }
+.form-error { font-size: var(--t-meta); color: var(--field-error); line-height: 1.5; }
+
+.qr-wrap {
+  display: flex; flex-direction: column; gap: var(--space-md);
+  align-items: flex-start; padding: var(--space-lg);
+  border: 1px solid var(--line);
+}
+.qr-wrap img { width: 200px; height: 200px; background: #fff; padding: var(--space-xs); }
+.note { font-size: var(--t-meta); color: var(--text-muted); line-height: 1.6; }
+.qr-secret {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t-meta); color: var(--text-secondary);
+  word-break: break-all; user-select: all;
+}
+
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="ring"></div>
+
+<header class="hub-shell">
+  <div class="brand">
+    <a href="/" class="wordmark">Nijsters</a>
+  </div>
+  <button class="signout" id="signoutBtn" hidden>Sign out</button>
+</header>
+
+<main>
+  <section class="flow-main" id="state-loading">
+    <div class="flow-col"><p class="eyebrow">Checking session…</p></div>
+  </section>
+
+  <section class="flow-main" id="state-signin" hidden>
+    <div class="flow-col">
+      <p class="eyebrow">Family Hub</p>
+      <h1>Welcome <span class="it">back.</span></h1>
+      <p class="lede">Private space for the Nijsters. Sign in to continue.</p>
+      <form id="signinForm" action="#" method="post">
+        <div class="field">
+          <label for="signin-email">Email</label>
+          <input type="email" id="signin-email" name="email" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="signin-password">Password</label>
+          <input type="password" id="signin-password" name="password" autocomplete="current-password" required>
+        </div>
+        <div class="form-error" id="signin-error" hidden></div>
+        <button type="submit" class="btn btn--primary" id="signin-submit">Continue</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="flow-main" id="state-challenge" hidden>
+    <div class="flow-col">
+      <p class="eyebrow">Two-step verification</p>
+      <h1>One <span class="it">more step.</span></h1>
+      <p class="lede">Enter the six-digit code from your authenticator app.</p>
+      <form id="challengeForm" action="#" method="post">
+        <div class="field">
+          <label for="challenge-code">Code</label>
+          <input
+            type="text"
+            id="challenge-code"
+            name="otp"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            pattern="[0-9]{6}"
+            maxlength="6"
+            required
+            autofocus>
+        </div>
+        <div class="form-error" id="challenge-error" hidden></div>
+        <button type="submit" class="btn btn--primary" id="challenge-submit">Verify</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="flow-main" id="state-enroll" hidden>
+    <div class="flow-col">
+      <p class="eyebrow">Enroll authenticator</p>
+      <h1>A <span class="it">one-time</span> setup.</h1>
+      <p class="lede">Scan this QR with 1Password, Google Authenticator, Authy, or any TOTP app. Then enter the first code it shows you.</p>
+      <div class="qr-wrap">
+        <img id="enroll-qr" alt="TOTP enrollment QR code">
+        <div class="note">Can't scan? Enter this secret manually:</div>
+        <div class="qr-secret" id="enroll-secret"></div>
+      </div>
+      <form id="enrollForm" action="#" method="post">
+        <div class="field">
+          <label for="enroll-code">First code</label>
+          <input
+            type="text"
+            id="enroll-code"
+            name="otp"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            pattern="[0-9]{6}"
+            maxlength="6"
+            required>
+        </div>
+        <div class="form-error" id="enroll-error" hidden></div>
+        <button type="submit" class="btn btn--primary" id="enroll-submit">Confirm and enroll</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="hub-main" id="state-hub" hidden>
+    <div class="page-head">
+      <p class="eyebrow">Family Hub</p>
+      <h1 class="title">The Hub</h1>
+      <span class="grace">hello, <span id="hub-name">friend</span>.</span>
+    </div>
+    <div class="hub-grid" id="hub-grid">
+      <a class="hub-tile" data-tile="photos" href="photos.html"><h3>Photos</h3><p>Upload, browse, and delete the family photo archive. Two-downvote consensus auto-removes a photo.</p><div class="status">Open</div></a>
+      <a class="hub-tile" data-tile="utilities" href="utilities.html"><h3>Utilities</h3><p>Gas, water, and electric: four years of monthly usage and bills.</p><div class="status">Open</div></a>
+      <a class="hub-tile" data-tile="members" data-admin-only href="members.html" hidden><h3>Members</h3><p>Manage who's in the Hub and what each can do.</p><div class="status">Admin</div></a>
+      <div class="hub-tile"><h3>Mortgage</h3><p>Track principal, interest, and payoff progress over time.</p><div class="status">Soon</div></div>
+      <div class="hub-tile"><h3>Pension</h3><p>Long-horizon retirement projection and balance tracking.</p><div class="status">Soon</div></div>
+      <a class="hub-tile" data-tile="airbnb" href="airbnb.html"><h3>AirBnB</h3><p>The Beacon · Manila. Bookings, expenses, mgmt statements, and Moneydance export.</p><div class="status">Open</div></a>
+      <a class="hub-tile" data-tile="fx" href="fx.html"><h3>Exchange Rates</h3><p>The dollar against the peso, euro, and Singapore dollar. Daily rates back to 2000, with an as-of converter.</p><div class="status">Open</div></a>
+      <div class="hub-tile"><h3>Ledger</h3><p>Full personal accounting with double-entry bookkeeping.</p><div class="status">Later</div></div>
+    </div>
+  </section>
+</main>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import {
+  signInWithPassword, getAAL, listFactors,
+  challengeAndVerify, enrollTOTP, signOut, supabase,
+  getCurrentRole
+} from './js/supabase-client.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+
+const states = ['loading', 'signin', 'challenge', 'enroll', 'hub']
+const focusFieldByState = { signin: 'signin-email', challenge: 'challenge-code', enroll: 'enroll-code' }
+function go(state) {
+  for (const s of states) document.getElementById(`state-${s}`).hidden = (s !== state)
+  document.getElementById('signoutBtn').hidden = (state !== 'hub')
+  // Auto-focus the primary input so password managers (1Password, etc.) get a clean
+  // shot at offering autofill — especially the TOTP code on the challenge step.
+  const id = focusFieldByState[state]
+  if (id) requestAnimationFrame(() => document.getElementById(id)?.focus())
+}
+function showError(id, msg) {
+  const el = document.getElementById(id)
+  el.textContent = msg
+  el.hidden = false
+}
+function clearError(id) { document.getElementById(id).hidden = true }
+
+let pendingFactorId = null
+
+async function route() {
+  go('loading')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) { go('signin'); return }
+
+  const { data: aal } = await getAAL()
+  if (!aal) { go('signin'); return }
+
+  if (aal.currentLevel === aal.nextLevel) {
+    // No MFA step pending. Either signed in at aal2 (TOTP verified) or aal1 with no factor → enroll.
+    if (aal.currentLevel === 'aal2') {
+      await showHub(session.user)
+    } else {
+      await startEnroll()
+    }
+    return
+  }
+  // currentLevel < nextLevel → need to step up via TOTP
+  const { data: factors } = await listFactors()
+  const verified = factors?.totp?.find(f => f.status === 'verified')
+  if (verified) {
+    pendingFactorId = verified.id
+    go('challenge')
+  } else {
+    await startEnroll()
+  }
+}
+
+async function startEnroll() {
+  go('enroll')
+  const { data, error } = await enrollTOTP()
+  if (error) { showError('enroll-error', error.message); return }
+  pendingFactorId = data.id
+  document.getElementById('enroll-qr').src = data.totp.qr_code
+  document.getElementById('enroll-secret').textContent = data.totp.secret
+}
+
+async function showHub(user) {
+  const name = user.user_metadata?.first_name || user.email?.split('@')[0] || 'friend'
+  document.getElementById('hub-name').textContent = name
+  go('hub')
+  // Role-based tile gating. Child sees a quiet "view only" footnote on
+  // tiles they can read but not write to. Admin gets the Members tile.
+  const role = await getCurrentRole()
+  const grid = document.getElementById('hub-grid')
+  grid.dataset.role = role || 'child'
+  if (role === 'admin') {
+    grid.querySelector('[data-admin-only]')?.removeAttribute('hidden')
+  }
+  if (role === 'child') {
+    const utilities = grid.querySelector('[data-tile="utilities"] .status')
+    if (utilities) { utilities.textContent = 'view only'; utilities.classList.add('view') }
+  }
+  // Sign out + return to sign-in after 10 minutes of no interaction
+  startIdleTimeout(() => location.reload())
+}
+
+document.getElementById('signinForm').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  clearError('signin-error')
+  const btn = document.getElementById('signin-submit')
+  btn.disabled = true; btn.textContent = 'Signing in…'
+  const email = document.getElementById('signin-email').value.trim()
+  const password = document.getElementById('signin-password').value
+  const { error } = await signInWithPassword(email, password)
+  btn.disabled = false; btn.textContent = 'Continue'
+  if (error) { showError('signin-error', error.message); return }
+  await route()
+})
+
+document.getElementById('challengeForm').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  clearError('challenge-error')
+  const btn = document.getElementById('challenge-submit')
+  btn.disabled = true; btn.textContent = 'Verifying…'
+  const code = document.getElementById('challenge-code').value
+  const { error } = await challengeAndVerify(pendingFactorId, code)
+  btn.disabled = false; btn.textContent = 'Verify'
+  if (error) { showError('challenge-error', error.message); return }
+  await route()
+})
+
+document.getElementById('enrollForm').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  clearError('enroll-error')
+  const btn = document.getElementById('enroll-submit')
+  btn.disabled = true; btn.textContent = 'Confirming…'
+  const code = document.getElementById('enroll-code').value
+  const { error } = await challengeAndVerify(pendingFactorId, code)
+  btn.disabled = false; btn.textContent = 'Confirm and enroll'
+  if (error) { showError('enroll-error', error.message); return }
+  await route()
+})
+
+document.getElementById('signoutBtn').addEventListener('click', async () => {
+  await signOut()
+  pendingFactorId = null
+  go('signin')
+})
+
+// Cursor — styling from css/hub.css; this only drives position + hover
+// enlarge, identical across every Hub page.
+const cursorEl = document.getElementById('cursor')
+const ringEl = document.getElementById('ring')
+let mx = 0, my = 0, rx = 0, ry = 0
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY })
+;(function tick() {
+  cursorEl.style.left = mx + 'px'; cursorEl.style.top = my + 'px'
+  rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12
+  ringEl.style.left = rx + 'px'; ringEl.style.top = ry + 'px'
+  requestAnimationFrame(tick)
+})()
+function enlarge() { ringEl.style.width = '56px'; ringEl.style.height = '56px' }
+function shrink()  { ringEl.style.width = '34px'; ringEl.style.height = '34px' }
+document.querySelectorAll('a, button, input').forEach(el => {
+  el.addEventListener('mouseenter', enlarge)
+  el.addEventListener('mouseleave', shrink)
+})
+
+route()
+</script>
+</body>
+</html>

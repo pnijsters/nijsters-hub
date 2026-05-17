@@ -1,0 +1,2660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AirBnB · Family Hub</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#181621">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hub.css">
+<style>
+/* Migra (display) — Hanken Grotesk (body). Same as the rest of the Hub. */
+/* Tokens, Migra @font-face, cursor and the App-Shell chrome are the
+   canonical ones in css/hub.css. airbnb.html keeps only its own
+   Dashboard composition below; legacy token names resolve to the single
+   canonical value via hub.css. Internal table/drawer/chart reclass onto
+   §6 primitives is honest remaining depth, deferred until browser-
+   verified (AGENT.md #12). */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  background: var(--ground); color: var(--text);
+  min-height: 100vh; display: flex; flex-direction: column;
+  font-size: var(--t-body); line-height: 1.55;
+  font-feature-settings: "kern" 1;
+  text-rendering: optimizeLegibility;
+}
+@media (pointer: fine) { body { cursor: none; } }
+/* cursor + App-Shell chrome: css/hub.css (canonical). */
+@media (pointer: fine) { button, a { cursor: none; } }
+
+main {
+  flex: 1;
+  padding: var(--space-lg) clamp(var(--space-lg), 4vw, var(--space-3xl)) var(--space-3xl);
+  display: flex; flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* The view-switch + the Settings cog use the canonical css/hub.css
+   primitives (.view-switch, .shell-cog). No per-page nav styling:
+   that bespoke .view-nav was the cross-app inconsistency, retired
+   in favour of the shared primitive. */
+
+/* ────────────────────────────────────────────────────────────────────
+   Hero band — property label, large Migra date, three stats, USD echo.
+   Broadsheet feel: hairline rules, no card.
+   ──────────────────────────────────────────────────────────────────── */
+/* Ribbon head (css/hub.css §5.3): property eyebrow + a tight one-line
+   month-stack at app scale with the stepper at the far end, hairline
+   rule under it. DOM + ids unchanged (JS depends on them). */
+.hero { display: flex; flex-direction: column; gap: var(--space-sm); }
+.hero .property {
+  font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 500;
+}
+.hero .month-stack {
+  display: flex; align-items: baseline; gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.hero .month-name {
+  font-family: 'Migra', serif; font-weight: 800;
+  font-size: var(--t-h2);
+  line-height: 1; letter-spacing: -0.01em;
+  color: var(--text);
+}
+.hero .year {
+  font-family: 'Migra', serif; font-weight: 200; font-style: italic;
+  font-size: var(--t-lead);
+  color: var(--text-secondary);
+}
+.hero .month-nav {
+  display: flex; gap: var(--space-sm); margin-left: auto;
+  font-family: 'Hanken Grotesk', sans-serif;
+}
+.hero .month-step {
+  background: none; border: 1px solid var(--line); color: var(--text-secondary);
+  font: inherit; padding: var(--space-xs) var(--space-md); border-radius: 0;
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  transition: color var(--dur-mid) var(--ease-out), border-color var(--dur-mid) var(--ease-out);
+}
+.hero .month-step:hover:not(:disabled) { color: var(--text); border-color: var(--text-secondary); }
+.hero .month-step:disabled { color: var(--text-faint); border-color: var(--line-soft); }
+
+/* The headline figures are the shared header strip now (css/hub.css
+   .hub-strip, fed by pushStrip). No page-local stat / cr-left chrome:
+   the strip and control row are the canonical shared module. */
+
+.export-controls {
+  display: flex; gap: var(--space-xl); align-items: baseline; flex-wrap: wrap;
+  padding-bottom: var(--space-md); border-bottom: 1px solid var(--line);
+}
+.export-controls .group {
+  display: flex; flex-direction: column; gap: var(--space-2xs);
+}
+.export-controls .group-label {
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.export-controls .export-fx-note {
+  font-size: var(--t-meta); color: var(--text-muted);
+  font-variant-numeric: tabular-nums; padding: var(--space-2xs) 0;
+}
+.export-controls input[type="number"] {
+  background: var(--ground-up); border: 1px solid var(--line);
+  color: var(--text); font: inherit; padding: var(--space-2xs) var(--space-xs);
+  width: 100px; font-variant-numeric: tabular-nums;
+}
+.export-controls .seg {
+  display: inline-flex; border: 1px solid var(--line);
+}
+.export-controls .seg button {
+  background: none; border: none; color: var(--text-muted);
+  font: inherit; font-size: var(--t-eyebrow); letter-spacing: 0.25em;
+  text-transform: uppercase; padding: var(--space-2xs) var(--space-md);
+  transition: color var(--dur-mid) var(--ease-out), background var(--dur-mid) var(--ease-out);
+}
+.export-controls .seg button[aria-pressed="true"] {
+  background: var(--veil); color: var(--text);
+}
+.export-controls .seg button:not(:last-child) { border-right: 1px solid var(--line); }
+
+.export-preview {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 2fr) minmax(0, 2fr) 110px;
+  font-size: var(--t-meta); font-variant-numeric: tabular-nums;
+  margin-top: var(--space-md);
+  max-height: 320px; overflow-y: auto;
+}
+.export-preview > div {
+  padding: var(--space-2xs) var(--space-xs) var(--space-2xs) 0;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--line-soft);
+}
+.export-preview .head > div {
+  color: var(--text-muted); font-size: var(--t-eyebrow); letter-spacing: 0.25em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: var(--ground); padding-top: var(--space-xs);
+}
+.export-preview .col-num { text-align: right; }
+.export-totals {
+  display: flex; gap: var(--space-xl); margin-top: var(--space-md);
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.export-totals .lbl {
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.export-totals .val { font-size: var(--t-lead); color: var(--text); }
+
+@media (max-width: 720px) {
+  .hero .month-nav { margin-left: 0; }
+}
+
+/* .section-head is the shared primitive (css/hub.css); no local copy. */
+
+/* Import panel — slides open via grid-template-rows; same motion
+   token as booking row expansion. */
+.panel {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 320ms var(--ease-out);
+}
+.panel[data-open="true"] { grid-template-rows: 1fr; }
+.panel > .panel-inner   {
+  overflow: hidden;
+  padding: 0;
+}
+.panel[data-open="true"] > .panel-inner { padding-top: var(--space-md); padding-bottom: var(--space-lg); }
+.dropzone {
+  border: 1px dashed var(--line);
+  padding: var(--space-2xl) var(--space-md);
+  text-align: center;
+  display: flex; flex-direction: column; gap: var(--space-sm);
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  color: var(--text-muted);
+  transition: border-color var(--dur-mid) var(--ease-out), color var(--dur-mid) var(--ease-out);
+}
+.dropzone.over { border-color: var(--accent); color: var(--text); }
+.dropzone .pick {
+  font-family: 'Hanken Grotesk', sans-serif; font-style: normal;
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-secondary); background: none; border: 1px solid var(--line);
+  padding: var(--space-xs) var(--space-md);
+  align-self: center;
+  transition: color var(--dur-mid) var(--ease-out), border-color var(--dur-mid) var(--ease-out);
+}
+.dropzone .pick:hover { color: var(--text); border-color: var(--text-secondary); }
+.dropzone .hint { font-family: 'Hanken Grotesk', sans-serif; font-style: normal; font-size: var(--t-meta); color: var(--text-faint); letter-spacing: 0.02em; }
+
+.preview {
+  display: flex; flex-direction: column; gap: var(--space-md);
+}
+.preview-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-lg);
+}
+.preview-summary .cell {
+  display: flex; flex-direction: column; gap: var(--space-2xs);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-sm);
+}
+.preview-summary .num {
+  font-size: var(--t-h3); color: var(--text); font-variant-numeric: tabular-nums;
+}
+.preview-summary .num.skip  { color: var(--text-secondary); }
+.preview-summary .num.error { color: var(--warn); }
+.preview-summary .lbl {
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.preview-rows {
+  font-size: var(--t-meta); color: var(--text-secondary);
+  display: grid; grid-template-columns: 90px 70px 1fr 1fr 110px;
+  font-variant-numeric: tabular-nums; row-gap: var(--space-2xs);
+}
+.preview-rows > div { padding: var(--space-2xs) var(--space-xs) var(--space-2xs) 0; }
+.preview-rows .head > div { color: var(--text-muted); font-size: var(--t-eyebrow); letter-spacing: 0.25em; text-transform: uppercase; }
+.preview-rows .col-num { text-align: right; }
+.preview-rows .row.dup    { color: var(--text-faint); }
+.preview-rows .row.dup .col-status { color: var(--text-faint); }
+.preview-rows .col-status { color: var(--accent); text-align: right; font-size: var(--t-eyebrow); letter-spacing: 0.2em; text-transform: uppercase; }
+.preview-actions { display: flex; gap: var(--space-md); justify-content: flex-end; }
+.preview-actions button {
+  background: none; border: 1px solid var(--line); color: var(--text-secondary);
+  font: inherit; font-size: var(--t-eyebrow); letter-spacing: 0.3em;
+  text-transform: uppercase; padding: var(--space-xs) var(--space-lg);
+  transition: color var(--dur-mid) var(--ease-out), border-color var(--dur-mid) var(--ease-out);
+}
+.preview-actions .commit { color: var(--accent); border-color: var(--accent); }
+.preview-actions .commit:hover { color: var(--text); background: var(--accent); }
+.preview-actions .commit:disabled { color: var(--text-faint); border-color: var(--line-soft); cursor: not-allowed; }
+.preview-actions button:hover:not(:disabled) { color: var(--text); border-color: var(--text-secondary); }
+
+.adj-form { display: flex; flex-direction: column; gap: var(--space-md); }
+.adj-fields {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+}
+.adj-fields label {
+  display: flex; flex-direction: column; gap: var(--space-2xs);
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.adj-fields input, .adj-fields select {
+  background: var(--ground-up); border: 1px solid var(--line);
+  color: var(--text); font: inherit; padding: var(--space-xs) var(--space-sm);
+  font-size: var(--t-body); font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.adj-fields input:focus, .adj-fields select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.adj-fields select { color: var(--text-secondary); }
+
+/* Bookings + Other are the shared .data-table (css/hub.css). What
+   stays here is only the booking detail-row CONTENT: the fee
+   breakdown grid and the era note. The expandable-row mechanics
+   (row-parent / row-detail / chevron / animation) are the shared
+   primitive; nothing local re-implements them. */
+
+/* The adjusted-booking signal: the row's cells take an accent hairline
+   instead of the soft one (replaces the old .booking.adj border). */
+.data-table tr.row-parent.is-adj > td { border-bottom-color: var(--accent); }
+
+/* Guest is a secondary column, hidden on narrow screens (it was
+   .col-guest before; the role is unchanged, the table is now real). */
+.data-table .col-guest { color: var(--text-secondary); }
+@media (max-width: 720px) {
+  .data-table th.col-guest, .data-table td.col-guest { display: none; }
+}
+
+/* Other-this-month category: Migra-italic, muted, right-set — the
+   same editorial aux treatment the quarter tables use. */
+.data-table .col-cat {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  color: var(--text-muted); font-size: var(--t-meta);
+  text-align: right; white-space: nowrap;
+}
+
+/* Detail-row content: breakdown ledger beside the era note. The
+   wrapper is clipped by .row-detail__inner > * (shared primitive);
+   this just lays the two columns out and sets the inner padding. */
+.booking-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-md) var(--space-2xl);
+  padding: var(--space-sm) 0 var(--space-md);
+}
+.breakdown {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: var(--space-2xs); column-gap: var(--space-md);
+  /* size inherits the system detail-content standard (.row-detail__inner
+     = --t-body); no local --t-meta shrink. */
+}
+/* .data-table .label is the table's Migra-italic identity-cell role;
+   the breakdown reuses the class name for its own ledger labels, so
+   restate the type here to neutralise that descendant-selector leak.
+   font-size is NOT restated: it inherits the system body size. */
+.breakdown .label {
+  font-family: 'Hanken Grotesk', sans-serif; font-style: normal;
+  font-weight: 400; white-space: normal;
+  color: var(--text-muted); letter-spacing: 0.02em;
+}
+.breakdown .value { color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
+.breakdown .rule  { grid-column: 1 / -1; border-top: 1px solid var(--line-soft); margin: var(--space-2xs) 0; }
+.breakdown .total { color: var(--text); font-size: var(--t-body); }
+.breakdown .neg .value { color: var(--text-secondary); }
+.breakdown .neg .value::before { content: '−'; padding-right: 0.1em; color: var(--text-faint); }
+.adjust-row {
+  display: flex; gap: var(--space-sm); margin-top: var(--space-xs);
+  font-size: var(--t-meta);
+  align-items: center;
+  grid-column: 1 / -1;
+}
+.adjust-row button {
+  background: none; border: none; color: var(--text-muted);
+  font: inherit; font-size: var(--t-eyebrow); letter-spacing: 0.25em;
+  text-transform: uppercase; padding: 0;
+  transition: color var(--dur-mid) var(--ease-out);
+}
+.adjust-row button:hover { color: var(--accent); }
+.adjust-row.editing { gap: var(--space-xs); }
+.adjust-row input[type="text"], .adjust-row input[type="number"] {
+  background: var(--ground-up); border: 1px solid var(--line);
+  color: var(--text); font: inherit; font-variant-numeric: tabular-nums;
+  padding: var(--space-2xs) var(--space-xs);
+  font-size: var(--t-meta);
+  width: 100px;
+}
+.adjust-row input.wide { width: 220px; }
+.adjust-row input:focus { outline: 1px solid var(--accent); }
+.adjust-row .save { color: var(--accent); }
+.adjust-row .save:hover { color: var(--text); }
+.adjust-row .pending { color: var(--text-muted); font-style: italic; }
+
+.era-pill {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  color: var(--text-muted); align-self: start;
+}
+.era-pill .formula {
+  display: block; font-family: 'Hanken Grotesk', sans-serif; font-style: normal;
+  color: var(--text-faint);
+  margin-top: var(--space-2xs); letter-spacing: 0.02em;
+}
+
+@media (max-width: 720px) {
+  .booking-detail { grid-template-columns: 1fr; gap: var(--space-sm); }
+}
+
+/* "Other this month" is the shared .data-table; category cells use the
+   .col-cat aux treatment defined above. No table chrome lives here. */
+
+/* ────────────────────────────────────────────────────────────────────
+   States: empty, loading, error.
+   ──────────────────────────────────────────────────────────────────── */
+.state {
+  padding: var(--space-2xl) 0;
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-lead); color: var(--text-muted);
+  text-align: center;
+}
+.state.error { color: var(--warn); }
+
+/* Quarter sub-tables (deposits / service fees / collections) are the
+   shared .data-table now; no local table chrome. The .num.muted role
+   carries the soft VAT aux column the old .col-aux used to. */
+
+/* Page-specific (NOT a system change): every airbnb data-table is a
+   stack of separate <table>s that would each auto-size their own
+   columns, so the column rules zig-zag down the page. Lock them all
+   to ONE fixed 4-column template (every airbnb table is 4 columns:
+   month bookings/other, quarter deposits/charges/collections) so the
+   verticals line up across tables. With table-layout:fixed the thead
+   row defines the widths; the colspan detail row is unaffected.
+   Cross-table alignment is deliberately prioritised over per-table
+   snug fit. */
+.data-table { table-layout: fixed; }
+.data-table thead th:nth-child(1) { width: 13%; }
+.data-table thead th:nth-child(2) { width: 42%; }
+.data-table thead th:nth-child(3) { width: 22%; }
+.data-table thead th:nth-child(4) { width: 23%; }
+
+/* The Month view stacks Bookings over "Other this month". For the
+   columns to READ as aligned, the content (not just the column box)
+   must line up: Bookings Nights ↔ Other Description in one column,
+   Bookings Guest ↔ Other Category in the next. So the two tables share
+   one width template AND the same left alignment on cols 2-3, which
+   overrides the .num/.col-cat right-set on Nights/Category. Col 4
+   (Gross PHP) stays right-set in both. */
+#bookings-table thead th:nth-child(1),
+#other-table   thead th:nth-child(1) { width: 10%; }
+#bookings-table thead th:nth-child(2),
+#other-table   thead th:nth-child(2) { width: 32%; }
+#bookings-table thead th:nth-child(3),
+#other-table   thead th:nth-child(3) { width: 33%; }
+#bookings-table thead th:nth-child(4),
+#other-table   thead th:nth-child(4) { width: 25%; }
+#bookings-table th:nth-child(2), #bookings-table td:nth-child(2),
+#bookings-table th:nth-child(3), #bookings-table td:nth-child(3),
+#other-table   th:nth-child(2), #other-table   td:nth-child(2),
+#other-table   th:nth-child(3), #other-table   td:nth-child(3) {
+  text-align: left;
+}
+
+.view[hidden] { display: none; }
+
+/* The whole header is the shared module (js/hub-header.js +
+   css/hub.css). airbnb adds no header chrome CSS of its own. Only the
+   per-lens body hero toggle is page-local: */
+.hero[hidden] { display: none; }
+
+.trend {
+  display: flex; flex-direction: column; gap: var(--space-md);
+  padding-top: var(--space-lg); border-top: 1px solid var(--line);
+}
+.trend:first-of-type { border-top: none; padding-top: 0; }
+/* Chart KPI heading is the shared .block-head primitive (css/hub.css):
+   tabular Hanken at the strip scale, never a Migra display line. No
+   local heading CSS. */
+.trend-chart {
+  width: 100%;
+  min-height: 240px;
+  font-variant-numeric: tabular-nums;
+}
+.trend-chart svg { max-width: 100%; height: auto; }
+
+.settings-table {
+  display: grid;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-meta);
+}
+.settings-table > div {
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--line-soft);
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr) minmax(0, 2fr) auto;
+  column-gap: var(--space-md); align-items: baseline;
+}
+.settings-table > div.head { color: var(--text-muted); font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+.settings-table .col-num { text-align: right; font-variant-numeric: tabular-nums; }
+.settings-table .col-aux { color: var(--text-secondary); font-style: italic; font-family: 'Migra', serif; font-weight: 200; }
+.settings-table .row-del {
+  background: none; border: none; color: var(--text-faint);
+  font: inherit; padding: 0 var(--space-xs);
+  font-size: var(--t-body); cursor: pointer;
+  transition: color var(--dur-mid) var(--ease-out);
+}
+.settings-table .row-del:hover { color: var(--warn); }
+
+.settings-add {
+  display: flex; flex-wrap: wrap; gap: var(--space-sm);
+  margin-top: var(--space-md); padding-top: var(--space-md);
+  border-top: 1px solid var(--line);
+  align-items: center;
+}
+.settings-add input[type="text"],
+.settings-add input[type="number"],
+.settings-add input[type="date"] {
+  background: var(--ground-up); border: 1px solid var(--line);
+  color: var(--text); font: inherit; padding: var(--space-2xs) var(--space-xs);
+  font-size: var(--t-meta); font-variant-numeric: tabular-nums;
+  width: 130px;
+}
+.settings-add input:focus { outline: 1px solid var(--accent); }
+.settings-add button {
+  background: none; border: 1px solid var(--accent); color: var(--accent);
+  font: inherit; font-size: var(--t-eyebrow); letter-spacing: 0.3em;
+  text-transform: uppercase; padding: var(--space-2xs) var(--space-md);
+  margin-left: auto;
+  transition: color var(--dur-mid) var(--ease-out), background var(--dur-mid) var(--ease-out);
+}
+.settings-add button:hover { color: var(--text); background: var(--accent); }
+.settings-check {
+  display: inline-flex; align-items: center; gap: var(--space-xs);
+  font-size: var(--t-meta); color: var(--text-muted);
+}
+
+footer {
+  padding: var(--space-2xl) clamp(var(--space-lg), 4vw, var(--space-3xl));
+  font-size: var(--t-meta); color: var(--text-faint);
+  border-top: 1px solid var(--line);
+  text-align: right;
+  letter-spacing: 0.2em; text-transform: uppercase;
+}
+</style>
+</head>
+<body>
+<div class="cursor"></div>
+<div class="cursor-ring"></div>
+
+<main>
+  <div id="view-month" class="view">
+
+  <section class="hero" id="hero-month">
+    <div class="property">The Beacon · Manila</div>
+    <div class="month-stack">
+      <span class="month-name" id="month-name">—</span>
+      <span class="year"       id="year-name">—</span>
+      <div class="month-nav">
+        <button type="button" id="month-prev" class="month-step" title="Previous month">←</button>
+        <button type="button" id="month-next" class="month-step" title="Next month">→</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="title">Bookings</span>
+      <span class="meta" id="bookings-meta"></span>
+      <div class="actions">
+        <button type="button" class="action" id="import-toggle" aria-expanded="false"
+                aria-controls="import-panel" hidden>Import CSV</button>
+        <button type="button" class="action" id="export-trigger" aria-expanded="false"
+                aria-controls="export-panel">Build export</button>
+      </div>
+    </div>
+
+    <div class="panel" id="import-panel" data-open="false">
+      <div class="panel-inner">
+        <div id="import-dropzone" class="dropzone">
+          <div>Drop your AirBnB host CSV here</div>
+          <button type="button" class="pick" id="import-pick">Pick file</button>
+          <input type="file" id="import-file" accept=".csv,text/csv" hidden>
+          <div class="hint">From AirBnB → Earnings → Export CSV. Reservations and Payouts are joined automatically.</div>
+        </div>
+        <div id="import-preview" class="preview" hidden></div>
+      </div>
+    </div>
+
+    <div class="panel" id="export-panel" data-open="false">
+      <div class="panel-inner">
+        <div class="export-controls">
+          <div class="group">
+            <span class="group-label">Exchange rate · daily ECB rate (PHP per USD)</span>
+            <span id="export-fx-note" class="export-fx-note">each line at its own date · weekends use Friday</span>
+          </div>
+          <div class="group">
+            <span class="group-label">CSV amounts in</span>
+            <div class="seg" role="group" aria-label="Currency">
+              <button type="button" id="export-cur-php" data-cur="PHP" aria-pressed="true">PHP</button>
+              <button type="button" id="export-cur-usd" data-cur="USD" aria-pressed="false">USD</button>
+            </div>
+          </div>
+          <div class="group" style="margin-left: auto;">
+            <span class="group-label">&nbsp;</span>
+            <button type="button" id="export-download" class="export-trigger" style="margin-left: 0;">Download CSV</button>
+          </div>
+        </div>
+        <div class="export-totals">
+          <div><span class="lbl">Lines</span> <span class="val" id="export-rowcount">0</span></div>
+          <div><span class="lbl">Owner net</span> <span class="val" id="export-net">—</span></div>
+        </div>
+        <div class="export-preview" id="export-preview" role="table" aria-label="Moneydance export preview">
+          <div class="head" style="display: contents">
+            <div>Date</div>
+            <div>Description</div>
+            <div>Account</div>
+            <div class="col-num">Amount</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="data-table-scroll">
+      <table class="data-table" id="bookings-table" aria-label="Bookings this month">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="num">Nights</th>
+            <th class="col-guest">Guest</th>
+            <th class="num">Gross PHP</th>
+          </tr>
+        </thead>
+        <tbody id="bookings-list"></tbody>
+      </table>
+    </div>
+    <div class="state" id="bookings-empty" hidden>No bookings this month.</div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="title">Other this month</span>
+      <span class="meta" id="other-meta"></span>
+      <div class="actions">
+        <button type="button" class="action" id="adj-toggle" aria-expanded="false"
+                aria-controls="adj-panel" hidden>Add adjustment</button>
+      </div>
+    </div>
+    <div class="panel" id="adj-panel" data-open="false">
+      <div class="panel-inner">
+        <form id="adj-form" class="adj-form">
+          <div class="adj-fields">
+            <label>Date <input type="date" id="adj-date" required></label>
+            <label>Description <input type="text" id="adj-desc" required placeholder="e.g. Guest refund, broken kettle"></label>
+            <label>Amount PHP
+              <input type="number" id="adj-amount" inputmode="decimal" step="0.01" required
+                     placeholder="Negative = refund · positive = reimbursement">
+            </label>
+            <label>Moneydance account
+              <select id="adj-account" required></select>
+            </label>
+          </div>
+          <div class="preview-actions">
+            <button type="button" id="adj-cancel">Cancel</button>
+            <button type="submit" class="commit" id="adj-save">Save</button>
+          </div>
+          <div id="adj-error" class="state error" hidden></div>
+        </form>
+      </div>
+    </div>
+    <table class="data-table" id="other-table" aria-label="Other costs and adjustments">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th class="col-cat">Category</th>
+          <th class="num">Gross PHP</th>
+        </tr>
+      </thead>
+      <tbody id="other-body"></tbody>
+    </table>
+    <div class="state" id="other-empty" hidden>Nothing else this month.</div>
+  </section>
+
+  </div><!-- /#view-month -->
+
+  <!-- ──────── Quarter view ──────── -->
+  <div id="view-quarter" class="view" hidden>
+
+  <section class="hero" id="hero-quarter">
+    <div class="property">The Beacon · Manila</div>
+    <div class="month-stack">
+      <span class="month-name" id="q-name">Q—</span>
+      <span class="year" id="q-year">—</span>
+      <div class="month-nav">
+        <button type="button" id="q-prev" class="month-step" title="Previous quarter">←</button>
+        <button type="button" id="q-next" class="month-step" title="Next quarter">→</button>
+      </div>
+    </div>
+  </section>
+
+    <section>
+      <div class="section-head"><span class="title">AirBnB deposits</span></div>
+      <table class="data-table">
+        <thead><tr>
+          <th>Month</th><th></th>
+          <th class="num">Nights</th><th class="num">Net to bank</th>
+        </tr></thead>
+        <tbody id="q-deposits"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-head"><span class="title">Service fees &amp; expenses</span></div>
+      <table class="data-table">
+        <thead><tr>
+          <th>Date</th><th>Description</th>
+          <th class="num">VAT</th><th class="num">Gross PHP</th>
+        </tr></thead>
+        <tbody id="q-charges"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <span class="title">Collections</span>
+        <div class="actions">
+          <button type="button" class="action" id="stmt-toggle" aria-expanded="false"
+                  aria-controls="stmt-panel" hidden>Verify invoice</button>
+          <button type="button" class="action" id="pay-toggle" aria-expanded="false"
+                  aria-controls="pay-panel" hidden>Add payment</button>
+        </div>
+      </div>
+
+      <div class="panel" id="stmt-panel" data-open="false">
+        <div class="panel-inner">
+          <div id="stmt-dropzone" class="dropzone">
+            <div>Drop the Always Home statement PDF here</div>
+            <button type="button" class="pick" id="stmt-pick">Pick file</button>
+            <input type="file" id="stmt-file" accept="application/pdf" hidden>
+            <div class="hint">Parsed server-side. The PDF is archived in the airbnb-statements bucket; parse output is reconciled line-by-line against the app's computed totals.</div>
+          </div>
+          <div id="stmt-result" class="state" hidden></div>
+        </div>
+      </div>
+
+      <div class="panel" id="pay-panel" data-open="false">
+        <div class="panel-inner">
+          <form id="pay-form" class="adj-form">
+            <div class="adj-fields">
+              <label>Paid <input type="date" id="pay-date" required></label>
+              <label>Amount PHP <input type="number" id="pay-amount" inputmode="decimal" step="0.01" required min="0.01"></label>
+              <label>Method <input type="text" id="pay-method" placeholder="BDO transfer / GCash"></label>
+              <label>Reference <input type="text" id="pay-ref" placeholder="(optional)"></label>
+            </div>
+            <div class="preview-actions">
+              <button type="button" id="pay-cancel">Cancel</button>
+              <button type="submit" class="commit" id="pay-save">Record payment</button>
+            </div>
+            <div id="pay-error" class="state error" hidden></div>
+          </form>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead><tr>
+          <th>Date</th><th>Description</th>
+          <th></th><th class="num">PHP</th>
+        </tr></thead>
+        <tbody id="q-collections"></tbody>
+      </table>
+    </section>
+  </div><!-- /#view-quarter -->
+
+  <!-- ──────── Year view (multi-year trends) ──────── -->
+  <div id="view-year" class="view" hidden>
+
+  <section class="hero" id="hero-year">
+    <div class="property">The Beacon · Manila</div>
+    <div class="month-stack">
+      <span class="month-name" id="y-name">—</span>
+      <span class="year" id="y-range">—</span>
+      <div class="month-nav">
+        <button type="button" id="y-prev" class="month-step" title="Previous year">←</button>
+        <button type="button" id="y-next" class="month-step" title="Next year">→</button>
+      </div>
+    </div>
+  </section>
+
+    <section class="trend">
+      <div class="block-head">
+        <div class="bh-value" id="y1-num">—</div>
+        <div class="bh-cap" id="y1-cap">Net income & occupancy</div>
+      </div>
+      <div class="trend-chart" id="y1-chart"></div>
+    </section>
+
+    <section class="trend">
+      <div class="block-head">
+        <div class="bh-value" id="y3-num">—</div>
+        <div class="bh-cap" id="y3-cap">Cost per booked night: owner take divided by nights</div>
+      </div>
+      <div class="trend-chart" id="y3-chart"></div>
+    </section>
+
+    <section class="trend">
+      <div class="block-head">
+        <div class="bh-value" id="y4-num">—</div>
+        <div class="bh-cap" id="y4-cap">Utilities & overhead as % of gross</div>
+      </div>
+      <div class="trend-chart" id="y4-chart"></div>
+    </section>
+  </div><!-- /#view-year -->
+
+  <!-- ──────── Settings view ──────── -->
+  <div id="view-settings" class="view" hidden>
+
+    <section>
+      <div class="section-head">
+        <span class="title">Contracts</span>
+        <span class="meta">Effective-dated fee schedules</span>
+      </div>
+      <div class="settings-table" id="set-contracts"></div>
+      <form class="settings-add" id="set-contract-add">
+        <input type="date" name="effective_from" required title="From">
+        <input type="date" name="effective_to" placeholder="To (optional)">
+        <input type="number" name="airbnb_host_fee_pct" step="0.0001" min="0" max="1" placeholder="AirBnB %" value="0.03">
+        <input type="number" name="cleaning_fee_php" step="0.01" min="0" placeholder="Cleaning ₱" value="803.57">
+        <input type="number" name="cleaning_vat_pct" step="0.0001" min="0" max="1" placeholder="Cleaning VAT" value="0.12">
+        <input type="number" name="mgmt_fee_pct" step="0.0001" min="0" max="1" placeholder="Mgmt %" value="0.25">
+        <input type="number" name="mgmt_vat_pct" step="0.0001" min="0" max="1" placeholder="Mgmt VAT" value="0.12">
+        <button type="submit">Add era</button>
+      </form>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <span class="title">Exchange rates</span>
+        <span class="meta">Daily USD → PHP · auto (ECB ref · most recent 120 · weekends carry Friday)</span>
+      </div>
+      <div class="settings-table" id="set-fx"></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <span class="title">Expense categories</span>
+        <span class="meta">Maps each category to a Moneydance account</span>
+      </div>
+      <div class="settings-table" id="set-cats"></div>
+      <form class="settings-add" id="set-cat-add">
+        <input type="text" name="slug" required placeholder="slug (e.g. internet)">
+        <input type="text" name="label" required placeholder="Label">
+        <input type="text" name="default_moneydance_account" required placeholder="Moneydance account">
+        <label class="settings-check"><input type="checkbox" name="default_has_vat"> Has VAT</label>
+        <button type="submit">Add</button>
+      </form>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <span class="title">Moneydance accounts</span>
+        <span class="meta">Canonical account strings used by the export</span>
+      </div>
+      <div class="settings-table" id="set-md"></div>
+      <form class="settings-add" id="set-md-add">
+        <input type="text" name="account_path" required placeholder="Rental Expenses:…">
+        <input type="text" name="use_for" placeholder="use_for (e.g. cleaning)">
+        <button type="submit">Add</button>
+      </form>
+    </section>
+  </div><!-- /#view-settings -->
+
+  <div class="state" id="state-loading" hidden>loading…</div>
+  <div class="state error" id="state-error" hidden></div>
+</main>
+
+<footer>The Beacon · Manila</footer>
+
+<script src="js/supabase-config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script type="module">
+import {
+  supabase, getAAL, signOut, getCurrentRole, hasMinRole,
+} from './js/supabase-client.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+import { mountChartSync } from './js/chart-sync.js'
+import {
+  getProperty, listFeeSchedules,
+  listBookingsForMonth, listExpensesForMonth,
+  listFreestandingAdjustmentsForMonth, listAvailableMonths,
+  scheduleForDate, deriveFees, fxRateForDate, fxRatesForDates,
+  existingConfirmationCodes, importBookingsAndPayouts,
+  setCleaningAdjustment, clearCleaningAdjustment,
+  addFreestandingAdjustment, deleteFreestandingAdjustment,
+  listMoneydanceAccounts,
+  quarterForMonth, listBookingsForQuarter, listExpensesForQuarter,
+  listMgmtPaymentsForQuarter, getStatementForQuarter, addMgmtPayment,
+  uploadStatementPdf, parseStatementPdf, upsertStatement,
+  ensureFxRateForDate,
+  listAllFxRates, deleteFxRate,
+  addFeeSchedule, deleteFeeSchedule,
+  addExpenseCategory, deleteExpenseCategory,
+  addMoneydanceAccount, deleteMoneydanceAccount,
+  listAllBookings, listAllExpenses,
+} from './js/airbnb-client.js'
+import Papa from 'https://esm.sh/papaparse@5.4.1'
+import * as Plot from 'https://esm.sh/@observablehq/plot@0.6'
+
+/* ── State ─────────────────────────────────────────────────────────── */
+let availableMonths = []   // descending
+let currentMonth = null    // YYYY-MM
+let availableYears = []     // ascending; Year view pages one year at a time
+let currentYear = null      // number
+let feeSchedules = []
+let role = null
+let canWrite = false
+let _didIntroAnim = false
+
+/* ── Shared page framework ─────────────────────────────────────────
+   Airbnb supplies only its content: the ribbon words, the three
+   period tabs, the Settings cog (a shell-level destination, not a
+   tab), and the strip (via pushStrip). The strip is the SAME four
+   measures on every tab, recomputed for the active period. */
+const hub = mountHubHeader({
+  app: 'AirBnB',
+  eyebrow: 'Family Hub · AirBnB',
+  grace: 'Manila, by the night.',
+  tabs: [
+    { id: 'month',   label: 'Month' },
+    { id: 'quarter', label: 'Quarter' },
+    { id: 'year',    label: 'Year' },
+  ],
+  gear: { label: 'Settings', onClick: () => switchView('settings') },
+  onTab: (view) => switchView(view),
+})
+
+const daysInYear = y => ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) ? 366 : 365
+
+// The uniform strip. Owner-net USD is daily-FX accurate: each
+// booking's PHP owner net converted at its start-date rate (the
+// export's daily model), summed over the period. Same shape for
+// month, quarter and year, only the booking set + day count differ.
+async function stripStats(bookings, daysInPeriod, schedules = feeSchedules) {
+  let gross = 0, nights = 0
+  const rows = []
+  for (const b of bookings) {
+    const f = deriveFees(b, scheduleForDate(schedules, b.start_date))
+    gross += f.gross
+    nights += b.nights
+    rows.push({ date: b.start_date, net: f.net_to_owner })
+  }
+  let usd = NaN
+  try {
+    const fxAt = await fxRatesForDates([...new Set(rows.map(r => r.date))])
+    usd = rows.reduce((s, r) => s + r.net / fxAt(r.date), 0)
+  } catch (e) { console.warn('strip FX resolve failed', e) }
+  const occ = (nights && daysInPeriod) ? Math.round((nights / daysInPeriod) * 100) : 0
+  return { gross, nights, usd, occ, daysInPeriod, count: bookings.length }
+}
+
+function pushStrip(s) {
+  hub.setStrip({
+    hero: {
+      value: Number.isFinite(s.usd) ? fmtUSD(s.usd) : '—',
+      label: 'Owner net USD',
+    },
+    stats: [
+      { label: 'Gross PHP', value: fmtPHP(s.gross),
+        context: s.nights ? `ADR ₱${Math.round(s.gross / s.nights).toLocaleString('en-US')}` : '' },
+      { label: 'Nights', value: String(s.nights || 0),
+        context: s.count ? `${s.count} ${s.count === 1 ? 'booking' : 'bookings'}` : '' },
+      { label: 'Occupancy', value: s.nights ? `${s.occ}%` : '—',
+        context: s.nights ? `${s.nights} of ${s.daysInPeriod} nights` : '' },
+    ],
+  })
+}
+
+/* ── Page-load orchestration (GSAP, brief: under 700ms total) ────── */
+function runIntroAnim() {
+  if (_didIntroAnim || typeof gsap === 'undefined') return
+  _didIntroAnim = true
+  // Set initial hidden state right before the timeline so a render
+  // race doesn't leave elements stuck invisible.
+  const els = [
+    '#hero-month .property',
+    '#hero-month .month-name',
+    '#hero-month .year',
+    '#hero-month .month-nav',
+    '#view-month .section-head',
+  ].flatMap(sel => Array.from(document.querySelectorAll(sel)))
+  if (!els.length) return
+  gsap.set(els, { opacity: 0, y: 8 })
+  // Booking rows: cap the stagger at first 6 — pages with 30+
+  // bookings would otherwise overshoot the 700ms budget.
+  // Parent rows only; <tr> transforms are unreliable, so fade (no y).
+  const rows = Array.from(document.querySelectorAll('#view-month tr.row-parent')).slice(0, 6)
+  gsap.set(rows, { opacity: 0 })
+
+  const tl = gsap.timeline({ defaults: { ease: 'power2.out' } })
+  tl.to('#hero-month .property', { opacity: 1, y: 0, duration: 0.25 })
+    .to('#hero-month .month-name', { opacity: 1, y: 0, duration: 0.4 }, '-=0.1')
+    .to('#hero-month .year',       { opacity: 1, y: 0, duration: 0.3 }, '-=0.25')
+    .to('#hero-month .month-nav',  { opacity: 1, y: 0, duration: 0.3 }, '-=0.2')
+    .to('#view-month .section-head', { opacity: 1, y: 0, duration: 0.3, stagger: 0.06 }, '-=0.15')
+    .to(rows,                      { opacity: 1, duration: 0.35, stagger: 0.04 }, '-=0.2')
+}
+
+/* ── Custom cursor (matches the rest of the Hub) ──────────────────── */
+const cursor = document.querySelector('.cursor')
+const ring   = document.querySelector('.cursor-ring')
+let mx = 0, my = 0, rx = 0, ry = 0
+if (matchMedia('(pointer: fine)').matches) {
+  addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY })
+  const tick = () => {
+    rx += (mx - rx) * 0.18; ry += (my - ry) * 0.18
+    cursor.style.left = mx + 'px'; cursor.style.top = my + 'px'
+    ring.style.left   = rx + 'px'; ring.style.top   = ry + 'px'
+    requestAnimationFrame(tick)
+  }
+  tick()
+  const enlarge   = () => { ring.style.width = '52px'; ring.style.height = '52px' }
+  const restore   = () => { ring.style.width = '32px'; ring.style.height = '32px' }
+  document.addEventListener('pointerover', e => {
+    if (e.target.closest('button, a, [role="button"]')) enlarge()
+    else restore()
+  })
+}
+
+/* ── Formatters ───────────────────────────────────────────────────── */
+const MONTH_LONG  = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const fmtPHP = n => n == null ? '—' : '₱' + Math.round(n).toLocaleString('en-US')
+const fmtUSD = n => n == null ? '—' : '$' + Math.round(n).toLocaleString('en-US')
+const fmtDay = d => {
+  const [y, m, dd] = d.split('-').map(Number)
+  return `${dd} ${MONTH_SHORT[m-1]}`
+}
+const daysInMonth = ym => {
+  const [y, m] = ym.split('-').map(Number)
+  return new Date(Date.UTC(y, m, 0)).getUTCDate()
+}
+// The date the hero FX rate is resolved as-of: the month's last day,
+// or today if the month is still in progress (D6 daily model).
+const monthEndAsOf = ym => {
+  const end = `${ym}-${String(daysInMonth(ym)).padStart(2, '0')}`
+  const today = new Date().toISOString().slice(0, 10)
+  return end < today ? end : today
+}
+const monthLabel = ym => {
+  const [y, m] = ym.split('-').map(Number)
+  return { month: MONTH_LONG[m - 1], year: y }
+}
+
+/* ── Auth gate (matches utilities.html pattern) ───────────────────── */
+async function gate() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) { location.href = 'hub.html'; return false }
+  const { data: aal } = await getAAL()
+  if (!aal || aal.currentLevel !== 'aal2') { location.href = 'hub.html'; return false }
+  role     = (await getCurrentRole()) || 'child'
+  canWrite = await hasMinRole('parent')
+  return true
+}
+
+/* ── Render: hero band ────────────────────────────────────────────── */
+// The month view's own body head: property + month-name + year + the
+// ← → stepper. The headline figures are the shared header strip now
+// (pushed from loadAndRender via stripStats), not this band.
+function renderHero(month) {
+  const { month: mname, year } = monthLabel(month)
+  document.getElementById('month-name').textContent = mname
+  document.getElementById('year-name').textContent  = year
+}
+
+/* ── Render: bookings list ────────────────────────────────────────── */
+function renderBookings(bookings) {
+  const list  = document.getElementById('bookings-list')
+  list.innerHTML = ''
+  const empty = document.getElementById('bookings-empty')
+  if (!bookings.length) { empty.hidden = false; return }
+  empty.hidden = true
+
+  for (const b of bookings) {
+    const sched = scheduleForDate(feeSchedules, b.start_date)
+    const fees  = deriveFees(b, sched)
+    const adjusted = !!b.booking_adjustments?.length
+    const era = sched.cleaning_vat_pct > 0 ? 'Era 2 · 12% VAT' : 'Era 1 · pre-VAT'
+    const eraLabel = `Contract era ${fees.era_label}`
+
+    // Parent row: Date · Nights · Guest · Gross PHP — matches the head
+    // exactly. Era moved out of the row; it lives in the detail only.
+    const parent = document.createElement('tr')
+    parent.className = 'row-parent' + (adjusted ? ' is-adj' : '')
+    parent.tabIndex = 0
+    parent.setAttribute('aria-expanded', 'false')
+    parent.innerHTML = `
+      <td class="label"><span class="row-chevron" aria-hidden="true"></span>${fmtDay(b.start_date)}</td>
+      <td class="num">${b.nights}</td>
+      <td class="col-guest">${escapeHtml(b.guest_name || '—')}</td>
+      <td class="num">${fmtPHP(fees.gross)}</td>
+    `
+
+    const detail = document.createElement('tr')
+    detail.className = 'row-detail'
+    detail.dataset.open = 'false'
+    detail.innerHTML = `
+      <td colspan="4">
+        <div class="row-detail__inner"><div class="booking-detail">
+          <div class="breakdown" aria-label="Fee breakdown">
+            <div class="label">Gross earnings</div><div class="value">${fmtPHP(fees.gross)}</div>
+            <div class="label neg">AirBnB host fee (${pct(sched.airbnb_host_fee_pct)})</div>
+              <div class="value">${fmtPHP(fees.airbnb_fee)}</div>
+            <div class="rule"></div>
+            <div class="label">Net to bank (BPI)</div><div class="value">${fmtPHP(fees.net_to_bank)}</div>
+            <div class="label neg">Cleaning${adjusted ? ' · adjusted' : ''}</div>
+              <div class="value">${fmtPHP(fees.cleaning_gross)}</div>
+            ${fees.cleaning_vat > 0 ? `
+              <div class="label neg">Cleaning VAT (${pct(sched.cleaning_vat_pct)})</div>
+                <div class="value">${fmtPHP(fees.cleaning_vat)}</div>` : ''}
+            <div class="label neg">Management fee (${pct(sched.mgmt_fee_pct)} of net less cleaning)</div>
+              <div class="value">${fmtPHP(fees.mgmt_fee_gross)}</div>
+            ${fees.mgmt_vat > 0 ? `
+              <div class="label neg">Management VAT (${pct(sched.mgmt_vat_pct)})</div>
+                <div class="value">${fmtPHP(fees.mgmt_vat)}</div>` : ''}
+            ${canWrite ? `
+              <div class="adjust-row" data-mode="view">
+                ${adjusted
+                  ? `<span>Cleaning override <strong>${fmtPHP(fees.cleaning_gross)}</strong>${b.booking_adjustments[0].reason ? ' · ' + escapeHtml(b.booking_adjustments[0].reason) : ''}</span>
+                     <button type="button" data-act="edit">Change</button>
+                     <button type="button" data-act="clear">Clear</button>`
+                  : `<button type="button" data-act="edit">Adjust cleaning</button>`}
+              </div>` : ''}
+            <div class="rule"></div>
+            <div class="label total">Owner net</div>
+              <div class="value total">${fmtPHP(fees.net_to_owner)}</div>
+          </div>
+          <div class="era-pill">
+            ${era}
+            <span class="formula">${escapeHtml(eraLabel)}</span>
+            <span class="formula">Confirmation: ${b.confirmation_code.startsWith('legacy-')
+              ? 'legacy (XLS)'
+              : escapeHtml(b.confirmation_code)}</span>
+            ${b.booking_date
+              ? `<span class="formula">Booked ${b.booking_date} · ${daysBetween(b.booking_date, b.start_date)}-day lead</span>`
+              : ''}
+          </div>
+        </div></div>
+      </td>
+    `
+
+    const toggle = () => {
+      const open = parent.getAttribute('aria-expanded') !== 'true'
+      parent.setAttribute('aria-expanded', String(open))
+      detail.dataset.open = String(open)
+    }
+    parent.addEventListener('click', toggle)
+    parent.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
+    })
+
+    // Adjustment controls live in the detail row, a sibling of the
+    // parent, so their clicks never reach the toggle. The stopPropagation
+    // is kept as belt-and-braces against future nesting.
+    const adjustRow = detail.querySelector('.adjust-row')
+    if (adjustRow) {
+      adjustRow.addEventListener('click', e => e.stopPropagation())
+      adjustRow.addEventListener('keydown', e => e.stopPropagation())
+      adjustRow.addEventListener('click', async e => {
+        const act = e.target.dataset?.act
+        if (act === 'edit')  return enterEditAdjustment(adjustRow, b, fees)
+        if (act === 'clear') return clearAdjustment(b)
+      })
+    }
+
+    list.appendChild(parent)
+    list.appendChild(detail)
+  }
+  document.getElementById('bookings-meta').textContent =
+    `${bookings.length} ${bookings.length === 1 ? 'booking' : 'bookings'}`
+}
+
+function enterEditAdjustment(rowEl, booking, fees) {
+  const current = fees.cleaning_gross
+  rowEl.dataset.mode = 'edit'
+  rowEl.classList.add('editing')
+  rowEl.innerHTML = `
+    <span>New cleaning ₱</span>
+    <input type="number" inputmode="decimal" step="0.01" id="adj-amt" value="${current.toFixed(2)}">
+    <input type="text" id="adj-reason" class="wide" placeholder="Reason (required)">
+    <button type="button" class="save" data-act="save">Save</button>
+    <button type="button" data-act="cancel">Cancel</button>
+  `
+  rowEl.querySelector('#adj-amt').focus()
+  rowEl.addEventListener('click', async e => {
+    const act = e.target.dataset?.act
+    if (act === 'cancel') { await loadAndRender(); return }
+    if (act === 'save') {
+      const amt = parseFloat(rowEl.querySelector('#adj-amt').value)
+      const reason = rowEl.querySelector('#adj-reason').value.trim()
+      if (!reason)  { rowEl.querySelector('#adj-reason').focus(); return }
+      if (!(amt >= 0)) { rowEl.querySelector('#adj-amt').focus(); return }
+      e.target.disabled = true; e.target.textContent = 'Saving…'
+      try {
+        await setCleaningAdjustment(booking.id, amt, reason)
+        await loadAndRender()
+      } catch (err) {
+        e.target.disabled = false; e.target.textContent = 'Save'
+        const errLine = document.createElement('span')
+        errLine.className = 'pending'
+        errLine.textContent = `Failed: ${err.message || err}`
+        rowEl.appendChild(errLine)
+      }
+    }
+  }, { once: false })
+}
+
+async function clearAdjustment(booking) {
+  if (!confirm('Remove cleaning adjustment for this booking?')) return
+  try {
+    await clearCleaningAdjustment(booking.id)
+    await loadAndRender()
+  } catch (e) {
+    alert(`Couldn't clear adjustment: ${e.message || e}`)
+  }
+}
+
+function pct(n) { return `${(Number(n) * 100).toFixed(0)}%` }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]))
+}
+function daysBetween(a, b) {
+  const da = new Date(a + 'T00:00:00Z'), db = new Date(b + 'T00:00:00Z')
+  return Math.round((db - da) / 86400000)
+}
+
+/* ── Render: other this month ─────────────────────────────────────── */
+function renderOther(expenses, adjustments) {
+  const body = document.getElementById('other-body')
+  body.innerHTML = ''
+  const empty = document.getElementById('other-empty')
+  const total = expenses.length + adjustments.length
+  if (!total) { empty.hidden = false; return }
+  empty.hidden = true
+
+  const addRow = (date, desc, amount, cat) => {
+    const tr = document.createElement('tr')
+    const td = (text, cls = '') => {
+      const el = document.createElement('td')
+      if (cls) el.className = cls
+      el.textContent = text
+      tr.appendChild(el)
+    }
+    td(date, 'label')
+    td(desc)
+    td(cat, 'col-cat')
+    td(fmtPHP(amount), 'num')
+    body.appendChild(tr)
+  }
+
+  for (const e of expenses) {
+    addRow(fmtDay(e.incurred_date), e.description,
+           Number(e.gross_php) + Number(e.vat_php),
+           e.expense_categories?.label || e.expense_categories?.slug || '')
+  }
+  for (const a of adjustments) {
+    addRow(fmtDay(a.occurred_date), a.description + ' · adjustment',
+           a.amount_php, 'adjustment')
+  }
+  document.getElementById('other-meta').textContent =
+    `${total} ${total === 1 ? 'line' : 'lines'}`
+}
+
+/* ── Month navigation ─────────────────────────────────────────────── */
+function setMonth(month) {
+  if (!availableMonths.includes(month)) return
+  currentMonth = month
+  // Toggle nav button enabled state. availableMonths is descending: index 0 is most recent.
+  const i = availableMonths.indexOf(month)
+  document.getElementById('month-prev').disabled = i >= availableMonths.length - 1
+  document.getElementById('month-next').disabled = i <= 0
+  // Close the export panel — it has stale data for the prior month.
+  const xp = document.getElementById('export-panel')
+  const xt = document.getElementById('export-trigger')
+  if (xp && xp.dataset.open === 'true') {
+    xp.dataset.open = 'false'
+    xt?.setAttribute('aria-expanded', 'false')
+  }
+  loadAndRender()
+}
+
+async function loadAndRender() {
+  const myTok = ++stripToken
+  const loading = document.getElementById('state-loading')
+  const errEl   = document.getElementById('state-error')
+  const lbTimer = setTimeout(() => { loading.hidden = false }, 200)
+  errEl.hidden = true
+  try {
+    const [bookings, expenses, adjustments] = await Promise.all([
+      listBookingsForMonth(currentMonth),
+      listExpensesForMonth(currentMonth),
+      listFreestandingAdjustmentsForMonth(currentMonth),
+    ])
+    if (myTok !== stripToken) return   // superseded by a newer switch
+    renderHero(currentMonth)
+    const s = await stripStats(bookings, daysInMonth(currentMonth))
+    if (myTok !== stripToken) return
+    pushStrip(s)
+    renderBookings(bookings)
+    renderOther(expenses, adjustments)
+    // First successful render kicks off the intro animation.
+    runIntroAnim()
+  } catch (e) {
+    console.error(e)
+    errEl.textContent = `Couldn't load ${currentMonth}: ${e.message || e}`
+    errEl.hidden = false
+  } finally {
+    clearTimeout(lbTimer); loading.hidden = true
+  }
+}
+
+/* ── CSV import ───────────────────────────────────────────────────── */
+
+// Parses an AirBnB host-dashboard CSV into { bookings, payouts }.
+// Mirrors scripts/import_legacy_airbnb.py: each booking appears as a
+// Reservation row + one or more Payout rows in the same CSV, joined
+// by amount (gross − service_fee = paid_out) within 14 days, ±₱1.
+async function parseAirbnbCsv(file, propertyId) {
+  const text = await file.text()
+  const { data, errors } = Papa.parse(text, { header: true, skipEmptyLines: true })
+  if (errors.length) {
+    throw new Error('CSV parse error: ' + errors[0].message)
+  }
+  const toIso = mdy => {
+    if (!mdy) return null
+    const [m, d, y] = mdy.split('/').map(Number)
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  }
+  const num = v => {
+    if (!v) return 0
+    return parseFloat(String(v).replace(/[,\s₱]/g, '').replace(/^PHP/, '')) || 0
+  }
+  const bookings = []
+  const payouts  = []
+  for (const r of data) {
+    const type = (r.Type || '').trim()
+    if (type === 'Reservation') {
+      bookings.push({
+        property_id: propertyId,
+        confirmation_code: (r['Confirmation code'] || '').trim(),
+        guest_name: (r.Guest || '').trim() || null,
+        listing:    (r.Listing || '').trim() || null,
+        booking_date: toIso(r['Booking date']),
+        start_date:   toIso(r['Start date']),
+        end_date:     toIso(r['End date']),
+        nights: parseInt(r.Nights || '0', 10),
+        currency: (r.Currency || 'PHP').trim(),
+        gross_earnings_php:      num(r['Gross earnings']),
+        airbnb_service_fee_php:  num(r['Service fee']),
+        fast_pay_fee_php:        num(r['Fast pay fee']),
+        cleaning_fee_php:        num(r['Cleaning fee']),
+        airbnb_remitted_tax_php: num(r['Airbnb remitted tax']),
+        source: 'airbnb_csv',
+        raw_csv_row: r,
+      })
+    } else if (type === 'Payout') {
+      payouts.push({
+        property_id: propertyId,
+        payout_date:       toIso(r.Date),
+        arriving_by_date:  toIso(r['Arriving by date']),
+        amount_php:        num(r['Paid out']),
+        payout_destination:(r.Details || '').trim() || null,
+        reference_code:    (r['Reference code'] || '').trim() || null,
+        source: 'airbnb_csv',
+        raw_csv_row: r,
+        _match_code: null,
+      })
+    }
+  }
+  // Pair payouts to bookings (±₱1, within 14d). Multiple payouts can
+  // legitimately match one booking — that's expected.
+  for (const p of payouts) {
+    let best = null
+    for (const b of bookings) {
+      const net = Math.round((b.gross_earnings_php - b.airbnb_service_fee_php) * 100) / 100
+      const diff = Math.abs(net - p.amount_php)
+      if (diff > 1.0) continue
+      const days = Math.abs((new Date(p.payout_date) - new Date(b.start_date)) / 86400000)
+      if (days > 14) continue
+      if (!best || diff < best.diff) best = { diff, b }
+    }
+    if (best) p._match_code = best.b.confirmation_code
+  }
+  // Dedup bookings on confirmation_code (some bookings appear in the
+  // CSV multiple times when AirBnB issued multiple payouts).
+  const seen = new Set()
+  const unique = []
+  for (const b of bookings) {
+    if (seen.has(b.confirmation_code)) continue
+    seen.add(b.confirmation_code)
+    unique.push(b)
+  }
+  return { bookings: unique, payouts }
+}
+
+let _parsedImport = null   // last preview's parsed data
+
+async function handleImportFile(file) {
+  const preview = document.getElementById('import-preview')
+  preview.hidden = false
+  preview.innerHTML = `<div class="state">Parsing ${escapeHtml(file.name)}…</div>`
+  let parsed
+  try {
+    const prop = await getProperty()
+    parsed = await parseAirbnbCsv(file, prop.id)
+  } catch (e) {
+    preview.innerHTML = `<div class="state error">${escapeHtml(e.message || String(e))}</div>`
+    return
+  }
+  // Dedup against the DB.
+  const codes = parsed.bookings.map(b => b.confirmation_code).filter(Boolean)
+  const existing = await existingConfirmationCodes(codes)
+  const fresh    = parsed.bookings.filter(b => !existing.has(b.confirmation_code))
+  const dups     = parsed.bookings.filter(b =>  existing.has(b.confirmation_code))
+  _parsedImport = { fresh, dups, payouts: parsed.payouts }
+
+  // Render preview.
+  const rows = []
+  for (const b of fresh) {
+    rows.push(`
+      <div class="row">
+        <div>${fmtDay(b.start_date)}</div>
+        <div class="col-num">${b.nights}</div>
+        <div>${escapeHtml(b.guest_name || '—')}</div>
+        <div>${escapeHtml(b.confirmation_code)}</div>
+        <div class="col-num">${fmtPHP(b.gross_earnings_php)}</div>
+      </div>`)
+  }
+  for (const b of dups) {
+    rows.push(`
+      <div class="row dup">
+        <div>${fmtDay(b.start_date)}</div>
+        <div class="col-num">${b.nights}</div>
+        <div>${escapeHtml(b.guest_name || '—')}</div>
+        <div>${escapeHtml(b.confirmation_code)}</div>
+        <div class="col-status">already imported</div>
+      </div>`)
+  }
+  preview.innerHTML = `
+    <div class="preview-summary">
+      <div class="cell"><span class="num">${fresh.length}</span>
+                        <span class="lbl">New bookings</span></div>
+      <div class="cell"><span class="num skip">${dups.length}</span>
+                        <span class="lbl">Already imported</span></div>
+      <div class="cell"><span class="num">${parsed.payouts.length}</span>
+                        <span class="lbl">Payouts in file</span></div>
+    </div>
+    ${rows.length ? `
+      <div class="preview-rows" role="table">
+        <div class="head" style="display: contents">
+          <div>Date</div><div class="col-num">Nights</div><div>Guest</div>
+          <div>Code</div><div class="col-num">Gross / Status</div>
+        </div>
+        ${rows.join('')}
+      </div>` : '<div class="state">No bookings parsed.</div>'}
+    <div class="preview-actions">
+      <button type="button" id="import-cancel">Cancel</button>
+      <button type="button" id="import-commit" class="commit"
+              ${fresh.length === 0 ? 'disabled' : ''}>Import ${fresh.length}</button>
+    </div>
+  `
+  document.getElementById('import-cancel').addEventListener('click', () => {
+    _parsedImport = null
+    preview.hidden = true; preview.innerHTML = ''
+    document.getElementById('import-file').value = ''
+  })
+  document.getElementById('import-commit').addEventListener('click', commitImport)
+}
+
+async function commitImport() {
+  if (!_parsedImport) return
+  const btn = document.getElementById('import-commit')
+  btn.disabled = true
+  btn.textContent = 'Importing…'
+  try {
+    const { fresh, payouts } = _parsedImport
+    const result = await importBookingsAndPayouts(fresh, payouts)
+    btn.textContent = `Imported ${result.bookingsInserted} · ${result.payoutsInserted} payouts`
+    _parsedImport = null
+    // Refresh data so the new month appears in the month list, and
+    // re-render the current view.
+    availableMonths = await listAvailableMonths()
+    await loadAndRender()
+    // Close panel after a beat so Patrick sees the success.
+    setTimeout(() => {
+      document.getElementById('import-panel').dataset.open = 'false'
+      document.getElementById('import-toggle').setAttribute('aria-expanded', 'false')
+      document.getElementById('import-preview').hidden = true
+      document.getElementById('import-preview').innerHTML = ''
+      document.getElementById('import-file').value = ''
+    }, 1400)
+  } catch (e) {
+    console.error(e)
+    btn.disabled = false
+    btn.textContent = `Retry`
+    const errLine = document.createElement('div')
+    errLine.className = 'state error'
+    errLine.textContent = `Couldn't import: ${e.message || e}`
+    document.getElementById('import-preview').appendChild(errLine)
+  }
+}
+
+/* ── Views switcher ───────────────────────────────────────────────── */
+
+let currentView = 'month'
+// Monotonic token: each period load bumps it and captures the value;
+// after its awaits it only applies if still the latest, so a slower
+// earlier switch can't overwrite a faster later one (the strip went
+// stale on fast Month/Quarter/Year switching).
+let stripToken = 0
+
+/* The Year view's three charts get the SAME synchronized month-guide +
+   hover readout as utilities, via the shared controller (js/chart-sync.js).
+   Airbnb supplies only what a month means here: which SVGs, the readout
+   HTML, and the bar highlight colour. yearSlots is the latest renderYear
+   per-month data, read by the readout. */
+let yearSlots = []
+let yearOf = null
+const YEAR_BAR_HI = 'oklch(0.80 0.165 52)'   // ochre lift, accent hue
+const yearSync = mountChartSync({
+  svgs: () => currentView !== 'year' ? []
+    : ['y1-chart', 'y3-chart', 'y4-chart']
+        .map(id => document.getElementById(id)?.querySelector('svg'))
+        .filter(Boolean),
+  readout: (mo) => {
+    const s = yearSlots.find(r => r.mo === mo)
+    if (!s) return null
+    const row = (k, v) => `<span class="cr-row">${k}<span class="cr-v">${v}</span></span>`
+    if (!s.active) {
+      return `<span class="cr-key">${mo} ${yearOf}</span>`
+        + `<span class="cr-row">No bookings</span>`
+    }
+    return `<span class="cr-key">${mo} ${yearOf}</span>`
+      + row('Net to owner', fmtPHP(s.net))
+      + row('Occupancy', `${Math.round(s.occ * 100)}%`)
+      + row('Nights', String(s.nights))
+      + row('Per night', fmtPHP(s.perNight))
+      + row('Overhead', `${s.ohPct.toFixed(1)}%`)
+  },
+  barRamp: () => YEAR_BAR_HI,
+})
+function scheduleYearSync() {
+  requestAnimationFrame(() => requestAnimationFrame(() => yearSync.refresh()))
+}
+let currentQuarterAnchor = null   // YYYY-MM inside the visible quarter
+
+function switchView(view) {
+  if (!['month', 'quarter', 'year', 'settings'].includes(view)) return
+  currentView = view
+  // The shared header owns tab aria-current. Tabs are the data lens;
+  // Settings is a shell-level destination (the cog), never a tab, so
+  // in Settings no tab is highlighted and the cog carries
+  // aria-current. The strip is app-wide and recomputed per view by
+  // each loadAndRender*, so there is nothing view-specific to clear.
+  if (view === 'settings') hub.clearActive()
+  else hub.setTab(view)
+  if (hub.gearEl) {
+    hub.gearEl.setAttribute('aria-current', view === 'settings' ? 'true' : 'false')
+  }
+  document.getElementById('view-month').hidden    = view !== 'month'
+  document.getElementById('view-quarter').hidden  = view !== 'quarter'
+  document.getElementById('view-year').hidden     = view !== 'year'
+  document.getElementById('view-settings').hidden = view !== 'settings'
+  if (view === 'month')    loadAndRender()
+  if (view === 'quarter') {
+    if (!currentQuarterAnchor) currentQuarterAnchor = currentMonth
+    loadAndRenderQuarter()
+  }
+  if (view === 'year')     loadAndRenderYear()
+  if (view === 'settings') loadAndRenderSettings()
+  // Leaving Year tears the synced guide down (refresh with no svgs
+  // removes the document listener + overlay lines).
+  if (view !== 'year') yearSync.refresh()
+}
+
+/* ── Quarter view render ──────────────────────────────────────────── */
+
+function quarterLabel(anchor) {
+  const q = quarterForMonth(anchor)
+  return { name: `Q${q.qIdx + 1}`, year: q.year, range: q }
+}
+
+async function loadAndRenderQuarter() {
+  const myTok = ++stripToken
+  if (!currentQuarterAnchor) currentQuarterAnchor = currentMonth
+  const errEl = document.getElementById('state-error')
+  errEl.hidden = true
+  try {
+    const [bookings, expenses, payments, statement] = await Promise.all([
+      listBookingsForQuarter(currentQuarterAnchor),
+      listExpensesForQuarter(currentQuarterAnchor),
+      listMgmtPaymentsForQuarter(currentQuarterAnchor),
+      getStatementForQuarter(currentQuarterAnchor),
+    ])
+    if (myTok !== stripToken) return   // superseded by a newer switch
+    renderQuarter({ bookings, expenses, payments, statement })
+    const q = quarterForMonth(currentQuarterAnchor)
+    const qDays = q.months.reduce((s, m) => s + daysInYM(q.year, m), 0)
+    const s = await stripStats(bookings, qDays)
+    if (myTok !== stripToken) return
+    pushStrip(s)
+  } catch (e) {
+    console.error(e)
+    errEl.textContent = `Couldn't load quarter: ${e.message || e}`
+    errEl.hidden = false
+  }
+}
+
+function renderQuarter({ bookings, expenses, payments, statement }) {
+  const q = quarterForMonth(currentQuarterAnchor)
+  const { name, year, range } = quarterLabel(currentQuarterAnchor)
+  document.getElementById('q-name').textContent = name
+  document.getElementById('q-year').textContent = year
+
+  // Group bookings by month within the quarter.
+  const perMonth = new Map(range.months.map(m => [m, { nights: 0, gross: 0, airbnbFee: 0, cleaning: 0, count: 0 }]))
+  let totalGross = 0, totalNetBank = 0, totalOwed = 0, totalCleaningGross = 0,
+      totalCleaningVat = 0, totalMgmtFee = 0, totalMgmtVat = 0
+  for (const b of bookings) {
+    const sched = scheduleForDate(feeSchedules, b.start_date)
+    const fees = deriveFees(b, sched)
+    const m = parseInt(b.start_date.slice(5, 7), 10)
+    const slot = perMonth.get(m); if (!slot) continue
+    slot.count++; slot.nights += b.nights
+    slot.gross += fees.gross; slot.airbnbFee += fees.airbnb_fee
+    slot.cleaning += fees.cleaning_gross
+    totalGross += fees.gross
+    totalNetBank += fees.net_to_bank
+    totalCleaningGross += fees.cleaning_gross
+    totalCleaningVat += fees.cleaning_vat
+    totalMgmtFee += fees.mgmt_fee_gross
+    totalMgmtVat += fees.mgmt_vat
+  }
+  // Don't double-count: app-computed mgmt + cleaning + VATs come from
+  // bookings; skip those same categories in the imported expense
+  // table when summing for the hero "Owed mgmt" stat.
+  const SKIP_DERIVED_TOTALS = new Set(['cleaning', 'management', 'vat-cleaning', 'vat-management'])
+  const totalExpenses = expenses
+    .filter(e => !SKIP_DERIVED_TOTALS.has(e.expense_categories?.slug))
+    .reduce((s, e) => s + Number(e.gross_php) + Number(e.vat_php || 0), 0)
+  totalOwed = totalCleaningGross + totalCleaningVat + totalMgmtFee + totalMgmtVat + totalExpenses
+
+  // Gross / net-to-bank / owed-mgmt headline cells moved out of the
+  // body: the header strip now carries the uniform period figures.
+  // These totals still feed the detail tables below; net-to-bank and
+  // owed remain visible there.
+  const ttlNights = [...perMonth.values()].reduce((s, x) => s + x.nights, 0)
+  const ttlBookings = [...perMonth.values()].reduce((s, x) => s + x.count, 0)
+  void totalOwed
+
+  // The three quarter sub-tables are the shared .data-table. Each
+  // builder appends <tr> into its <tbody>; the <thead> is static
+  // markup. Cell roles: .label = Migra identity (month), .num =
+  // tabular right, .num.muted = the soft VAT aux column, .strong =
+  // the totals/ledger emphasis row.
+  const trOf = (cells) => {
+    const tr = document.createElement('tr')
+    for (const c of cells) {
+      const td = document.createElement('td')
+      if (c.cls) td.className = c.cls
+      if (c.style) td.style.cssText = c.style
+      td.textContent = c.t ?? ''
+      tr.appendChild(td)
+    }
+    return tr
+  }
+
+  // AirBnB deposits sub-table.
+  const dep = document.getElementById('q-deposits')
+  dep.innerHTML = ''
+  for (const m of range.months) {
+    const s = perMonth.get(m)
+    dep.appendChild(trOf([
+      { t: MONTH_LONG[m - 1], cls: 'label' },
+      { t: `${s.count} ${s.count === 1 ? 'booking' : 'bookings'}` },
+      { t: String(s.nights), cls: 'num' },
+      { t: fmtPHP(s.gross - s.airbnbFee), cls: 'num' },
+    ]))
+  }
+  dep.appendChild(trOf([
+    { t: 'Total', cls: 'strong' }, { t: '' },
+    { t: String(ttlNights), cls: 'num strong' },
+    { t: fmtPHP(totalNetBank), cls: 'num strong' },
+  ]))
+
+  // Service fees & expenses.
+  const chg = document.getElementById('q-charges')
+  chg.innerHTML = ''
+  // Per-month mgmt + cleaning aggregates.
+  for (const m of range.months) {
+    const s = perMonth.get(m)
+    if (s.count === 0) continue
+    const mname = MONTH_SHORT[m - 1]
+    const mFees = bookings.filter(b => parseInt(b.start_date.slice(5,7),10) === m).map(b => {
+      const sched = scheduleForDate(feeSchedules, b.start_date); return deriveFees(b, sched)
+    })
+    const cl    = mFees.reduce((s,f)=>s+f.cleaning_gross,0)
+    const clVat = mFees.reduce((s,f)=>s+f.cleaning_vat,0)
+    const mg    = mFees.reduce((s,f)=>s+f.mgmt_fee_gross,0)
+    const mgVat = mFees.reduce((s,f)=>s+f.mgmt_vat,0)
+    chg.appendChild(trOf([
+      { t: mname, cls: 'label' },
+      { t: 'Management fees (25%)' },
+      { t: clVat > 0 ? fmtPHP(mgVat) : '—', cls: 'num muted' },
+      { t: fmtPHP(mg), cls: 'num' },
+    ]))
+    chg.appendChild(trOf([
+      { t: mname, cls: 'label' },
+      { t: 'Cleaning fees' },
+      { t: clVat > 0 ? fmtPHP(clVat) : '—', cls: 'num muted' },
+      { t: fmtPHP(cl), cls: 'num' },
+    ]))
+  }
+  // Other expenses (utilities, repairs, etc.) — pulled from the
+  // expenses table, one row per entry. Skip cleaning/mgmt/VAT
+  // categories: those are echoes of mgmt-invoice line items that the
+  // app already computes per-booking from fee_schedules and shows
+  // above. Showing both leads to the visual duplication that looked
+  // like a bug in Q1 2026 (the only quarter with a parsed PDF).
+  const SKIP_DERIVED = new Set(['cleaning', 'management', 'vat-cleaning', 'vat-management'])
+  for (const e of expenses) {
+    if (SKIP_DERIVED.has(e.expense_categories?.slug)) continue
+    chg.appendChild(trOf([
+      { t: fmtDay(e.incurred_date) },
+      { t: e.description },
+      { t: Number(e.vat_php) > 0 ? fmtPHP(Number(e.vat_php)) : '—', cls: 'num muted' },
+      { t: fmtPHP(Number(e.gross_php)), cls: 'num' },
+    ]))
+  }
+  chg.appendChild(trOf([
+    { t: 'Total', cls: 'strong' }, { t: '' },
+    { t: fmtPHP(totalCleaningVat + totalMgmtVat), cls: 'num muted strong' },
+    { t: fmtPHP(totalOwed), cls: 'num strong' },
+  ]))
+
+  // Collections ledger.
+  const col = document.getElementById('q-collections')
+  col.innerHTML = ''
+  const opening = statement?.opening_balance_php ?? 0
+  col.appendChild(trOf([
+    { t: '' }, { t: 'Opening balance', cls: 'strong' },
+    { t: '' }, { t: fmtPHP(Number(opening)), cls: 'num' },
+  ]))
+  for (const p of payments) {
+    col.appendChild(trOf([
+      { t: fmtDay(p.paid_at) },
+      { t: `Payment ${p.method ? '· ' + p.method : ''}` },
+      { t: '' },
+      { t: '−' + fmtPHP(Number(p.amount_php)), cls: 'num' },
+    ]))
+  }
+  col.appendChild(trOf([
+    { t: '' }, { t: "This quarter's charges" },
+    { t: '' }, { t: '+' + fmtPHP(totalOwed), cls: 'num' },
+  ]))
+  const paid = payments.reduce((s, p) => s + Number(p.amount_php), 0)
+  const ending = Number(opening) - paid + totalOwed
+  col.appendChild(trOf([
+    { t: '' }, { t: 'Ending balance (computed)', cls: 'strong' },
+    { t: '' }, { t: fmtPHP(ending), cls: 'num strong' },
+  ]))
+  if (statement?.ending_balance_php != null) {
+    const variance = Number(statement.ending_balance_php) - ending
+    const c = Math.abs(variance) < 0.5 ? 'var(--text-muted)' : 'var(--accent)'
+    col.appendChild(trOf([
+      { t: '' },
+      { t: `Variance vs invoice (${fmtPHP(Number(statement.ending_balance_php))})`,
+        style: `color:${c}` },
+      { t: '' },
+      { t: Math.abs(variance) < 0.5 ? 'in sync' : (variance > 0 ? '+' : '') + fmtPHP(variance),
+        cls: 'num', style: `color:${c}` },
+    ]))
+  }
+}
+
+function wireQuarterNav() {
+  document.getElementById('q-prev').addEventListener('click', () => {
+    const q = quarterForMonth(currentQuarterAnchor)
+    const newM = q.months[0] - 1
+    const newY = newM < 1 ? q.year - 1 : q.year
+    const m = newM < 1 ? 12 : newM
+    currentQuarterAnchor = `${newY}-${String(m).padStart(2,'0')}`
+    loadAndRenderQuarter()
+  })
+  document.getElementById('q-next').addEventListener('click', () => {
+    const q = quarterForMonth(currentQuarterAnchor)
+    const newM = q.months[2] + 1
+    const newY = newM > 12 ? q.year + 1 : q.year
+    const m = newM > 12 ? 1 : newM
+    currentQuarterAnchor = `${newY}-${String(m).padStart(2,'0')}`
+    loadAndRenderQuarter()
+  })
+  document.getElementById('y-prev').addEventListener('click', () => {
+    const i = availableYears.indexOf(currentYear)
+    if (i > 0) { currentYear = availableYears[i - 1]; loadAndRenderYear() }
+  })
+  document.getElementById('y-next').addEventListener('click', () => {
+    const i = availableYears.indexOf(currentYear)
+    if (i >= 0 && i < availableYears.length - 1) { currentYear = availableYears[i + 1]; loadAndRenderYear() }
+  })
+}
+
+function wireStatementVerify() {
+  const toggle = document.getElementById('stmt-toggle')
+  const panel  = document.getElementById('stmt-panel')
+  const dz     = document.getElementById('stmt-dropzone')
+  const pick   = document.getElementById('stmt-pick')
+  const file   = document.getElementById('stmt-file')
+  const result = document.getElementById('stmt-result')
+
+  toggle.hidden = !canWrite
+  toggle.addEventListener('click', () => {
+    const next = panel.dataset.open !== 'true'
+    panel.dataset.open = next ? 'true' : 'false'
+    toggle.setAttribute('aria-expanded', next ? 'true' : 'false')
+  })
+  pick.addEventListener('click', () => file.click())
+  file.addEventListener('change', e => {
+    if (e.target.files[0]) handleStatementPdf(e.target.files[0])
+  })
+  ;['dragenter', 'dragover'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over') }))
+  ;['dragleave', 'drop'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over') }))
+  dz.addEventListener('drop', e => {
+    const f = e.dataTransfer.files?.[0]
+    if (f) handleStatementPdf(f)
+  })
+}
+
+async function handleStatementPdf(file) {
+  const result = document.getElementById('stmt-result')
+  result.hidden = false
+  result.className = 'state'
+  result.textContent = `Uploading ${file.name}…`
+  const q = quarterForMonth(currentQuarterAnchor)
+  try {
+    const { storage_path } = await uploadStatementPdf(file, q.start, q.end)
+    result.textContent = 'Parsing PDF on the Edge Function…'
+    const parsed = await parseStatementPdf(storage_path)
+    if (!parsed || parsed.error) throw new Error(parsed?.error || 'Parse returned empty')
+
+    // Compute app-side totals for variance.
+    const [bookings, expenses, payments] = await Promise.all([
+      listBookingsForQuarter(currentQuarterAnchor),
+      listExpensesForQuarter(currentQuarterAnchor),
+      listMgmtPaymentsForQuarter(currentQuarterAnchor),
+    ])
+    let appCharges = 0
+    for (const b of bookings) {
+      const sched = scheduleForDate(feeSchedules, b.start_date)
+      const f = deriveFees(b, sched)
+      appCharges += f.cleaning_gross + f.cleaning_vat + f.mgmt_fee_gross + f.mgmt_vat
+    }
+    for (const e of expenses) {
+      appCharges += Number(e.gross_php) + Number(e.vat_php || 0)
+    }
+    const variance = parsed.charges_php - appCharges
+    const inSync   = Math.abs(variance) < 1
+    result.className = 'state'
+    result.innerHTML = `
+      <div style="text-align: left; max-width: 720px; margin: 0 auto;
+                  font-family: 'Hanken Grotesk', sans-serif; font-style: normal;
+                  font-size: var(--t-body); color: var(--text-secondary);
+                  display: grid; grid-template-columns: 1fr auto; row-gap: var(--space-2xs); column-gap: var(--space-md);">
+        <div style="grid-column: 1 / -1; color: var(--text-muted); font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: var(--space-xs);">
+          Parsed invoice (${escapeHtml(parsed.format || 'unknown')})
+        </div>
+        <div>Period</div><div style="text-align: right">${parsed.period_start} → ${parsed.period_end}</div>
+        <div>Opening balance</div><div style="text-align: right">${fmtPHP(parsed.opening_balance_php)}</div>
+        <div>Payments received</div><div style="text-align: right">${fmtPHP(parsed.payments_received_php)}</div>
+        <div>Charges</div><div style="text-align: right">${fmtPHP(parsed.charges_php)}</div>
+        <div style="color: var(--text)">Ending balance</div><div style="text-align: right; color: var(--text)">${fmtPHP(parsed.ending_balance_php)}</div>
+        <div style="grid-column: 1 / -1; border-top: 1px solid var(--line); margin: var(--space-xs) 0;"></div>
+        <div>App-computed charges</div><div style="text-align: right">${fmtPHP(appCharges)}</div>
+        <div style="color: ${inSync ? 'var(--text-muted)' : 'var(--accent)'}">Variance (invoice vs app)</div>
+        <div style="text-align: right; color: ${inSync ? 'var(--text-muted)' : 'var(--accent)'}">
+          ${inSync ? 'in sync' : ((variance > 0 ? '+' : '') + fmtPHP(variance))}
+        </div>
+        <div style="grid-column: 1 / -1; margin-top: var(--space-md); display: flex; gap: var(--space-md); justify-content: flex-end;">
+          <button type="button" class="preview-actions commit" id="stmt-save"
+                  style="border: 1px solid var(--accent); color: var(--accent);
+                         font-size: var(--t-eyebrow); letter-spacing: 0.3em;
+                         text-transform: uppercase; padding: var(--space-xs) var(--space-lg);
+                         background: none;">Save statement</button>
+        </div>
+      </div>`
+    document.getElementById('stmt-save').addEventListener('click', async () => {
+      const btn = document.getElementById('stmt-save')
+      btn.disabled = true; btn.textContent = 'Saving…'
+      try {
+        await upsertStatement({
+          periodStart: parsed.period_start,
+          periodEnd: parsed.period_end,
+          periodLength: 'quarterly',
+          opening: parsed.opening_balance_php,
+          paymentsReceived: parsed.payments_received_php,
+          charges: parsed.charges_php,
+          ending: parsed.ending_balance_php,
+          pdfStoragePath: storage_path,
+          parsedJson: parsed,
+          status: inSync ? 'verified' : 'flagged_variance',
+        })
+        btn.textContent = 'Saved'
+        await loadAndRenderQuarter()
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Retry save'
+        const err = document.createElement('div')
+        err.className = 'state error'
+        err.textContent = `Couldn't save: ${e.message || e}`
+        result.appendChild(err)
+      }
+    })
+  } catch (e) {
+    result.className = 'state error'
+    result.textContent = `Failed: ${e.message || e}`
+  }
+}
+
+/* ── Year view (multi-year trends) ────────────────────────────────── */
+
+function chartTokens() {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim()
+  return {
+    ink:    css('--text'),
+    soft:   css('--text-secondary'),
+    mute:   css('--text-muted'),
+    faint:  css('--text-faint'),
+    rule:   css('--line'),
+    accent: css('--accent'),
+    warn:   css('--warn'),
+    ground: css('--ground'),
+  }
+}
+
+function plotDefaults(C) {
+  return {
+    style: { background: 'transparent', color: C.ink, fontFamily: '"Hanken Grotesk", sans-serif',
+             fontSize: '11px' },
+    marginLeft: 56, marginRight: 24, marginTop: 16, marginBottom: 36,
+    x: { type: 'time', label: null, tickSize: 0, ticks: 'year' },
+    y: { tickSize: 0, grid: true, label: null, line: false },
+  }
+}
+
+function daysInYM(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate() }
+
+async function loadAndRenderYear() {
+  const myTok = ++stripToken
+  const errEl = document.getElementById('state-error')
+  errEl.hidden = true
+  let bookings, expenses, schedules
+  try {
+    ;[bookings, expenses, schedules] = await Promise.all([
+      listAllBookings(), listAllExpenses(), listFeeSchedules(),
+    ])
+  } catch (e) {
+    errEl.textContent = `Year view load failed: ${e.message || e}`
+    errEl.hidden = false
+    return
+  }
+  if (myTok !== stripToken) return   // superseded by a newer switch
+
+  // Aggregate per month.
+  const byMonth = new Map()
+  const ensureMonth = ym => {
+    if (!byMonth.has(ym)) byMonth.set(ym, {
+      ym, nights: 0, gross: 0, airbnbFee: 0,
+      cleaning_gross: 0, cleaning_vat: 0, mgmt_gross: 0, mgmt_vat: 0,
+      net_to_owner: 0, overhead: 0,
+    })
+    return byMonth.get(ym)
+  }
+  for (const b of bookings) {
+    const sched = scheduleForDate(schedules, b.start_date)
+    const fees  = deriveFees(b, sched)
+    const ym = b.start_date.slice(0, 7)
+    const m = ensureMonth(ym)
+    m.nights += b.nights
+    m.gross += fees.gross
+    m.airbnbFee += fees.airbnb_fee
+    m.cleaning_gross += fees.cleaning_gross
+    m.cleaning_vat += fees.cleaning_vat
+    m.mgmt_gross += fees.mgmt_fee_gross
+    m.mgmt_vat += fees.mgmt_vat
+    m.net_to_owner += fees.net_to_owner
+  }
+  // Overhead = expenses NOT in cleaning/mgmt/VAT categories.
+  const SKIP = new Set(['cleaning', 'management', 'vat-cleaning', 'vat-management'])
+  for (const e of expenses) {
+    const slug = e.expense_categories?.slug
+    if (SKIP.has(slug)) continue
+    const ym = e.incurred_date.slice(0, 7)
+    ensureMonth(ym).overhead += Number(e.gross_php) + Number(e.vat_php || 0)
+  }
+  const months = [...byMonth.values()].sort((a, b) => a.ym.localeCompare(b.ym))
+  for (const m of months) {
+    const [y, mn] = m.ym.split('-').map(Number)
+    m.date = new Date(Date.UTC(y, mn - 1, 15))
+    m.daysInMonth = daysInYM(y, mn)
+    m.occupancy = m.daysInMonth ? Math.min(1, m.nights / m.daysInMonth) : 0
+    m.net_per_night = m.nights ? m.net_to_owner / m.nights : 0
+    m.overhead_pct = m.gross ? m.overhead / m.gross : 0
+  }
+
+  const C = chartTokens()
+  const def = plotDefaults(C)
+
+  // Paged by calendar year — latest year by default; ← → step years.
+  const years = [...new Set(months.map(m => +m.ym.slice(0, 4)))].sort((a, b) => a - b)
+  availableYears = years
+  if (currentYear == null || !years.includes(currentYear)) {
+    currentYear = years[years.length - 1] ?? new Date().getUTCFullYear()
+  }
+  const yMonths = months.filter(m => +m.ym.slice(0, 4) === currentYear)
+
+  document.getElementById('y-name').textContent = String(currentYear)
+  document.getElementById('y-range').textContent =
+    yMonths.length ? `${yMonths[0].ym} → ${yMonths[yMonths.length - 1].ym}` : 'no data'
+  const yi = years.indexOf(currentYear)
+  document.getElementById('y-prev').disabled = yi <= 0
+  document.getElementById('y-next').disabled = yi < 0 || yi >= years.length - 1
+
+  const yearBookings = bookings.filter(b => +b.start_date.slice(0, 4) === currentYear)
+  const yStrip = await stripStats(yearBookings, daysInYear(currentYear), schedules)
+  if (myTok !== stripToken) return
+  pushStrip(yStrip)
+
+  // Robust 12-month frame: a FIXED Jan..Dec categorical band scale,
+  // never a time scale. Every Year chart shares it, so a year with
+  // sparse or expense-only months still reads as a clean twelve-column
+  // year and can never auto-fit/clump. Scales to any year and data
+  // shape with no per-chart tuning. (fixed-band period-chart rule.)
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const byMi = new Map(yMonths.map(m => [Number(m.ym.slice(5, 7)), m]))
+  const slots = MONTHS.map((mo, i) => {
+    const m = byMi.get(i + 1)
+    return {
+      mo,
+      net:      m ? m.net_to_owner : 0,
+      occ:      m ? m.occupancy : 0,
+      nights:   m ? m.nights : 0,
+      perNight: m ? m.net_per_night : 0,
+      ohPct:    m ? m.overhead_pct : 0,
+      active:   !!m && m.nights > 0,
+    }
+  })
+  const xM = { type: 'band', domain: MONTHS, label: null, tickSize: 0, paddingInner: 0.25 }
+  const active = slots.filter(s => s.active)
+
+  // Charts render at the container's full width (Plot's default is
+  // 640px, which is what made them use only half the page).
+  const W = id => document.getElementById(id).clientWidth || 720
+
+  // ── 1: Net income & occupancy (bars: net; line: occupancy %)
+  const totalNet = yMonths.reduce((s, m) => s + m.net_to_owner, 0)
+  const y1max = Math.max(1, ...slots.map(s => s.net))
+  document.getElementById('y1-num').textContent = `₱${Math.round(totalNet).toLocaleString('en-US')} owner net`
+  document.getElementById('y1-cap').textContent =
+    `${currentYear} · ${yMonths.length} active month${yMonths.length === 1 ? '' : 's'}. Bars: net to owner. Line: occupancy %.`
+  const y1 = document.getElementById('y1-chart'); y1.innerHTML = ''
+  y1.appendChild(Plot.plot({
+    ...def, width: W('y1-chart'), height: 260,
+    x: xM,
+    y: { ...def.y, label: 'PHP' },
+    marks: [
+      Plot.ruleY([0], { stroke: C.rule }),
+      Plot.barY(slots, { x: 'mo', y: 'net', fill: C.soft, fillOpacity: 0.7 }),
+      Plot.line(active, { x: 'mo', y: s => s.occ * y1max, stroke: C.accent, strokeWidth: 1.4 }),
+      Plot.dot(active,  { x: 'mo', y: s => s.occ * y1max, r: 1.5, fill: C.accent }),
+      Plot.text(active, {
+        x: 'mo', y: s => s.occ * y1max,
+        text: s => `${Math.round(s.occ * 100)}%`,
+        dy: -10, fontSize: 10, fill: C.accent,
+      }),
+    ],
+  }))
+
+  // (Removed: the "contract eras" fee-rate step chart. Per the owner it
+  // conveyed no useful information. listFeeSchedules() is still fetched
+  // for the settings tab; it is simply no longer charted here.)
+
+  // ── 3: Cost per booked night (owner net / nights)
+  const yNights = yMonths.reduce((s, m) => s + m.nights, 0)
+  const avgPerNight = yNights
+    ? yMonths.reduce((s, m) => s + m.net_to_owner, 0) / yNights : 0
+  document.getElementById('y3-num').textContent = `₱${Math.round(avgPerNight).toLocaleString('en-US')} per night`
+  document.getElementById('y3-cap').textContent =
+    `Owner net per booked night. ${currentYear} average shown above. Months with no bookings omitted.`
+  const y3 = document.getElementById('y3-chart'); y3.innerHTML = ''
+  y3.appendChild(Plot.plot({
+    ...def, width: W('y3-chart'), height: 220,
+    x: xM,
+    y: { ...def.y, label: 'PHP / night' },
+    marks: [
+      Plot.ruleY([0], { stroke: C.rule }),
+      Plot.line(active, { x: 'mo', y: 'perNight', stroke: C.ink, strokeWidth: 1.2 }),
+      Plot.dot(active,  { x: 'mo', y: 'perNight', r: 1.5, fill: C.ink }),
+    ],
+  }))
+
+  // ── 4: Overhead as % of gross (one bar per month)
+  const ttlOverhead = yMonths.reduce((s, m) => s + m.overhead, 0)
+  const ttlGross    = yMonths.reduce((s, m) => s + m.gross, 0)
+  const overheadPct = ttlGross ? (ttlOverhead / ttlGross * 100) : 0
+  document.getElementById('y4-num').textContent = `${overheadPct.toFixed(1)}% overhead`
+  document.getElementById('y4-cap').textContent =
+    `Utilities, repairs, equipment, taxes: everything that isn't AirBnB / mgmt / cleaning.`
+  const y4 = document.getElementById('y4-chart'); y4.innerHTML = ''
+  y4.appendChild(Plot.plot({
+    ...def, width: W('y4-chart'), height: 200,
+    x: xM,
+    y: { ...def.y, percent: true, label: '%' },
+    marks: [
+      Plot.ruleY([0], { stroke: C.rule }),
+      Plot.barY(slots, { x: 'mo', y: 'ohPct', fill: C.soft, fillOpacity: 0.5 }),
+    ],
+  }))
+
+  // Hand the per-month data to the shared month-guide controller and
+  // (re)build the synced guide + hover readout across all three charts.
+  yearSlots = slots
+  yearOf = currentYear
+  scheduleYearSync()
+}
+
+function addMonths(d, n) {
+  const out = new Date(d.getTime())
+  out.setUTCMonth(out.getUTCMonth() + Math.floor(n))
+  if (n % 1 !== 0) {
+    out.setUTCDate(out.getUTCDate() + Math.round((n % 1) * 30))
+  }
+  return out
+}
+
+/* ── Settings view ────────────────────────────────────────────────── */
+
+async function loadAndRenderSettings() {
+  try {
+    const [contracts, fxs, cats, accs] = await Promise.all([
+      listFeeSchedules(),
+      listAllFxRates(),
+      listExpenseCategories(),
+      listMoneydanceAccounts(),
+    ])
+    renderSettingsContracts(contracts)
+    renderSettingsFx(fxs)
+    renderSettingsCategories(cats)
+    renderSettingsMoneydance(accs)
+  } catch (e) {
+    console.error(e)
+    document.getElementById('state-error').textContent = `Settings load failed: ${e.message || e}`
+    document.getElementById('state-error').hidden = false
+  }
+}
+
+function tableRow(cells, onDelete) {
+  const wrap = document.createElement('div')
+  for (const c of cells) {
+    const d = document.createElement('div')
+    if (c && typeof c === 'object' && 'text' in c) {
+      d.textContent = c.text
+      if (c.cls) d.className = c.cls
+    } else {
+      d.textContent = c ?? ''
+    }
+    wrap.appendChild(d)
+  }
+  if (onDelete) {
+    const btn = document.createElement('button')
+    btn.type = 'button'; btn.className = 'row-del'; btn.title = 'Delete'; btn.textContent = '×'
+    btn.addEventListener('click', onDelete)
+    wrap.appendChild(btn)
+  }
+  return wrap
+}
+
+function setHead(...cols) {
+  const head = document.createElement('div')
+  head.className = 'head'
+  for (const c of cols) {
+    const d = document.createElement('div'); d.textContent = c; head.appendChild(d)
+  }
+  // empty cell for the delete button column
+  head.appendChild(document.createElement('div'))
+  return head
+}
+
+function renderSettingsContracts(rows) {
+  const t = document.getElementById('set-contracts')
+  t.innerHTML = ''
+  t.appendChild(setHead('Effective from → to', 'Cleaning', 'Mgmt'))
+  for (const r of rows) {
+    t.appendChild(tableRow([
+      `${r.effective_from} → ${r.effective_to ?? 'open'}`,
+      `₱${Number(r.cleaning_fee_php).toFixed(2)} · VAT ${pct(r.cleaning_vat_pct)}`,
+      `${pct(r.mgmt_fee_pct)} · VAT ${pct(r.mgmt_vat_pct)} · AirBnB ${pct(r.airbnb_host_fee_pct)}`,
+    ], canWrite ? () => confirmDelete('contract era', () => deleteFeeSchedule(r.id)) : null))
+  }
+}
+
+function renderSettingsFx(rows) {
+  const t = document.getElementById('set-fx')
+  t.innerHTML = ''
+  t.appendChild(setHead('Date', 'Rate (PHP / USD)', 'Source'))
+  for (const r of rows) {
+    t.appendChild(tableRow([
+      r.rate_date,
+      Number(r.rate).toFixed(4),
+      { text: r.source, cls: 'col-aux' },
+    ], canWrite ? () => confirmDelete(`Exchange rate for ${r.rate_date}`, () => deleteFxRate(r.id)) : null))
+  }
+}
+
+function renderSettingsCategories(rows) {
+  const t = document.getElementById('set-cats')
+  t.innerHTML = ''
+  t.appendChild(setHead('Slug · Label', 'Default Moneydance account', 'VAT'))
+  for (const r of rows) {
+    t.appendChild(tableRow([
+      `${r.slug} · ${r.label}`,
+      r.default_moneydance_account,
+      r.default_has_vat ? 'yes' : '—',
+    ], canWrite ? () => confirmDelete(`category "${r.slug}"`, () => deleteExpenseCategory(r.id)) : null))
+  }
+}
+
+function renderSettingsMoneydance(rows) {
+  const t = document.getElementById('set-md')
+  t.innerHTML = ''
+  t.appendChild(setHead('Account path', 'Use for', ''))
+  for (const r of rows) {
+    t.appendChild(tableRow([
+      r.account_path,
+      { text: r.use_for ?? '—', cls: 'col-aux' },
+      '',
+    ], canWrite ? () => confirmDelete(`account "${r.account_path}"`, () => deleteMoneydanceAccount(r.id)) : null))
+  }
+}
+
+async function confirmDelete(label, fn) {
+  if (!confirm(`Delete this ${label}?`)) return
+  try {
+    await fn()
+    await loadAndRenderSettings()
+    // Clear cached lookups in airbnb-client (categories used elsewhere)
+    location.reload()
+  } catch (e) {
+    alert(`Delete failed: ${e.message || e}`)
+  }
+}
+
+function wireSettingsForms() {
+  // Contracts add
+  document.getElementById('set-contract-add').addEventListener('submit', async e => {
+    e.preventDefault()
+    const f = e.target
+    try {
+      await addFeeSchedule({
+        effective_from:      f.effective_from.value,
+        effective_to:        f.effective_to.value || null,
+        airbnb_host_fee_pct: parseFloat(f.airbnb_host_fee_pct.value),
+        cleaning_fee_php:    parseFloat(f.cleaning_fee_php.value),
+        cleaning_vat_pct:    parseFloat(f.cleaning_vat_pct.value),
+        mgmt_fee_pct:        parseFloat(f.mgmt_fee_pct.value),
+        mgmt_vat_pct:        parseFloat(f.mgmt_vat_pct.value),
+      })
+      f.reset()
+      await loadAndRenderSettings()
+    } catch (e) { alert(`Add failed: ${e.message || e}`) }
+  })
+  // FX rates are auto-only (backfill + daily cron); no manual add.
+  // Category add
+  document.getElementById('set-cat-add').addEventListener('submit', async e => {
+    e.preventDefault()
+    const f = e.target
+    try {
+      await addExpenseCategory({
+        slug: f.slug.value.trim(),
+        label: f.label.value.trim(),
+        default_moneydance_account: f.default_moneydance_account.value.trim(),
+        default_has_vat: f.default_has_vat.checked,
+      })
+      f.reset()
+      await loadAndRenderSettings()
+    } catch (e) { alert(`Add failed: ${e.message || e}`) }
+  })
+  // Moneydance add
+  document.getElementById('set-md-add').addEventListener('submit', async e => {
+    e.preventDefault()
+    const f = e.target
+    try {
+      await addMoneydanceAccount({
+        account_path: f.account_path.value.trim(),
+        use_for: f.use_for.value.trim() || null,
+      })
+      f.reset()
+      await loadAndRenderSettings()
+    } catch (e) { alert(`Add failed: ${e.message || e}`) }
+  })
+}
+
+function wireMgmtPayment() {
+  const toggle = document.getElementById('pay-toggle')
+  const panel  = document.getElementById('pay-panel')
+  const form   = document.getElementById('pay-form')
+  const errEl  = document.getElementById('pay-error')
+  toggle.hidden = !canWrite
+  toggle.addEventListener('click', () => {
+    const next = panel.dataset.open !== 'true'
+    panel.dataset.open = next ? 'true' : 'false'
+    toggle.setAttribute('aria-expanded', next ? 'true' : 'false')
+    if (next) document.getElementById('pay-date').focus()
+  })
+  document.getElementById('pay-cancel').addEventListener('click', () => {
+    panel.dataset.open = 'false'
+    toggle.setAttribute('aria-expanded', 'false')
+    form.reset()
+  })
+  form.addEventListener('submit', async e => {
+    e.preventDefault()
+    errEl.hidden = true
+    const saveBtn = document.getElementById('pay-save')
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving…'
+    try {
+      await addMgmtPayment({
+        paidAt:    document.getElementById('pay-date').value,
+        amountPhp: parseFloat(document.getElementById('pay-amount').value),
+        method:    document.getElementById('pay-method').value.trim(),
+        reference: document.getElementById('pay-ref').value.trim(),
+        notes: null,
+      })
+      form.reset()
+      panel.dataset.open = 'false'
+      toggle.setAttribute('aria-expanded', 'false')
+      await loadAndRenderQuarter()
+    } catch (e) {
+      errEl.textContent = `Couldn't save: ${e.message || e}`
+      errEl.hidden = false
+    } finally {
+      saveBtn.disabled = false; saveBtn.textContent = 'Record payment'
+    }
+  })
+}
+
+/* ── Moneydance export ────────────────────────────────────────────── */
+
+let _exportState = {
+  currency: 'PHP',
+  rows: [],
+  fxAt: () => 58.0,   // (isoDate) => PHP per USD, as-of carry-forward
+}
+
+let _mdAccountsCache = null
+async function getMdAccounts() {
+  if (_mdAccountsCache) return _mdAccountsCache
+  _mdAccountsCache = await listMoneydanceAccounts()
+  return _mdAccountsCache
+}
+
+function accountFor(useFor, accounts) {
+  // Match if `use_for` value contains the keyword (e.g. 'vat,tax' for VAT).
+  return accounts.find(a => (a.use_for || '').split(/[,;\s]+/).includes(useFor))
+                 ?.account_path || ''
+}
+
+async function buildExportRows(month) {
+  const [bookings, expenses, adjustments, accounts] = await Promise.all([
+    listBookingsForMonth(month),
+    listExpensesForMonth(month),
+    listFreestandingAdjustmentsForMonth(month),
+    getMdAccounts(),
+  ])
+  const acctCleaning = accountFor('cleaning',   accounts)
+  const acctMgmt     = accountFor('management', accounts)
+  const acctVat      = accountFor('vat',        accounts)
+                    || accountFor('tax',        accounts)
+
+  const rows = []
+  // Per-booking expense lines (4 in era 2, 2 in era 1).
+  for (const b of bookings) {
+    const sched = scheduleForDate(feeSchedules, b.start_date)
+    const fees  = deriveFees(b, sched)
+    rows.push({ date: b.start_date,
+                desc: 'Unit Cleaning By Management',
+                account: acctCleaning,
+                amount: -round2(fees.cleaning_gross) })
+    rows.push({ date: b.start_date,
+                desc: 'Management Fee AirBnB Host - ETO',
+                account: acctMgmt,
+                amount: -round2(fees.mgmt_fee_gross) })
+    if (fees.cleaning_vat > 0) {
+      rows.push({ date: b.start_date,
+                  desc: 'VAT - Cleaning Fee',
+                  account: acctVat,
+                  amount: -round2(fees.cleaning_vat) })
+    }
+    if (fees.mgmt_vat > 0) {
+      rows.push({ date: b.start_date,
+                  desc: 'VAT - Management Fee',
+                  account: acctVat,
+                  amount: -round2(fees.mgmt_vat) })
+    }
+  }
+  // Expenses straight through. Split VAT into its own row if > 0.
+  for (const e of expenses) {
+    const acct = e.expense_categories?.default_moneydance_account || ''
+    rows.push({ date: e.incurred_date,
+                desc: e.description,
+                account: acct,
+                amount: -round2(Number(e.gross_php)) })
+    const vat = Number(e.vat_php || 0)
+    if (vat > 0) {
+      rows.push({ date: e.incurred_date,
+                  desc: `${e.description} VAT`,
+                  account: acctVat,
+                  amount: -round2(vat) })
+    }
+  }
+  // Freestanding adjustments preserve their sign.
+  for (const a of adjustments) {
+    rows.push({ date: a.occurred_date,
+                desc: a.description,
+                account: a.moneydance_account,
+                amount: round2(Number(a.amount_php)) })
+  }
+  rows.sort((a, b) => a.date.localeCompare(b.date)
+                   || a.desc.localeCompare(b.desc))
+  return rows
+}
+
+function round2(n) { return Math.round(n * 100) / 100 }
+
+function ownerNetFor(rows) {
+  // Sum of all rows: this equals owner's net (incoming AirBnB
+  // deposits would normally add back as positives, but the export
+  // is expenses-only matching the legacy XLS workflow).
+  return rows.reduce((s, r) => s + r.amount, 0)
+}
+
+// USD net: each row converted at the as-of rate for ITS OWN date
+// (D6 daily model: no single month rate to divide by).
+function ownerNetUsd(rows, fxAt) {
+  return rows.reduce((s, r) => s + r.amount / fxAt(r.date), 0)
+}
+
+function csvEscape(s) {
+  const v = String(s ?? '')
+  if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`
+  return v
+}
+
+function rowsToCsv(rows, currency, fxAt) {
+  const header = 'Date,Description,Account,Amount\n'
+  const lines = rows.map(r => {
+    const amt = currency === 'USD' ? round2(r.amount / fxAt(r.date)) : round2(r.amount)
+    return [r.date, csvEscape(r.desc), csvEscape(r.account), amt.toFixed(2)].join(',')
+  })
+  return header + lines.join('\n') + '\n'
+}
+
+function renderExportPreview() {
+  const preview = document.getElementById('export-preview')
+  while (preview.children.length > 1) preview.removeChild(preview.lastChild)
+  const { rows, currency, fxAt } = _exportState
+  const symbol = currency === 'USD' ? '$' : '₱'
+  for (const r of rows) {
+    const amt = currency === 'USD' ? round2(r.amount / fxAt(r.date)) : round2(r.amount)
+    const row = document.createDocumentFragment()
+    const add = (text, cls = '') => {
+      const el = document.createElement('div')
+      if (cls) el.className = cls
+      el.textContent = text
+      row.appendChild(el)
+    }
+    add(fmtDay(r.date))
+    add(r.desc)
+    add(r.account || '—')
+    add(symbol + (amt < 0 ? '−' : '') + Math.abs(amt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 'col-num')
+    preview.appendChild(row)
+  }
+  document.getElementById('export-rowcount').textContent = rows.length
+  const phpNet = ownerNetFor(rows)
+  const usdNet = ownerNetUsd(rows, fxAt)
+  const usdEcho = ` (${usdNet.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })})`
+  document.getElementById('export-net').textContent =
+    `${symbol}${Math.round(currency === 'USD' ? usdNet : phpNet).toLocaleString('en-US')}${currency === 'PHP' ? usdEcho : ''}`
+}
+
+async function openExportPanel() {
+  const panel  = document.getElementById('export-panel')
+  const toggle = document.getElementById('export-trigger')
+  if (panel.dataset.open === 'true') {
+    panel.dataset.open = 'false'
+    toggle.setAttribute('aria-expanded', 'false')
+    return
+  }
+  panel.dataset.open = 'true'
+  toggle.setAttribute('aria-expanded', 'true')
+  _exportState.rows = await buildExportRows(currentMonth)
+  const dates = _exportState.rows.map(r => r.date)
+  // Daily model: each line converts at the as-of rate for its own
+  // date. The backfill + daily cron normally cover every date; if a
+  // line is newer than the latest stored row (a same-day entry before
+  // today's cron), best-effort top up via the Edge Function. That
+  // upsert needs aal2+parent, so non-writers just fall through to
+  // carry-forward; never a hard failure.
+  if (canWrite && dates.length) {
+    const maxD = dates.reduce((a, b) => (a > b ? a : b))
+    try { await ensureFxRateForDate(maxD) } catch (e) { console.warn('FX top-up skipped', e) }
+  }
+  try {
+    _exportState.fxAt = await fxRatesForDates(dates)
+  } catch (e) {
+    console.warn('FX resolver failed, using fallback', e)
+    _exportState.fxAt = () => 58.0
+  }
+  renderExportPreview()
+}
+
+function wireExport() {
+  const trigger = document.getElementById('export-trigger')
+  trigger.addEventListener('click', openExportPanel)
+
+  for (const cur of ['PHP', 'USD']) {
+    const btn = document.getElementById(`export-cur-${cur.toLowerCase()}`)
+    btn.addEventListener('click', () => {
+      _exportState.currency = cur
+      document.getElementById('export-cur-php').setAttribute('aria-pressed', cur === 'PHP')
+      document.getElementById('export-cur-usd').setAttribute('aria-pressed', cur === 'USD')
+      renderExportPreview()
+    })
+  }
+  document.getElementById('export-download').addEventListener('click', () => {
+    const { rows, currency, fxAt } = _exportState
+    const csv = rowsToCsv(rows, currency, fxAt)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `airbnb-${currentMonth}-${currency.toLowerCase()}.csv`
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  })
+}
+
+async function wireFreestandingAdj() {
+  const toggle = document.getElementById('adj-toggle')
+  const panel  = document.getElementById('adj-panel')
+  const form   = document.getElementById('adj-form')
+  const errEl  = document.getElementById('adj-error')
+  toggle.hidden = !canWrite
+  toggle.addEventListener('click', () => {
+    const next = panel.dataset.open !== 'true'
+    panel.dataset.open = next ? 'true' : 'false'
+    toggle.setAttribute('aria-expanded', next ? 'true' : 'false')
+    if (next) document.getElementById('adj-date').focus()
+  })
+  document.getElementById('adj-cancel').addEventListener('click', () => {
+    panel.dataset.open = 'false'
+    toggle.setAttribute('aria-expanded', 'false')
+    form.reset()
+  })
+  // Populate Moneydance account dropdown lazily.
+  const accSelect = document.getElementById('adj-account')
+  try {
+    const accounts = await listMoneydanceAccounts()
+    accSelect.innerHTML = '<option value="" disabled selected>Choose an account…</option>'
+      + accounts.map(a => `<option value="${escapeHtml(a.account_path)}">${escapeHtml(a.account_path)}</option>`).join('')
+  } catch (e) {
+    accSelect.innerHTML = '<option value="">(failed to load accounts)</option>'
+  }
+  // Default date to first day of current month.
+  document.getElementById('adj-date').value = currentMonth ? `${currentMonth}-01` : ''
+  form.addEventListener('submit', async e => {
+    e.preventDefault()
+    errEl.hidden = true
+    const saveBtn = document.getElementById('adj-save')
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving…'
+    try {
+      await addFreestandingAdjustment({
+        occurredDate: document.getElementById('adj-date').value,
+        statementPeriod: null,
+        description: document.getElementById('adj-desc').value.trim(),
+        amountPhp: parseFloat(document.getElementById('adj-amount').value),
+        moneydanceAccount: accSelect.value,
+      })
+      form.reset()
+      document.getElementById('adj-date').value = `${currentMonth}-01`
+      panel.dataset.open = 'false'
+      toggle.setAttribute('aria-expanded', 'false')
+      await loadAndRender()
+    } catch (e) {
+      errEl.textContent = `Couldn't save: ${e.message || e}`
+      errEl.hidden = false
+    } finally {
+      saveBtn.disabled = false; saveBtn.textContent = 'Save'
+    }
+  })
+}
+
+function wireImport() {
+  const toggle = document.getElementById('import-toggle')
+  const panel  = document.getElementById('import-panel')
+  const dz     = document.getElementById('import-dropzone')
+  const pick   = document.getElementById('import-pick')
+  const file   = document.getElementById('import-file')
+
+  toggle.hidden = !canWrite
+  toggle.addEventListener('click', () => {
+    const next = panel.dataset.open !== 'true'
+    panel.dataset.open = next ? 'true' : 'false'
+    toggle.setAttribute('aria-expanded', next ? 'true' : 'false')
+  })
+  pick.addEventListener('click', () => file.click())
+  file.addEventListener('change', e => {
+    if (e.target.files[0]) handleImportFile(e.target.files[0])
+  })
+  ;['dragenter', 'dragover'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over') }))
+  ;['dragleave', 'drop'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over') }))
+  dz.addEventListener('drop', e => {
+    const f = e.dataTransfer.files?.[0]
+    if (f) handleImportFile(f)
+  })
+}
+
+/* ── Bootstrap ────────────────────────────────────────────────────── */
+async function init() {
+  if (!(await gate())) return
+
+  const signoutBtn = document.getElementById('signoutBtn')
+  signoutBtn.hidden = false
+  signoutBtn.addEventListener('click', async () => {
+    await signOut(); location.href = 'hub.html'
+  })
+  startIdleTimeout(() => { location.href = 'hub.html' })
+
+  // Tab clicks and the Settings cog are wired by the shared header
+  // (config.onTab / config.gear.onClick). Just reveal the cog now
+  // that the session is authenticated.
+  if (hub.gearEl) hub.gearEl.hidden = false
+
+  wireImport()
+
+  try {
+    feeSchedules    = await listFeeSchedules()
+    availableMonths = await listAvailableMonths()
+  } catch (e) {
+    console.error(e)
+    document.getElementById('state-error').textContent =
+      `Couldn't reach the AirBnB data: ${e.message || e}`
+    document.getElementById('state-error').hidden = false
+    return
+  }
+
+  if (!availableMonths.length) {
+    // First-visit empty state — open the import panel directly.
+    document.getElementById('hero-month').hidden = true
+    document.getElementById('bookings-empty').hidden = false
+    document.getElementById('bookings-empty').textContent =
+      'No bookings yet. Drop your AirBnB host CSV in the panel above to start.'
+    if (canWrite) {
+      const panel  = document.getElementById('import-panel')
+      const toggle = document.getElementById('import-toggle')
+      panel.dataset.open = 'true'
+      toggle.setAttribute('aria-expanded', 'true')
+    }
+    return
+  }
+
+  // Default-visible month: most recent COMPLETED month (skip the
+  // currently-running month if it has only partial data). For now we
+  // just pick the most-recent month in the data set.
+  setMonth(availableMonths[0])
+
+  // Wire the freestanding adjustment form after currentMonth is set,
+  // so its date default lands on the visible month.
+  wireFreestandingAdj()
+  wireExport()
+  wireQuarterNav()
+  wireMgmtPayment()
+  wireStatementVerify()
+  wireSettingsForms()
+
+  document.getElementById('month-prev').addEventListener('click', () => {
+    const i = availableMonths.indexOf(currentMonth)
+    if (i < availableMonths.length - 1) setMonth(availableMonths[i + 1])
+  })
+  document.getElementById('month-next').addEventListener('click', () => {
+    const i = availableMonths.indexOf(currentMonth)
+    if (i > 0) setMonth(availableMonths[i - 1])
+  })
+}
+
+init()
+</script>
+</body>
+</html>

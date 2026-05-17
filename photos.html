@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photos · The Nijsters</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#181621">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hub.css">
+<style>
+/* photos.html — Library archetype (§7.C). loading/needs-auth are Flow
+   states; ready is the app (ribbon + ingest + filtered grid). No tokens,
+   no chrome, no generic components here: those are in css/hub.css. Zero
+   legacy aliases referenced. */
+html { scroll-behavior: smooth; }
+body { min-height: 100vh; display: flex; flex-direction: column; }
+@media (pointer:fine){ body { cursor: none; } }
+
+.note { font-size: var(--t-meta); color: var(--text-muted); line-height: 1.6; max-width: 70ch; }
+.section-eyebrow {
+  font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 500;
+}
+.lib-section { border-top: 1px solid var(--line); padding-top: var(--space-lg);
+  display: flex; flex-direction: column; gap: var(--space-md); }
+
+/* Ingest affordance (Library) */
+.dropzone {
+  border: 1px dashed var(--text-faint);
+  padding: var(--space-3xl) var(--space-xl); text-align: center;
+  transition: border-color var(--dur-mid) var(--ease-out), background var(--dur-mid) var(--ease-out);
+}
+@media (pointer:fine){ .dropzone { cursor: none; } }
+.dropzone.drag-over { border-color: var(--text); background: var(--veil); }
+.dz-headline {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-h3); line-height: 1.4; color: var(--text-secondary);
+}
+.dz-or {
+  display: inline-block; padding: 0 var(--space-sm);
+  font-family: 'Hanken Grotesk', sans-serif; font-style: normal;
+  font-size: var(--t-eyebrow); letter-spacing: 0.45em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.fine { font-size: var(--t-meta); color: var(--text-muted); line-height: 1.7; max-width: 70ch; }
+
+/* Queue */
+.queue { display: flex; flex-direction: column; }
+.queue-item {
+  display: grid; grid-template-columns: 1fr auto; gap: var(--space-md);
+  padding: var(--space-md) 0; border-top: 1px solid var(--line-soft);
+  align-items: center;
+}
+.qi-main { display: flex; flex-direction: column; gap: var(--space-2xs); min-width: 0; }
+.qi-name {
+  font-size: var(--t-body); color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.qi-meta {
+  font-size: var(--t-eyebrow); letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.qi-status {
+  font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.qi-status.queued  { color: var(--text-faint); }
+.qi-status.working { color: var(--text); }
+.qi-status.done    { color: var(--text-secondary); }
+.qi-status.failed  { color: var(--field-error); }
+.qi-error {
+  grid-column: 1 / -1;
+  font-size: var(--t-meta); color: var(--field-error); margin-top: var(--space-2xs);
+}
+.actions { display: flex; gap: var(--space-md); align-items: center; margin-top: var(--space-sm); }
+.summary { font-size: var(--t-meta); color: var(--text-muted); }
+
+/* Library filter — the §6.4 view-switch: active is the one rationed
+   accent, the rest muted. No underline box. */
+/* The All / Upvoted / Downvoted filter is the shared header tab bar
+   now (css/hub.css .view-switch); the counts are the shared strip.
+   No page-local filter chrome. */
+
+/* The grid + frame + image treatment are the shared .card-grid /
+   .card-grid__item primitive (css/hub.css). Only the photo-domain
+   filter (Upvoted / Downvoted, pure CSS) lives here. */
+.card-grid[data-filter="up"]   .card-grid__item:not([data-has-up])   { display: none; }
+.card-grid[data-filter="down"] .card-grid__item:not([data-has-down]) { display: none; }
+/* The downvote flag is the only coloured mark on a card (§6.10): true-red
+   --danger, icon-led, top-left, and it IS the reset control. Backdrop
+   blur is functional (legibility over a photo), not decorative glass. */
+.lib-flag {
+  position: absolute; top: var(--space-xs); left: var(--space-xs);
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 11px 7px 9px;
+  background: oklch(0.18 0.018 305 / 0.78);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border: 1px solid var(--danger); color: var(--danger);
+  font-family: 'Hanken Grotesk', sans-serif; font-weight: 600;
+  font-size: 13px; line-height: 1; font-variant-numeric: tabular-nums;
+  transition: background var(--dur-mid) var(--ease-out), color var(--dur-mid) var(--ease-out);
+}
+@media (pointer:fine){ .lib-flag { cursor: none; } }
+.lib-flag svg { width: 15px; height: 15px; display: block; }
+.lib-flag:hover { background: var(--danger); color: var(--surface); }
+.lib-ups {
+  position: absolute; bottom: var(--space-xs); right: var(--space-xs);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 9px 5px 8px;
+  background: oklch(0.18 0.018 305 / 0.72);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  color: var(--text-secondary);
+  font-family: 'Hanken Grotesk', sans-serif; font-weight: 500;
+  font-size: 12px; line-height: 1; font-variant-numeric: tabular-nums;
+  opacity: 0; transition: opacity var(--dur-mid) var(--ease-out); pointer-events: none;
+}
+.lib-ups svg { width: 12px; height: 12px; display: block; }
+.card-grid__item:hover .lib-ups { opacity: 1; }
+.lib-delete {
+  position: absolute; top: var(--space-xs); right: var(--space-xs);
+  width: 28px; height: 28px; border: none; padding: 0;
+  background: oklch(0.18 0.018 305 / 0.7);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  color: var(--text-secondary);
+  font-family: 'Migra', serif; font-weight: 200; font-size: 24px; line-height: 1;
+  opacity: 0; transition: opacity var(--dur-mid) var(--ease-out), color var(--dur-mid) var(--ease-out);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+@media (pointer:fine){ .lib-delete { cursor: none; } }
+.card-grid__item:hover .lib-delete { opacity: 1; }
+.lib-delete:hover { color: var(--field-error); }
+.card-grid__item.deleting { opacity: 0.4; pointer-events: none; }
+.lib-empty {
+  text-align: center; padding: var(--space-3xl) 0;
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-h3); color: var(--text-muted);
+}
+
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="ring"></div>
+
+<main>
+  <section class="flow-main" id="state-loading">
+    <div class="flow-col"><p class="eyebrow">Checking session…</p></div>
+  </section>
+
+  <section class="flow-main" id="state-needs-auth" hidden>
+    <div class="flow-col">
+      <p class="eyebrow">Restricted</p>
+      <h1>Sign in <span class="it">first.</span></h1>
+      <p class="lede">The photo archive lives behind authentication. Sign in at the Hub and verify your TOTP, then come back.</p>
+      <a href="hub.html" class="btn btn--primary" style="align-self:flex-start;text-decoration:none;">Go to sign-in</a>
+    </div>
+  </section>
+
+  <section class="hub-main" id="state-ready" hidden>
+    <p class="note" id="photosLede">Drop new ones below; manage the archive underneath.</p>
+
+    <!-- Upload (parent + admin only; hidden for child) -->
+    <div id="uploadSection">
+      <p class="section-eyebrow">Upload</p>
+      <input type="file" id="fileInput" multiple accept="image/*" hidden>
+      <div class="dropzone" id="dropzone" tabindex="0">
+        <p class="dz-headline">Drop files here<br><span class="dz-or">or</span><br><button type="button" class="btn btn--primary" id="pickBtn">Choose files</button></p>
+      </div>
+      <p class="fine">JPEG, PNG, WebP, HEIC (Safari only). Decoded, resized to a 2000&nbsp;px display copy and a 600&nbsp;px thumb, EXIF-stripped and re-encoded to WebP on your device. Originals never leave it.</p>
+
+      <div class="queue" id="queue" hidden></div>
+      <div class="actions" id="actions" hidden>
+        <button id="clearBtn" class="btn btn--ghost">Clear list</button>
+        <span class="summary" id="summary"></span>
+      </div>
+    </div>
+
+    <!-- Library — every photo in the bucket, with score + delete -->
+    <div class="lib-section">
+      <div class="card-grid" id="libraryGrid" data-filter="all"></div>
+      <div class="lib-empty" id="libraryEmpty" hidden>No photos yet. Drop some in above.</div>
+    </div>
+  </section>
+</main>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import {
+  supabase, getAAL, signOut, uploadPhoto, removePhoto, deletePhoto,
+  clearDownvotes, listVariant, getPhotoScores, getCurrentRole,
+} from './js/supabase-client.js'
+import { processOne, validateInput, newPhotoId, limits, formatBytes } from './js/photo-processor.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+
+// Shared page framework. The All / Upvoted / Downvoted filter is the
+// header tab bar; the library tallies are the strip. Photos has no
+// app setup, so no gear.
+const hub = mountHubHeader({
+  app: 'Photos',
+  eyebrow: 'Family Hub · Photos',
+  grace: 'the archive.',
+  tabs: [
+    { id: 'all',  label: 'All' },
+    { id: 'up',   label: 'Upvoted' },
+    { id: 'down', label: 'Downvoted' },
+  ],
+  onTab: (id) => applyFilter(id),
+})
+
+const states = ['loading', 'needs-auth', 'ready']
+function go(state) {
+  for (const s of states) document.getElementById(`state-${s}`).hidden = (s !== state)
+  document.getElementById('signoutBtn').hidden = (state !== 'ready')
+}
+
+// Cached once per page load. Drives UI gating (upload section, manual delete,
+// downvote-reset flag). Server-side RLS / RPC checks are the source of truth;
+// these hides just keep the UI honest.
+let currentRole = 'child'
+
+async function gate() {
+  go('loading')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) { go('needs-auth'); return false }
+  const { data: aal } = await getAAL()
+  if (!aal || aal.currentLevel !== 'aal2') { go('needs-auth'); return false }
+  currentRole = (await getCurrentRole()) || 'child'
+  applyRoleUI()
+  go('ready')
+  // Sign out + bounce after 10 minutes of no interaction
+  startIdleTimeout(() => location.reload())
+  await loadLibrary()
+  return true
+}
+
+// Parent + admin can upload. Child is view-only on the library. Only admin
+// can manually delete a photo or reset its downvotes — the per-row controls
+// are skipped in loadLibrary() for non-admins. Adjust the page note so the
+// copy still reads true for a child.
+function applyRoleUI() {
+  const upload = document.getElementById('uploadSection')
+  if (currentRole === 'child') {
+    upload.hidden = true
+    const lede = document.getElementById('photosLede')
+    if (lede) lede.textContent =
+      "Browse the archive; uploads and removals are handled by your parents."
+  } else {
+    upload.hidden = false
+  }
+}
+
+// ── Library ──────────────────────────────────────────────────────────────
+const gridEl    = document.getElementById('libraryGrid')
+const emptyEl   = document.getElementById('libraryEmpty')
+let currentFilter = 'all'  // 'all' | 'up' | 'down'
+
+// Called by the shared header's tab bar (config.onTab). The header
+// owns the active-tab highlight; this only flips the CSS-only grid
+// filter and the empty-state copy.
+function applyFilter(filter) {
+  currentFilter = filter
+  gridEl.dataset.filter = filter
+  refreshEmptyState()
+}
+
+function visibleCount() {
+  let n = 0
+  for (const card of gridEl.children) {
+    if (currentFilter === 'all') n++
+    else if (currentFilter === 'up'   && card.hasAttribute('data-has-up'))   n++
+    else if (currentFilter === 'down' && card.hasAttribute('data-has-down')) n++
+  }
+  return n
+}
+
+function refreshEmptyState() {
+  const n = visibleCount()
+  if (n === 0) {
+    emptyEl.hidden = false
+    emptyEl.textContent =
+      currentFilter === 'up'   ? 'No upvoted photos yet.'
+    : currentFilter === 'down' ? 'No downvoted photos. The archive is healthy.'
+    :                            'No photos yet. Drop some in above.'
+  } else {
+    emptyEl.hidden = true
+  }
+}
+
+async function loadLibrary() {
+  const [photos, scoresMap] = await Promise.all([listVariant('thumb'), getPhotoScores()])
+  const list = photos || []
+  gridEl.innerHTML = ''
+  // Tallies for the filter buttons. Computed once here so the labels stay
+  // truthful as long as we re-call loadLibrary after every mutation
+  // (uploads, deletes, downvote resets).
+  let nUp = 0, nDown = 0
+  // Inline SVGs — same geometry as the hero's thumb buttons so the meaning
+  // is consistent across the site. Stroke-only (no fill) to feel editorial.
+  const THUMB_UP   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>'
+  const THUMB_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>'
+
+  for (const p of list) {
+    const s = scoresMap[p.id] || {}
+    const ups   = s.ups   || 0
+    const downs = s.downs || 0
+    if (ups   > 0) nUp++
+    if (downs > 0) nDown++
+    const card = document.createElement('div')
+    card.className = 'card-grid__item'
+    card.dataset.id = p.id
+    if (ups   > 0) card.setAttribute('data-has-up',   '')
+    if (downs > 0) card.setAttribute('data-has-down', '')
+
+    // The downvote flag is the only colored mark on the card. It exists
+    // only when there's actually a downvote — absence = healthy photo.
+    // Admin-only: it's also the downvote-reset button (clear_downvotes RPC
+    // rejects non-admins), so we hide it entirely for parent + child.
+    const flag = (downs > 0 && currentRole === 'admin')
+      ? `<button class="lib-flag" type="button" data-action="reset" aria-label="Reset downvotes" title="${downs} downvote${downs === 1 ? '' : 's'}, click to reset (auto-deletes at 2)">${THUMB_DOWN}<span>${downs}</span></button>`
+      : ''
+    // Upvote count is hover-revealed — informative but doesn't compete.
+    const ups_el = ups > 0
+      ? `<div class="lib-ups" aria-label="${ups} upvote${ups === 1 ? '' : 's'}">${THUMB_UP}<span>${ups}</span></div>`
+      : ''
+    // Manual delete is admin-only. Parents and children never see the ×.
+    const del_el = currentRole === 'admin'
+      ? `<button class="lib-delete" type="button" aria-label="Delete photo" title="Delete">×</button>`
+      : ''
+
+    card.innerHTML = `
+      <img src="${p.url}" alt="" loading="lazy">
+      ${flag}
+      ${ups_el}
+      ${del_el}
+    `
+    const delBtn = card.querySelector('.lib-delete')
+    if (delBtn) {
+      delBtn.addEventListener('click', () => handleDelete(p.id, card))
+      delBtn.addEventListener('mouseenter', enlarge)
+      delBtn.addEventListener('mouseleave', shrink)
+    }
+    const resetBtn = card.querySelector('[data-action="reset"]')
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => handleResetDownvotes(p.id))
+      resetBtn.addEventListener('mouseenter', enlarge)
+      resetBtn.addEventListener('mouseleave', shrink)
+    }
+    gridEl.appendChild(card)
+  }
+  // Library-wide tallies are the shared header strip. App-wide and
+  // filter-stable (filtering hides cards, it doesn't change totals),
+  // so it is set once per loadLibrary.
+  hub.setStrip({
+    hero: { value: String(list.length), label: 'Photos' },
+    stats: [
+      { label: 'Upvoted',   value: String(nUp)   },
+      { label: 'Downvoted', value: String(nDown) },
+    ],
+  })
+  refreshEmptyState()
+}
+
+// Filtering is wired through the shared header's tab bar
+// (config.onTab -> applyFilter). It stays CSS-only via the grid's
+// data-filter attribute, so switching is instant even on hundreds of
+// cards; loadLibrary is never re-run on a filter change.
+
+async function handleResetDownvotes(photoId) {
+  if (!confirm('Reset downvotes on this photo? All downvotes from family members get cleared. Upvotes are left alone.')) return
+  try {
+    const { error } = await clearDownvotes(photoId)
+    if (error) throw error
+    await loadLibrary()
+  } catch (e) {
+    console.warn('reset downvotes failed', e)
+    alert('Reset failed: ' + (e?.message || String(e)))
+  }
+}
+
+async function handleDelete(photoId, card) {
+  if (!confirm('Delete this photo permanently? This removes both sizes from storage and clears all votes on it.')) return
+  card.classList.add('deleting')
+  try {
+    await deletePhoto(photoId)
+    // Re-fetch keeps the All/Upvoted/Downvoted counts and the empty-state
+    // copy in sync with the new state — simpler and less bug-prone than
+    // patching the DOM piecewise.
+    await loadLibrary()
+  } catch (e) {
+    console.warn('delete failed', e)
+    card.classList.remove('deleting')
+    alert('Delete failed: ' + (e?.message || String(e)))
+  }
+}
+
+// ── Queue ────────────────────────────────────────────────────────────────
+const queueEl = document.getElementById('queue')
+const actionsEl = document.getElementById('actions')
+const summaryEl = document.getElementById('summary')
+let queueRows = []
+
+function addQueueRow(file) {
+  if (queueEl.hidden) queueEl.hidden = false
+  if (actionsEl.hidden) actionsEl.hidden = false
+  const row = document.createElement('div')
+  row.className = 'queue-item'
+  row.innerHTML = `
+    <div class="qi-main">
+      <div class="qi-name"></div>
+      <div class="qi-meta"></div>
+    </div>
+    <div class="qi-status queued">Queued</div>
+  `
+  row.querySelector('.qi-name').textContent = file.name
+  row.querySelector('.qi-meta').textContent = formatBytes(file.size)
+  queueEl.appendChild(row)
+  const statusEl = row.querySelector('.qi-status')
+  return {
+    setPhase(label) {
+      statusEl.className = 'qi-status working'
+      statusEl.textContent = label
+    },
+    setSuccess(variants) {
+      statusEl.className = 'qi-status done'
+      statusEl.textContent = 'Done'
+      const meta = row.querySelector('.qi-meta')
+      const fullKB = (variants.full.blob.size / 1024).toFixed(0)
+      const thumbKB = (variants.thumb.blob.size / 1024).toFixed(0)
+      meta.textContent = `${formatBytes(file.size)} → ${fullKB} KB full · ${thumbKB} KB thumb`
+    },
+    setError(msg) {
+      statusEl.className = 'qi-status failed'
+      statusEl.textContent = 'Failed'
+      const err = document.createElement('div')
+      err.className = 'qi-error'
+      err.textContent = msg
+      row.appendChild(err)
+    },
+  }
+}
+
+function refreshSummary() {
+  const done = queueRows.filter(r => r.status === 'done').length
+  const failed = queueRows.filter(r => r.status === 'failed').length
+  const pending = queueRows.length - done - failed
+  const parts = []
+  if (done) parts.push(`${done} uploaded`)
+  if (failed) parts.push(`${failed} failed`)
+  if (pending) parts.push(`${pending} pending`)
+  summaryEl.textContent = parts.join(' · ')
+}
+
+async function handleFiles(fileList) {
+  const files = Array.from(fileList).slice(0, limits.MAX_BATCH)
+  if (fileList.length > limits.MAX_BATCH) {
+    alert(`Max ${limits.MAX_BATCH} files per batch. The first ${limits.MAX_BATCH} were queued.`)
+  }
+  const rows = files.map(f => ({ file: f, ui: addQueueRow(f), status: 'queued' }))
+  queueRows.push(...rows)
+  refreshSummary()
+
+  // Sequential processing — one at a time to keep memory pressure low for big files
+  let anySuccess = false
+  for (const row of rows) {
+    try {
+      validateInput(row.file)
+      row.status = 'working'
+      const { variants } = await processOne(row.file, { onPhase: p => row.ui.setPhase(p) })
+      const id = newPhotoId()
+      const fullPath = `full/${id}.webp`
+      const thumbPath = `thumb/${id}.webp`
+
+      row.ui.setPhase('uploading full')
+      const { error: fe } = await uploadPhoto(fullPath, variants.full.blob)
+      if (fe) throw fe
+
+      row.ui.setPhase('uploading thumb')
+      const { error: te } = await uploadPhoto(thumbPath, variants.thumb.blob)
+      if (te) {
+        // Roll back the full upload so the pair stays consistent
+        await removePhoto([fullPath]).catch(() => {})
+        throw te
+      }
+
+      row.ui.setSuccess(variants)
+      row.status = 'done'
+      anySuccess = true
+    } catch (err) {
+      row.ui.setError(err.message || String(err))
+      row.status = 'failed'
+    }
+    refreshSummary()
+  }
+  if (anySuccess) await loadLibrary()
+}
+
+// ── Drop zone wiring ─────────────────────────────────────────────────────
+const dz = document.getElementById('dropzone')
+const fileInput = document.getElementById('fileInput')
+const pickBtn = document.getElementById('pickBtn')
+
+pickBtn.addEventListener('click', () => fileInput.click())
+dz.addEventListener('click', (e) => {
+  // Don't double-trigger when the inner button is the actual click target
+  if (e.target === dz) fileInput.click()
+})
+dz.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click() }
+})
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) handleFiles(fileInput.files)
+  fileInput.value = '' // allow re-selecting the same file
+})
+
+;['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, (e) => {
+  e.preventDefault()
+  dz.classList.add('drag-over')
+}))
+;['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, (e) => {
+  e.preventDefault()
+  dz.classList.remove('drag-over')
+}))
+dz.addEventListener('drop', (e) => {
+  if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files)
+})
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  queueEl.innerHTML = ''
+  queueRows = []
+  queueEl.hidden = true
+  actionsEl.hidden = true
+  summaryEl.textContent = ''
+})
+
+document.getElementById('signoutBtn').addEventListener('click', async () => {
+  await signOut()
+  location.href = 'hub.html'
+})
+
+// ── Cursor (consistent with the rest of the site) ─────────────────────────
+const cursorEl = document.getElementById('cursor')
+const ringEl = document.getElementById('ring')
+let mx = 0, my = 0, rx = 0, ry = 0
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY })
+;(function tick() {
+  cursorEl.style.left = mx + 'px'; cursorEl.style.top = my + 'px'
+  rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12
+  ringEl.style.left = rx + 'px'; ringEl.style.top = ry + 'px'
+  requestAnimationFrame(tick)
+})()
+function enlarge() { ringEl.style.width = '56px'; ringEl.style.height = '56px' }
+function shrink()  { ringEl.style.width = '34px'; ringEl.style.height = '34px' }
+document.querySelectorAll('a, button, .dropzone').forEach(el => {
+  el.addEventListener('mouseenter', enlarge)
+  el.addEventListener('mouseleave', shrink)
+})
+
+gate()
+</script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Members · The Nijsters</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#181621">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hub.css">
+<style>
+/* members.html — Registry archetype (§7.D). No tokens, no chrome, no
+   generic components here: those come from css/hub.css. Only the
+   page-specific composition lives below. This page references canonical
+   semantic tokens directly; it relies on zero legacy aliases. */
+html { scroll-behavior: smooth; }
+body { min-height: 100vh; display: flex; flex-direction: column; }
+@media (pointer:fine){ body { cursor: none; } }
+
+/* Each auth/page state is a left-aligned block in the .hub-main well. */
+.state { display: flex; flex-direction: column; gap: var(--space-lg); }
+.deny {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: clamp(1.4rem, 3vw, 1.875rem); line-height: 1.4;
+  color: var(--text-secondary); max-width: 38ch;
+}
+.footnote {
+  font-size: var(--t-meta); color: var(--text-muted); line-height: 1.7;
+}
+
+/* Registry uses the locked §6.6 table standard verbatim. The member
+   email is the standard .label column (Migra Extralight italic at
+   --t-lead, identical to the utilities month column) — the editorial
+   moment lives in that one shared cell role, NOT in a bespoke size. */
+.data-table--registry td.m-email {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-lead); color: var(--text); white-space: nowrap;
+}
+.data-table--registry td.m-role {
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+tr.saving { opacity: 0.4; transition: opacity var(--dur-slow) var(--ease-out); }
+
+.m-select-wrap { position: relative; display: inline-flex; align-items: baseline; }
+.m-select {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  background: transparent; border: none; outline: none;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  color: var(--text);
+  border-bottom: 1px solid var(--text-faint);
+  padding: var(--space-2xs) var(--space-md) var(--space-2xs) 0;
+  transition: border-color var(--dur-mid) var(--ease-out),
+              color var(--dur-mid) var(--ease-out);
+}
+@media (pointer:fine){ .m-select { cursor: none; } }
+.m-select:hover, .m-select:focus { border-bottom-color: var(--text); }
+.m-select option { background: var(--surface); color: var(--text); letter-spacing: normal; }
+.m-select-wrap::after {
+  content: ''; position: absolute; right: 4px; top: 50%;
+  width: 6px; height: 6px;
+  border-right: 1px solid var(--text-muted);
+  border-bottom: 1px solid var(--text-muted);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+tr.m-error-row td {
+  font-family: 'Migra', serif; font-style: italic; font-weight: 200;
+  font-size: var(--t-body); color: var(--field-error);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="ring"></div>
+
+<main class="hub-main">
+  <section class="state" id="state-loading">
+    <p class="eyebrow">Checking session…</p>
+  </section>
+
+  <section class="state" id="state-unauthorized" hidden>
+    <p class="deny">This page is for admins. <span style="display:inline-block">The door is around the corner.</span></p>
+  </section>
+
+  <section class="state" id="state-members" hidden>
+    <table class="data-table data-table--registry" id="membersList">
+      <thead>
+        <tr>
+          <th>Member</th>
+          <th>Role</th>
+          <th>Last seen</th>
+          <th class="num">Change role</th>
+        </tr>
+      </thead>
+      <tbody id="membersBody"></tbody>
+    </table>
+    <div class="empty-state" id="membersEmpty" hidden>No members yet.</div>
+    <p class="footnote">Role changes take effect on the user's next sign-in or token refresh.</p>
+  </section>
+</main>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import {
+  supabase, getAAL, signOut, getCurrentRole, listMembers, setUserRole,
+} from './js/supabase-client.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+
+const hub = mountHubHeader({
+  app: 'Members',
+  eyebrow: 'Family Hub · Members',
+  grace: 'the keys.',
+  tabs: [{ id: 'members', label: 'Members' }],
+})
+
+const states = ['loading', 'unauthorized', 'members']
+function go(state) {
+  for (const s of states) document.getElementById(`state-${s}`).hidden = (s !== state)
+  document.getElementById('signoutBtn').hidden = (state !== 'members')
+}
+
+const ROLES = ['child', 'parent', 'admin']
+
+// Relative time formatter — quiet "3 days ago" / "just now" style, kept in
+// Hanken muted next to the email. Falls back to absolute date for old rows.
+const RTF = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+function relTime(iso) {
+  if (!iso) return 'never signed in'
+  const t = new Date(iso).getTime()
+  if (!Number.isFinite(t)) return ''
+  const diffSec = Math.round((t - Date.now()) / 1000)
+  const abs = Math.abs(diffSec)
+  if (abs < 60)         return RTF.format(diffSec, 'second')
+  if (abs < 3600)       return RTF.format(Math.round(diffSec / 60), 'minute')
+  if (abs < 86400)      return RTF.format(Math.round(diffSec / 3600), 'hour')
+  if (abs < 86400 * 14) return RTF.format(Math.round(diffSec / 86400), 'day')
+  if (abs < 86400 * 60) return RTF.format(Math.round(diffSec / (86400 * 7)), 'week')
+  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+async function gate() {
+  go('loading')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) { location.href = 'hub.html'; return }
+  const { data: aal } = await getAAL()
+  if (!aal || aal.currentLevel !== 'aal2') { location.href = 'hub.html'; return }
+  const role = await getCurrentRole()
+  if (role !== 'admin') { go('unauthorized'); return }
+  go('members')
+  startIdleTimeout(() => location.href = 'hub.html')
+  await renderMembers()
+}
+
+async function renderMembers() {
+  const tableEl = document.getElementById('membersList')
+  const bodyEl = document.getElementById('membersBody')
+  const emptyEl = document.getElementById('membersEmpty')
+  bodyEl.innerHTML = ''
+  let members
+  try {
+    members = await listMembers()
+  } catch (e) {
+    console.warn('listMembers failed', e)
+    const tr = document.createElement('tr')
+    tr.className = 'm-error-row'
+    const td = document.createElement('td')
+    td.colSpan = 4
+    td.textContent = e?.message || String(e)
+    tr.appendChild(td)
+    bodyEl.appendChild(tr)
+    return
+  }
+  if (!members || members.length === 0) {
+    tableEl.hidden = true
+    emptyEl.hidden = false
+    return
+  }
+  tableEl.hidden = false
+  emptyEl.hidden = true
+  for (const m of members) {
+    bodyEl.appendChild(renderRow(m))
+  }
+  const byRole = { admin: 0, parent: 0, child: 0 }
+  for (const m of members) byRole[m.role || 'child']++
+  hub.setStrip({
+    hero: { value: String(members.length), label: 'Family members' },
+    stats: [
+      { label: 'Admins',   value: String(byRole.admin)  },
+      { label: 'Parents',  value: String(byRole.parent) },
+      { label: 'Children', value: String(byRole.child)  },
+    ],
+  })
+  // Wire cursor enlarge on newly-added interactive elements
+  bodyEl.querySelectorAll('select, a, button').forEach(el => {
+    el.addEventListener('mouseenter', enlarge)
+    el.addEventListener('mouseleave', shrink)
+  })
+}
+
+function renderRow(m) {
+  const row = document.createElement('tr')
+  row.dataset.userId = m.user_id
+
+  const email = document.createElement('td')
+  email.className = 'm-email'
+  email.textContent = m.email || '(no email)'
+
+  const rolePill = document.createElement('td')
+  rolePill.className = 'm-role'
+  rolePill.textContent = m.role || 'child'
+
+  const seen = document.createElement('td')
+  seen.className = 'm-seen'
+  seen.textContent = relTime(m.last_sign_in)
+  if (m.last_sign_in) {
+    seen.title = new Date(m.last_sign_in).toLocaleString()
+  } else if (m.created_at) {
+    seen.title = `Created ${new Date(m.created_at).toLocaleString()}`
+  }
+
+  const selectCell = document.createElement('td')
+  selectCell.className = 'num'
+  const selectWrap = document.createElement('div')
+  selectWrap.className = 'm-select-wrap'
+  const select = document.createElement('select')
+  select.className = 'm-select'
+  select.setAttribute('aria-label', `Role for ${m.email}`)
+  for (const r of ROLES) {
+    const opt = document.createElement('option')
+    opt.value = r; opt.textContent = r
+    if (r === (m.role || 'child')) opt.selected = true
+    select.appendChild(opt)
+  }
+  let previousRole = m.role || 'child'
+  select.addEventListener('change', async () => {
+    const newRole = select.value
+    if (newRole === previousRole) return
+    clearRowError(row)
+    row.classList.add('saving')
+    select.disabled = true
+    try {
+      await setUserRole(m.user_id, newRole)
+      previousRole = newRole
+      rolePill.textContent = newRole
+    } catch (e) {
+      console.warn('setUserRole failed', e)
+      // Revert optimistic state and surface the error as an inline row.
+      select.value = previousRole
+      showRowError(row, e?.message || String(e))
+    } finally {
+      row.classList.remove('saving')
+      select.disabled = false
+    }
+  })
+  selectWrap.appendChild(select)
+  selectCell.appendChild(selectWrap)
+
+  row.append(email, rolePill, seen, selectCell)
+  return row
+}
+
+function showRowError(row, msg) {
+  let err = row.nextElementSibling
+  if (!err || !err.classList.contains('m-error-row')) {
+    err = document.createElement('tr')
+    err.className = 'm-error-row'
+    const td = document.createElement('td')
+    td.colSpan = 4
+    err.appendChild(td)
+    row.after(err)
+  }
+  err.firstChild.textContent = msg
+}
+function clearRowError(row) {
+  const next = row.nextElementSibling
+  if (next && next.classList.contains('m-error-row')) next.remove()
+}
+
+document.getElementById('signoutBtn').addEventListener('click', async () => {
+  await signOut()
+  location.href = 'hub.html'
+})
+
+// Cursor — styling is from css/hub.css; this only drives position + the
+// hover enlarge, identical across every Hub page.
+const cursorEl = document.getElementById('cursor')
+const ringEl = document.getElementById('ring')
+let mx = 0, my = 0, rx = 0, ry = 0
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY })
+;(function tick() {
+  cursorEl.style.left = mx + 'px'; cursorEl.style.top = my + 'px'
+  rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12
+  ringEl.style.left = rx + 'px'; ringEl.style.top = ry + 'px'
+  requestAnimationFrame(tick)
+})()
+function enlarge() { ringEl.style.width = '56px'; ringEl.style.height = '56px' }
+function shrink()  { ringEl.style.width = '34px'; ringEl.style.height = '34px' }
+document.querySelectorAll('a, button').forEach(el => {
+  el.addEventListener('mouseenter', enlarge)
+  el.addEventListener('mouseleave', shrink)
+})
+
+gate()
+</script>
+</body>
+</html>
