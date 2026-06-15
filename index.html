@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Nijsters</title>
+<meta name="description" content="A family from Sugar Land, Texas. We've lived across the world, we keep moving, and we go our own way.">
+<meta name="theme-color" content="#181621">
+
+<!-- Open Graph: makes URL pastes in iMessage, WhatsApp, Slack, Discord render with a card -->
+<meta property="og:type"        content="website">
+<meta property="og:site_name"   content="The Nijsters">
+<meta property="og:title"       content="The Nijsters">
+<meta property="og:description" content="A family from Sugar Land, Texas. We've lived across the world, we keep moving, and we go our own way.">
+<meta property="og:url"         content="https://nijsters.com/">
+<meta property="og:image"       content="https://nijsters.com/og-image.png">
+<meta property="og:image:width"  content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt"   content="The Nijsters wordmark on a dark aubergine ground">
+
+<!-- Twitter Card -->
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:title"       content="The Nijsters">
+<meta name="twitter:description" content="A family from Sugar Land, Texas. We've lived across the world, we keep moving, and we go our own way.">
+<meta name="twitter:image"       content="https://nijsters.com/og-image.png">
+
+<!-- Favicons -->
+<link rel="icon"            href="favicon.svg" type="image/svg+xml">
+<link rel="icon"            href="favicon.ico" sizes="any">
+<link rel="icon"            href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hub.css">
+<style>
+/* Public landing. Keeps its distinct masthead, hidden Hub door, own
+   cursor and the big --t-display editorial voice (that voice is the
+   landing's alone). Tokens, Migra @font-face
+   and the inverted-section palette are the canonical ones in
+   css/hub.css; removing the local block also de-drifts the old alpha
+   tiers (0.75/0.35/0.18 -> canonical 0.78/0.32/0.16). */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Hanken Grotesk', sans-serif;
+  background: var(--ground);
+  color: var(--text);
+  overflow-x: hidden;
+  cursor: none;
+}
+
+.cursor {
+  position: fixed; width: 8px; height: 8px; background: var(--text);
+  border-radius: 50%; pointer-events: none; z-index: 9999;
+  transform: translate(-50%, -50%);
+}
+.cursor-ring {
+  position: fixed; width: 34px; height: 34px;
+  border: 1px solid var(--text-faint); border-radius: 50%;
+  pointer-events: none; z-index: 9998; transform: translate(-50%, -50%);
+  transition: width 0.3s, height 0.3s;
+}
+
+.overlay {
+  position: fixed; inset: 0; background: var(--ground);
+  z-index: 500; pointer-events: none;
+}
+
+.top-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 44px;
+  /* starts visible — GSAP hides then reveals it */
+}
+/* Subtle top-down fade so nav text stays readable over any photo behind it.
+   The gradient sits BEHIND the bar contents (z-index:-1), purely as a backdrop. */
+.top-bar::before {
+  content: '';
+  position: absolute; inset: 0 0 auto 0;
+  height: 120px;
+  background: linear-gradient(to bottom, oklch(0.18 0.018 305 / 0.55), oklch(0.18 0.018 305 / 0));
+  pointer-events: none;
+  z-index: -1;
+}
+.top-logo {
+  font-size: 9px; letter-spacing: 0.5em; text-transform: uppercase;
+  color: var(--text-secondary); font-weight: 300;
+}
+.top-nav { display: flex; gap: 28px; align-items: center; }
+.top-nav a {
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--text-secondary); text-decoration: none;
+  transition: color 0.3s; cursor: none;
+}
+.top-nav a.active { color: var(--text); border-bottom: 1px solid var(--text); padding-bottom: 2px; }
+.top-nav a:hover { color: var(--text); }
+
+/* Hub door — typographic signature mark, not a button. Burnt-ochre accent ties it to the brand rather than nav. */
+.hub-door {
+  font-family: 'Migra', serif;
+  font-style: italic;
+  font-weight: 200;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: none;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding-bottom: 2px;
+  opacity: 0.85;
+}
+.hub-door:hover { opacity: 1; transform: rotate(6deg); }
+
+/* =====================================================
+   HERO LAYOUT
+   One bleeding photo on the right, text on the left.
+   The photo's inner edge dissolves into the dark ground
+   via a gradient overlay (no rectangular border where it
+   meets the text column). Photos cycle through a Supabase-
+   loaded list; falls back to bundled /photos on failure.
+   ===================================================== */
+.hero {
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-photo {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 70%;
+  z-index: 1;
+}
+.hero-photo img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  filter: brightness(0.88) saturate(0.9);
+  /* Each img layer animates its own opacity for the crossfade.
+     Transition is set in JS to allow temporary disabling during the swap. */
+}
+.hero-photo img.back { opacity: 0; }
+/* The bleed: a soft dark wash on the photo's inner (left) edge so the
+   photo dissolves into the text column rather than terminating in a
+   hard rectangle. Solid --ground on the far left, transparent past the
+   middle of the gradient zone. */
+.hero-photo::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to right,
+    var(--ground) 0%,
+    color-mix(in oklab, var(--ground) 70%, transparent) 18%,
+    color-mix(in oklab, var(--ground) 30%, transparent) 32%,
+    transparent 48%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.left {
+  position: relative;
+  z-index: 3;          /* above the bleeding photo */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 90px 48px 56px 44px;
+  max-width: 50%;
+  height: 100%;
+}
+
+/*
+  Name: 8vw at 1150px ≈ 92px.
+  "Nijsters" (8 chars × ~0.62em avg × 92px ≈ 456px) fits within
+  a 575px column minus 92px padding = 483px usable.
+  All text starts visible — GSAP animates it in from translateY.
+  If GSAP CDN ever fails, text is still readable.
+*/
+.eyebrow {
+  font-size: 9px; letter-spacing: 0.45em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 24px;
+}
+.big-name {
+  font-family: 'Migra', serif;
+  font-weight: 800;
+  font-size: clamp(44px, 8vw, 110px);
+  line-height: 0.86;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.name-l { display: block; overflow: hidden; padding: 0.18em 0 0.25em; margin: -0.18em 0 -0.25em; }
+.name-l span { display: block; }
+
+.h-rule { width: 40px; height: 3px; background: var(--text); margin: 30px 0 20px; flex-shrink: 0; }
+
+.hero-body {
+  font-size: 13px; color: var(--text-secondary);
+  line-height: 1.85; max-width: 280px;
+}
+
+.hero-cta { margin-top: 36px; display: flex; align-items: center; gap: 18px; }
+.cta-a {
+  font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text); text-decoration: none;
+  border-bottom: 1px solid var(--text); padding-bottom: 3px;
+  cursor: none; transition: opacity 0.3s;
+}
+.cta-a:hover { opacity: 0.4; }
+.cta-sep { width: 1px; height: 14px; background: var(--text-faint); }
+.cta-b {
+  font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted); text-decoration: none;
+  cursor: none; transition: color 0.3s;
+}
+.cta-b:hover { color: var(--text); }
+
+.scroll-hint {
+  position: absolute; bottom: 32px; left: 44px;
+  display: flex; align-items: center; gap: 14px;
+  font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase;
+  color: var(--text-faint);
+}
+.sh-line { width: 36px; height: 1px; background: var(--text-faint); }
+
+/* Thumbs overlay — only rendered for authenticated aal2 visitors. Sits in
+   the photo's bottom-right corner with a subtle ground-tinted backdrop so
+   it reads against any photo content. */
+.thumbs {
+  position: absolute;
+  bottom: 28px; right: 28px;
+  z-index: 4;
+  display: flex; gap: 2px;
+  background: oklch(0.18 0.018 305 / 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid oklch(0.94 0.018 80 / 0.18);
+  padding: 4px;
+}
+.thumb-btn {
+  background: none; border: none;
+  padding: 9px;
+  color: var(--text-secondary);
+  cursor: none;
+  font-family: inherit;
+  transition: color 0.25s ease, transform 0.2s ease;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.thumb-btn:hover { color: var(--text); }
+.thumb-btn.active { color: var(--accent); }
+.thumb-btn.active svg { fill: var(--accent); fill-opacity: 0.18; }
+.thumb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.thumb-btn svg { width: 18px; height: 18px; display: block; }
+
+/* Mobile: photo above the text, feathered at the bottom instead of the side. */
+@media (max-width: 760px) {
+  .hero { height: auto; min-height: 100vh; }
+  .left { max-width: 100%; padding-top: 56vh; }
+  .hero-photo { width: 100%; height: 56vh; }
+  .hero-photo::after {
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 60%,
+      color-mix(in oklab, var(--ground) 60%, transparent) 80%,
+      var(--ground) 100%
+    );
+  }
+}
+
+/* ---- Section 2 — INVERTED: bone ground, ink type. The single dramatic flip. ---- */
+.section-2 { background: var(--inv-ground); color: var(--inv-ink); padding: 140px 80px; }
+.s2-kicker {
+  font-size: 9px; letter-spacing: 0.5em; text-transform: uppercase;
+  color: var(--inv-mute); margin-bottom: 36px;
+}
+.s2-quote {
+  font-family: 'Migra', serif; font-style: italic;
+  font-size: clamp(36px, 5.5vw, 72px); font-weight: 200;
+  color: var(--inv-ink); line-height: 1.1;
+  letter-spacing: -0.01em;
+  max-width: 22ch; margin-bottom: 52px;
+}
+.s2-attr {
+  font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase;
+  color: var(--inv-faint);
+}
+
+/* ---- Section 3 — Moments marquee ----
+   Continuous horizontal scroll. The track holds 2× the photo set; the
+   animation translates by -50%, so when one loop completes, the second
+   copy is positioned exactly where the first copy started — seamless.
+   Animation duration is computed in JS from the actual track width so
+   the scroll speed stays consistent regardless of how many photos
+   are in the set. */
+.section-3 {
+  background: var(--ground);
+  padding: 96px 0 96px 0;
+  overflow: hidden; /* clip the marquee track */
+}
+.s3-head {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  padding: 0 44px; margin-bottom: 36px;
+}
+.s3-title { font-family: 'Migra', serif; font-style: italic; font-size: 36px; font-weight: 200; color: var(--text); letter-spacing: -0.005em; }
+.s3-meta { font-size: 9px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--text-muted); }
+.scroll-row {
+  display: flex;
+  gap: 3px;
+  width: max-content;
+  animation: marquee var(--marquee-duration, 240s) linear infinite;
+}
+.scroll-row:hover { animation-play-state: paused; }
+@keyframes marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.scroll-item { flex-shrink: 0; width: 260px; aspect-ratio: 4/5; overflow: hidden; }
+.scroll-item img {
+  width: 100%; height: 100%; object-fit: cover;
+  filter: brightness(0.92) saturate(0.9); transform: scale(1.04);
+  transition: filter 0.5s, transform 0.6s;
+}
+.scroll-item:hover img { filter: brightness(1.05) saturate(1.05); transform: scale(1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-row { animation: none; }
+}
+
+/* ---- Footer — same ground as body, separated by a hairline rule rather than a color shift ---- */
+footer {
+  background: var(--ground); padding: 52px 44px;
+  border-top: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.footer-name { font-family: 'Migra', serif; font-style: italic; font-size: 22px; font-weight: 200; color: var(--text-secondary); }
+.footer-loc { font-size: 9px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--text-faint); }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay"></div>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="ring"></div>
+
+<header class="top-bar" id="topbar">
+  <div class="top-logo">Nijsters</div>
+  <nav class="top-nav">
+    <a href="#" class="active">Home</a>
+    <a href="#story">Story</a>
+    <a href="#gallery">Gallery</a>
+    <a href="hub.html" class="hub-door" aria-label="Family Hub">n</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="left">
+    <div class="eyebrow">A family from Sugar Land, Texas</div>
+    <h1 class="big-name">
+      <span class="name-l"><span>The</span></span>
+      <span class="name-l"><span>Nijsters</span></span>
+    </h1>
+    <div class="h-rule"></div>
+    <p class="hero-body">A family that runs fast, builds things, and moves through the world on its own terms.</p>
+    <div class="hero-cta">
+      <a href="#story" class="cta-a">Our story</a>
+      <div class="cta-sep"></div>
+      <a href="#gallery" class="cta-b">Gallery</a>
+    </div>
+    <div class="scroll-hint"><span class="sh-line"></span>Scroll</div>
+  </div>
+
+  <div class="hero-photo" id="heroPhoto">
+    <img class="front" src="" alt="">
+    <img class="back" src="" alt="">
+    <!-- Hidden by default. Shown only when the visitor is signed in at aal2.
+         Anonymous visitors never see this — RLS would block writes anyway. -->
+    <div class="thumbs" id="thumbs" hidden>
+      <button class="thumb-btn" id="thumbUp" type="button" aria-label="Like this photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+        </svg>
+      </button>
+      <button class="thumb-btn" id="thumbDown" type="button" aria-label="Dislike this photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+<section class="section-2" id="story">
+  <div class="s2-kicker" id="s2k">Who we are</div>
+  <div class="s2-quote"  id="s2q">"We go our own way."</div>
+  <div class="s2-attr"   id="s2a">Sugar Land, Texas</div>
+</section>
+
+<section class="section-3" id="gallery">
+  <div class="s3-head" id="s3h">
+    <div class="s3-title">Moments</div>
+    <div class="s3-meta" id="s3meta">Loading…</div>
+  </div>
+  <div class="scroll-row" id="galleryRow"></div>
+</section>
+
+<footer>
+  <div class="footer-name">The Nijsters</div>
+  <div class="footer-loc">Sugar Land · Texas</div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import {
+  listVariant, getPhotoScores, getMyVotes, castVote, getCurrentAAL, deletePhoto,
+  hasMinRole
+} from './js/supabase-client.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+
+gsap.registerPlugin(ScrollTrigger)
+
+// Bundled fallback for the transition window. Each entry uses the {id, url}
+// shape so the rotator code is uniform. Voting on bundled photos is a no-op
+// (the ids don't exist in Supabase), and the fallback only triggers when
+// Supabase is unreachable anyway.
+const BUNDLED = Array.from({ length: 10 }, (_, i) => ({
+  id:  `bundled-c${i + 1}`,
+  url: `photos/c${i + 1}.jpg`,
+}))
+
+const ROTATE_MS = 7000
+const FADE_MS   = 900
+
+function shuffle(arr) {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+function preload(src) {
+  return new Promise(r => { const img = new Image(); img.onload = img.onerror = r; img.src = src })
+}
+
+async function loadHeroPhotos() {
+  const photos = await listVariant('full')
+  return (photos && photos.length > 0) ? photos : BUNDLED
+}
+async function loadGalleryPhotos() {
+  const photos = await listVariant('thumb')
+  return (photos && photos.length > 0) ? photos.map(p => p.url) : BUNDLED.map(p => p.url)
+}
+
+// ── Voting state ────────────────────────────────────────────────────────
+// Anyone can read aggregate scores; only aal2 users see thumbs UI or vote.
+let scores  = {}            // { photo_id: { ups, downs, score } } — public
+let myVotes = {}            // { photo_id: 1|-1 } — populated for aal2 only
+let isAal2  = false
+let currentPhotoId = null
+let heroPhotos = []         // [{id, url}] — mutable so deletes can shrink the set
+const thumbsEl   = () => document.getElementById('thumbs')
+const upBtn      = () => document.getElementById('thumbUp')
+const downBtn    = () => document.getElementById('thumbDown')
+
+const AUTO_DELETE_DOWNS = 2  // two distinct members downvote → photo is purged
+
+// Weight calc: every net upvote nudges weight up by 0.5; net downvote pulls
+// it down. Floor at 0.2 so a single dud doesn't fully bury a photo.
+function weightOf(photoId) {
+  const s = scores[photoId]?.score || 0
+  return Math.max(0.2, 1 + s * 0.5)
+}
+
+// Weighted shuffle without replacement (Efraimidis-Spirakis): each item
+// gets sort key = -ln(rand) / weight, sort ascending. The result is a
+// permutation where higher-weight items tend to appear earlier, but EVERY
+// item plays exactly once per cycle. This avoids the "iPod shuffle"
+// problem where pure weighted random with replacement makes the same
+// few photos cluster and skip large swaths of the set.
+function weightedShuffle(photos) {
+  return photos
+    .map(p => ({ p, k: -Math.log(Math.random() || 1e-12) / weightOf(p.id) }))
+    .sort((a, b) => a.k - b.k)
+    .map(x => x.p)
+}
+
+let playQueue = []
+function nextPhoto(photos) {
+  if (playQueue.length === 0) playQueue = weightedShuffle(photos)
+  return playQueue.shift()
+}
+
+function updateThumbsUI() {
+  if (!isAal2 || !currentPhotoId) return
+  const my = myVotes[currentPhotoId]
+  upBtn().classList.toggle('active',   my === 1)
+  downBtn().classList.toggle('active', my === -1)
+}
+
+async function handleVote(direction) {
+  if (!isAal2 || !currentPhotoId) return
+  // Voting on a bundled fallback is a no-op (the id isn't in Supabase)
+  if (currentPhotoId.startsWith('bundled-')) return
+  const target = currentPhotoId
+  const existing = myVotes[target]
+  const newVote = (existing === direction) ? null : direction
+
+  // Optimistic UI
+  if (newVote === null) delete myVotes[target]; else myVotes[target] = newVote
+  updateThumbsUI()
+  upBtn().disabled = downBtn().disabled = true
+
+  try {
+    const { error } = await castVote(target, newVote)
+    if (error) throw error
+    scores = await getPhotoScores() // refresh weights silently
+
+    // Auto-delete: when downs reaches the threshold (two different members),
+    // wipe the photo from storage and clear its vote rows. Each (user, photo)
+    // is unique by primary key, so 'downs >= 2' implies two distinct members.
+    const sc = scores[target]
+    if (sc && sc.downs >= AUTO_DELETE_DOWNS) {
+      // Only admins are allowed to actually purge. For parent/child sessions,
+      // the threshold is met but the RPC would be rejected — leave the photo
+      // in the rotation and let an admin's next visit (or their own vote)
+      // trigger the removal. Local splice() still runs for admins so the
+      // visible rotator behaves identically to before.
+      if (await hasMinRole('admin')) {
+        await deletePhoto(target)
+        // Mutate in place so the rotator's captured array reference stays valid
+        const idx = heroPhotos.findIndex(p => p.id === target)
+        if (idx >= 0) heroPhotos.splice(idx, 1)
+        playQueue = []  // force reshuffle from the smaller set on next pick
+        delete scores[target]
+        delete myVotes[target]
+      }
+    }
+  } catch (e) {
+    console.warn('vote failed, reverting', e)
+    if (existing === undefined) delete myVotes[target]; else myVotes[target] = existing
+    updateThumbsUI()
+  } finally {
+    upBtn().disabled = downBtn().disabled = false
+  }
+}
+
+/* -- Cursor -- */
+const cursorEl = document.getElementById('cursor')
+const ringEl   = document.getElementById('ring')
+let mx = 0, my = 0, rx = 0, ry = 0
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY })
+;(function tick() {
+  cursorEl.style.left = mx + 'px'; cursorEl.style.top = my + 'px'
+  rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12
+  ringEl.style.left = rx + 'px'; ringEl.style.top = ry + 'px'
+  requestAnimationFrame(tick)
+})()
+function enlargeCursor() { ringEl.style.width = '56px'; ringEl.style.height = '56px' }
+function shrinkCursor()  { ringEl.style.width = '34px'; ringEl.style.height = '34px' }
+document.querySelectorAll('a, .hero-photo').forEach(el => {
+  el.addEventListener('mouseenter', enlargeCursor)
+  el.addEventListener('mouseleave', shrinkCursor)
+})
+
+/* -- Hero rotator: deck-shuffle queue, crossfade between stacked imgs -- */
+function startHeroRotation(photos) {
+  const slot  = document.getElementById('heroPhoto')
+  const front = slot.querySelector('.front')
+  const back  = slot.querySelector('.back')
+
+  let current = nextPhoto(photos)
+  front.src = current.url
+  currentPhotoId = current.id
+  updateThumbsUI()
+
+  function rotate() {
+    const next = nextPhoto(photos)
+    preload(next.url).then(() => {
+      back.src = next.url
+      front.style.transition = `opacity ${FADE_MS}ms ease`
+      back.style.transition  = `opacity ${FADE_MS}ms ease`
+      requestAnimationFrame(() => {
+        front.style.opacity = '0'
+        back.style.opacity  = '1'
+      })
+      setTimeout(() => {
+        front.src = back.src
+        front.style.transition = back.style.transition = 'none'
+        front.style.opacity = '1'
+        back.style.opacity  = '0'
+        current = next
+        currentPhotoId = current.id
+        updateThumbsUI()
+        setTimeout(rotate, ROTATE_MS - FADE_MS)
+      }, FADE_MS + 60)
+    })
+  }
+  setTimeout(rotate, ROTATE_MS)
+}
+
+function buildGallery(photos) {
+  const row  = document.getElementById('galleryRow')
+  const meta = document.getElementById('s3meta')
+  meta.textContent = `${photos.length} photograph${photos.length === 1 ? '' : 's'}`
+
+  // Duplicate the set so the marquee can loop seamlessly via translateX(-50%).
+  // Only the first copy counts toward the displayed count.
+  const ITEM_W = 260, GAP = 3
+  const PIXELS_PER_SECOND = 60     // ambient drift speed
+  const doubled = [...photos, ...photos]
+  doubled.forEach((src, i) => {
+    const wrap = document.createElement('div')
+    wrap.className = 'scroll-item'
+    const img = document.createElement('img')
+    img.src = src; img.alt = ''; img.loading = 'lazy'
+    // Mark duplicates so we don't double-count them in any future logic
+    if (i >= photos.length) wrap.setAttribute('aria-hidden', 'true')
+    wrap.appendChild(img); row.appendChild(wrap)
+    wrap.addEventListener('mouseenter', enlargeCursor)
+    wrap.addEventListener('mouseleave', shrinkCursor)
+  })
+
+  // Drive the marquee duration off the actual set width so 10 photos and
+  // 1000 photos drift at the same on-screen speed.
+  const oneSetWidth = photos.length * (ITEM_W + GAP)
+  row.style.setProperty('--marquee-duration', `${oneSetWidth / PIXELS_PER_SECOND}s`)
+}
+
+/* =====================================================
+   ANIMATIONS
+   Initial hidden states set in JS so a GSAP CDN failure
+   leaves the page fully readable at natural CSS state.
+   ===================================================== */
+gsap.set('#overlay',          { opacity: 1 })
+gsap.set('#topbar',           { opacity: 0 })
+gsap.set('.eyebrow',          { opacity: 0, y: 10 })
+gsap.set('.name-l span',      { opacity: 0, y: '110%' })
+gsap.set('.h-rule',           { opacity: 0 })
+gsap.set('.hero-body',        { opacity: 0, y: 10 })
+gsap.set('.hero-cta',         { opacity: 0 })
+gsap.set('.scroll-hint',      { opacity: 0 })
+gsap.set('#heroPhoto .front', { opacity: 0, scale: 1.04 })
+
+gsap.set('#s2k', { opacity: 0, y: 16 })
+gsap.set('#s2q', { opacity: 0, y: 24 })
+gsap.set('#s2a', { opacity: 0 })
+gsap.set('#s3h', { opacity: 0 })
+
+const tl = gsap.timeline({ delay: 0.2 })
+tl.to('#overlay',          { opacity: 0, duration: 1.4, ease: 'power2.inOut' })
+  .to('#heroPhoto .front', { opacity: 1, scale: 1, duration: 1.8, ease: 'power2.out' }, '-=1.0')
+  .to('#topbar',           { opacity: 1, duration: 0.7 },                           '-=1.4')
+  .to('.eyebrow',          { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, '-=0.9')
+  .to('.name-l span',      { opacity: 1, y: 0, duration: 1.1, stagger: 0.16, ease: 'power3.out' }, '-=0.6')
+  .to('.h-rule',           { opacity: 1, duration: 0.6 },                           '-=0.3')
+  .to('.hero-body',        { opacity: 1, y: 0, duration: 0.7, ease: 'power2.out' }, '-=0.4')
+  .to('.hero-cta',         { opacity: 1, duration: 0.6 },                           '-=0.3')
+  .to('.scroll-hint',      { opacity: 1, duration: 0.6 },                           '-=0.3')
+
+gsap.to('#s2k', { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out',
+  scrollTrigger: { trigger: '#s2k', start: 'top 82%' } })
+gsap.to('#s2q', { opacity: 1, y: 0, duration: 1.1, ease: 'power3.out', delay: 0.12,
+  scrollTrigger: { trigger: '#s2q', start: 'top 82%' } })
+gsap.to('#s2a', { opacity: 1, duration: 0.8, delay: 0.28,
+  scrollTrigger: { trigger: '#s2a', start: 'top 85%' } })
+gsap.to('#s3h', { opacity: 1, duration: 0.9,
+  scrollTrigger: { trigger: '#s3h', start: 'top 85%' } })
+
+// Subtle parallax on the hero photo as it scrolls out
+gsap.to('#heroPhoto img.front', {
+  yPercent: -8, ease: 'none',
+  scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 2 }
+})
+
+/* -- Bootstrap: photos + scores + auth check in parallel -- */
+;(async () => {
+  const [hero, gallery, scoresMap, aal] = await Promise.all([
+    loadHeroPhotos(),
+    loadGalleryPhotos(),
+    getPhotoScores(),
+    getCurrentAAL(),
+  ])
+  heroPhotos = hero
+  scores = scoresMap
+  isAal2 = (aal === 'aal2')
+
+  if (isAal2) {
+    myVotes = await getMyVotes()
+    thumbsEl().hidden = false
+    upBtn().addEventListener('click',   () => handleVote(1))
+    downBtn().addEventListener('click', () => handleVote(-1))
+    // Make sure the cursor enlarges over the new interactive elements
+    ;[upBtn(), downBtn()].forEach(el => {
+      el.addEventListener('mouseenter', enlargeCursor)
+      el.addEventListener('mouseleave', shrinkCursor)
+    })
+    // Sign out after 10 minutes of inactivity; just hide the thumbs and
+    // flip the flag (landing is public, no redirect needed).
+    startIdleTimeout(() => {
+      isAal2 = false
+      myVotes = {}
+      thumbsEl().hidden = true
+    })
+  }
+
+  startHeroRotation(heroPhotos)
+  buildGallery(shuffle(gallery))
+})()
+</script>
+</body>
+</html>

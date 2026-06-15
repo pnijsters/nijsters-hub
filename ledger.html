@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Financials · Family Hub</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#181621">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hub.css">
+<link rel="stylesheet" href="css/hub-forms.css">
+<style>
+/* Ledger composition only — tokens, App-Shell chrome, the cursor, and the
+   data-table / drawer / form layer all come from css/hub.css + hub-forms.css. */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+@media (pointer: fine) { body { cursor: none; } }
+
+#main {
+  padding: var(--space-xl) clamp(var(--space-lg), 4vw, var(--space-3xl)) var(--space-3xl);
+  max-width: 1180px; margin: 0 auto;
+}
+.view { display: none; flex-direction: column; gap: var(--space-2xl); }
+.view.is-active { display: flex; }
+
+.section { display: flex; flex-direction: column; gap: var(--space-md); }
+.section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--space-md); padding-bottom: var(--space-sm); border-bottom: 1px solid var(--line);
+}
+.section-head .title {
+  font-family: 'Migra', serif; font-weight: 800; font-size: var(--t-h3);
+  letter-spacing: -0.01em; color: var(--text);
+}
+.section-head .title .it { font-weight: 200; font-style: italic; }
+.section-head .meta {
+  font-size: var(--t-meta); letter-spacing: 0.04em; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Entity selector in the header control-row left slot. */
+.entity-pick { display: inline-flex; align-items: center; gap: var(--space-sm); }
+.entity-pick label { font-size: var(--t-eyebrow); letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-muted); }
+.entity-pick .hub-select { width: auto; min-width: 11rem; }
+select {
+  background: transparent; border: none; border-bottom: 1px solid var(--text-faint);
+  color: var(--text); font: inherit; font-size: var(--t-body);
+  padding: var(--space-2xs) 0; outline: none; color-scheme: dark;
+}
+select:focus { border-color: var(--text); }
+select option { background: var(--ground); color: var(--text); }
+
+/* Chart of accounts — class groups + the account table. */
+.coa-class { display: flex; flex-direction: column; gap: var(--space-xs); }
+.coa-class-head {
+  font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  color: var(--text-muted); padding-bottom: var(--space-2xs); border-bottom: 1px solid var(--line-soft);
+}
+.acct-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-md);
+  align-items: baseline; padding: var(--space-sm) 0; border-bottom: 1px solid var(--line-soft);
+  font-size: var(--t-body);
+}
+.acct-row .a-name { color: var(--text); }
+.acct-row .a-sub { font-size: var(--t-eyebrow); letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+.acct-row .a-meta { font-size: var(--t-meta); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.row-btn { background: none; border: none; font: inherit; color: inherit; text-align: left; width: 100%; padding: 0; }
+.row-btn:hover { color: var(--accent); }
+
+/* Activity — entries with their postings. */
+.entry { padding: var(--space-md) 0; border-bottom: 1px solid var(--line-soft); }
+.entry-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-md); }
+.entry-date { font-size: var(--t-meta); letter-spacing: 0.04em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.entry-desc { color: var(--text); font-size: var(--t-lead); }
+.entry-legs { margin-top: var(--space-xs); display: flex; flex-direction: column; gap: 2px; }
+.leg {
+  display: grid; grid-template-columns: 1fr auto; gap: var(--space-md);
+  font-size: var(--t-body); color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+.leg .l-amt.debit { color: var(--text); }
+.leg .l-amt.credit { color: var(--text-muted); }
+
+/* Entry drawer — posting splits. */
+.splits { display: flex; flex-direction: column; gap: var(--space-sm); }
+.split { display: grid; grid-template-columns: 1fr 130px auto; gap: var(--space-sm); align-items: baseline; }
+.split .num-with-prefix {
+  display: flex; align-items: baseline; gap: var(--space-2xs);
+  border-bottom: 1px solid var(--text-faint); padding-bottom: var(--space-2xs);
+}
+.split .num-with-prefix:focus-within { border-color: var(--text); }
+.split .num-with-prefix input {
+  background: transparent; border: none; color: var(--text); font: inherit; width: 100%;
+  outline: none; text-align: right; font-variant-numeric: tabular-nums;
+}
+.split .prefix { font-family: 'Migra', serif; font-style: italic; color: var(--text-muted); }
+.split-x { background: none; border: none; font: inherit; color: var(--text-faint); font-size: var(--t-body); }
+.split-x:hover { color: var(--error); }
+.splits-foot { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-md); margin-top: var(--space-sm); }
+.balance-readout { font-size: var(--t-meta); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.balance-readout.ok { color: var(--accent); }
+
+/* General ledger flat table built on the shared .data-table. */
+.table-scroll { overflow: auto; max-height: 70vh; scrollbar-width: thin; scrollbar-color: var(--text-faint) transparent; }
+.table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.table-scroll::-webkit-scrollbar-thumb { background: var(--text-faint); border-radius: 3px; }
+
+/* Placeholder shells for tabs not yet built. */
+.shell {
+  border: 1px solid var(--line); padding: var(--space-2xl);
+  display: flex; flex-direction: column; gap: var(--space-sm); align-items: flex-start;
+}
+.shell h2 { font-family: 'Migra', serif; font-weight: 200; font-style: italic; font-size: var(--t-h3); color: var(--text); }
+.shell p { font-size: var(--t-body); color: var(--text-muted); max-width: 60ch; line-height: 1.6; }
+.shell .soon { font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase; color: var(--text-faint); }
+
+.page-foot { margin-top: var(--space-2xl); display: flex; justify-content: center; gap: var(--space-md); }
+.enter-btn {
+  font-family: inherit; font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  font-weight: 500; background: var(--text); color: var(--ground); border: 1px solid var(--text);
+  padding: var(--space-md) var(--space-2xl);
+}
+.ghost-btn {
+  font-family: inherit; font-size: var(--t-eyebrow); letter-spacing: 0.35em; text-transform: uppercase;
+  font-weight: 500; background: transparent; color: var(--text); border: 1px solid var(--text-faint);
+  padding: var(--space-md) var(--space-2xl);
+}
+.itemize-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); }
+.secret-reveal { font-size: var(--t-meta); color: var(--text-muted); }
+@media (pointer: fine) { .enter-btn, .ghost-btn, .row-btn, .split-x { cursor: none; } }
+</style>
+</head>
+<body>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="ring"></div>
+
+<main id="main">
+  <div class="loading-bar" id="state-loading" hidden></div>
+  <div class="empty" id="state-empty" hidden>No entities yet. Create your first book to start posting.</div>
+
+  <!-- ACTIVITY -->
+  <section class="view" id="view-activity">
+    <div class="section">
+      <div class="section-head"><span class="title">Recent <span class="it">activity.</span></span><span class="meta" id="act-meta">&nbsp;</span></div>
+      <div id="act-list"></div>
+    </div>
+  </section>
+
+  <!-- PEOPLE (shell) -->
+  <section class="view" id="view-people">
+    <div class="shell"><span class="soon">Later</span><h2>People</h2><p>Payees, customers, and the family members behind each entity. Wires into the ledger once entities and accounts are in place.</p></div>
+  </section>
+
+  <!-- GENERAL LEDGER -->
+  <section class="view" id="view-general-ledger">
+    <div class="section">
+      <div class="section-head"><span class="title">General <span class="it">ledger.</span></span><span class="meta" id="gl-meta">&nbsp;</span></div>
+      <div class="table-scroll">
+        <table class="data-table" aria-label="General ledger postings">
+          <thead><tr><th>Date</th><th>Account</th><th>Memo</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead>
+          <tbody id="gl-list"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHART OF ACCOUNTS -->
+  <section class="view" id="view-chart-of-accounts">
+    <div class="section">
+      <div class="section-head"><span class="title">Chart of <span class="it">accounts.</span></span><span class="meta" id="coa-meta">&nbsp;</span></div>
+      <div id="coa-list"></div>
+    </div>
+  </section>
+
+  <!-- TRIAL BALANCE (shell) -->
+  <section class="view" id="view-trial-balance">
+    <div class="shell"><span class="soon">Later</span><h2>Trial Balance</h2><p>Every account's debit/credit balance for the selected entity, proving the books sum to zero. The read-only math is already in <code>ledger-client.js</code>; this tab renders it next.</p></div>
+  </section>
+
+  <!-- P&L REPORT (shell) -->
+  <section class="view" id="view-pl-report">
+    <div class="shell"><span class="soon">Later</span><h2>P&amp;L Report</h2><p>Income and expense, period over period, in native and presentation currency.</p></div>
+  </section>
+
+  <!-- BALANCE SHEET (shell) -->
+  <section class="view" id="view-balance-sheet">
+    <div class="shell"><span class="soon">Later</span><h2>Balance Sheet</h2><p>Assets, liabilities, and equity at a point in time, per entity and consolidated.</p></div>
+  </section>
+
+  <!-- RECONCILE BANK (shell) -->
+  <section class="view" id="view-reconcile-bank">
+    <div class="shell"><span class="soon">Later</span><h2>Reconcile Bank</h2><p>Match cleared postings against a statement and mark them reconciled.</p></div>
+  </section>
+
+  <!-- TAX CENTER (shell) -->
+  <section class="view" id="view-tax-center">
+    <div class="shell"><span class="soon">Later</span><h2>Tax Center</h2><p>Foreign-currency expense valuation and realized gain/loss, valued at each posting's dated rate.</p></div>
+  </section>
+
+  <!-- HISTORY (shell) -->
+  <section class="view" id="view-history">
+    <div class="shell"><span class="soon">Later</span><h2>History</h2><p>An audit trail of every entry and its provenance (<code>source_system</code> / <code>external_id</code>).</p></div>
+  </section>
+
+  <div class="page-foot">
+    <button class="ghost-btn" id="new-entity-btn" hidden>New entity</button>
+    <button class="ghost-btn" id="new-account-btn" hidden>New account</button>
+    <button class="enter-btn" id="new-entry-btn" hidden>New entry</button>
+  </div>
+</main>
+
+<!-- DRAWER: entity -->
+<dialog class="drawer" id="entity-drawer" aria-labelledby="entity-title">
+  <form method="dialog" class="drawer-inner" novalidate>
+    <div class="drawer-head"><span class="drawer-eyebrow" id="entity-eyebrow">An entity</span><button type="button" class="drawer-close" id="entity-close">Close</button></div>
+    <h2 class="drawer-title">A self-balancing <span class="it">book.</span></h2>
+    <p class="drawer-helper">Each entity keeps its own books in its own functional currency. Nothing about your chart of accounts is assumed here.</p>
+    <div class="form-row"><label for="e-name">Name</label><input type="text" id="e-name" autocomplete="off" placeholder="Personal · Cake Boutique · Beacon Rental"></div>
+    <div class="form-row"><label for="e-type">Type</label>
+      <select id="e-type"><option value="personal">Personal</option><option value="business">Business</option><option value="rental">Rental</option><option value="trust">Trust</option></select></div>
+    <div class="form-row"><label for="e-ccy">Functional currency</label><select id="e-ccy"></select></div>
+    <div class="form-error" id="entity-error" hidden></div>
+    <div class="drawer-foot"><button type="button" class="drawer-delete" id="entity-delete" hidden>Delete</button><button type="button" class="drawer-save" id="entity-save">Save</button></div>
+  </form>
+</dialog>
+
+<!-- DRAWER: account -->
+<dialog class="drawer" id="account-drawer" aria-labelledby="account-title">
+  <form method="dialog" class="drawer-inner" novalidate>
+    <div class="drawer-head"><span class="drawer-eyebrow" id="account-eyebrow">An account</span><button type="button" class="drawer-close" id="account-close">Close</button></div>
+    <h2 class="drawer-title">A node in the <span class="it">chart.</span></h2>
+    <p class="drawer-helper">Real accounts and income/expense "categories" are the same thing here. Currency is fixed once it has postings.</p>
+    <div class="form-row"><label for="a-name">Name</label><input type="text" id="a-name" autocomplete="off"></div>
+    <div class="itemize-grid">
+      <div class="form-row"><label for="a-class">Class</label>
+        <select id="a-class"><option value="ASSET">Asset</option><option value="LIABILITY">Liability</option><option value="EQUITY">Equity</option><option value="INCOME">Income</option><option value="EXPENSE">Expense</option></select></div>
+      <div class="form-row"><label for="a-ccy">Currency</label><select id="a-ccy"></select></div>
+    </div>
+    <div class="itemize-grid">
+      <div class="form-row"><label for="a-subtype">Subtype</label><select id="a-subtype"></select></div>
+      <div class="form-row"><label for="a-parent">Parent</label><select id="a-parent"></select></div>
+    </div>
+    <div class="form-row"><label for="a-inst">Institution</label><input type="text" id="a-inst" autocomplete="off" placeholder="optional"></div>
+    <details class="itemize">
+      <summary>Sensitive numbers (encrypted)</summary>
+      <div class="itemize-grid" style="margin-top:var(--space-md)">
+        <div class="form-row"><label for="a-acctno">Account number</label><input type="text" id="a-acctno" autocomplete="off"></div>
+        <div class="form-row"><label for="a-routing">Routing number</label><input type="text" id="a-routing" autocomplete="off"></div>
+      </div>
+      <p class="secret-reveal" id="a-secret-note" hidden></p>
+      <p class="dropzone-aside"><button type="button" class="linklike muted" id="a-reveal" hidden>Reveal stored numbers</button></p>
+    </details>
+    <div class="form-row"><label for="a-url">Online link</label><input type="text" id="a-url" autocomplete="off" placeholder="optional"></div>
+    <div class="form-error" id="account-error" hidden></div>
+    <div class="drawer-foot"><button type="button" class="drawer-delete" id="account-delete" hidden>Delete</button><button type="button" class="drawer-save" id="account-save">Save</button></div>
+  </form>
+</dialog>
+
+<!-- DRAWER: new entry -->
+<dialog class="drawer" id="entry-drawer" aria-labelledby="entry-title">
+  <form method="dialog" class="drawer-inner" novalidate>
+    <div class="drawer-head"><span class="drawer-eyebrow">A journal entry</span><button type="button" class="drawer-close" id="entry-close">Close</button></div>
+    <h2 class="drawer-title">Post an <span class="it">entry.</span></h2>
+    <p class="drawer-helper">Positive is a debit, negative a credit. The engine enforces the balance — single-currency entries must sum to zero; cross-currency entries balance in the functional currency.</p>
+    <div class="itemize-grid">
+      <div class="form-row"><label for="t-date">Date</label><input type="date" id="t-date"></div>
+      <div class="form-row"><label for="t-ref">Reference</label><input type="text" id="t-ref" autocomplete="off" placeholder="optional"></div>
+    </div>
+    <div class="form-row"><label for="t-desc">Description</label><input type="text" id="t-desc" autocomplete="off"></div>
+    <div class="form-row"><span class="form-legend">Splits</span><div class="splits" id="splits"></div></div>
+    <div class="splits-foot">
+      <button type="button" class="linklike" id="split-add">Add a split</button>
+      <span class="balance-readout" id="balance-readout"></span>
+    </div>
+    <div class="form-error" id="entry-error" hidden></div>
+    <div class="drawer-foot"><button type="button" class="drawer-save" id="entry-save">Post</button></div>
+  </form>
+</dialog>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import {
+  supabase, getAAL, signOut, getCurrentRole, hasMinRole,
+} from './js/supabase-client.js'
+import {
+  listCurrencies, listEntities, upsertEntity,
+  listAccounts, upsertAccount, setAccountSecret, getAccountSecrets,
+  listEntries, listPostings, postEntry,
+} from './js/ledger-client.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+import { enhanceSelect, enhanceWithin } from './js/hub-select.js'
+import { notify } from './js/hub-notify.js'
+
+const $ = (id) => document.getElementById(id)
+
+/* ── formatting ───────────────────────────────────────────────────────────── */
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const fmtDay = (iso) => { if (!iso) return ''; const [y, m, d] = iso.slice(0,10).split('-'); return `${MONTHS[+m-1]} ${+d}, ${y}` }
+const toNum = (s) => { const v = parseFloat(String(s).replace(/[^0-9.\-]/g, '')); return Number.isFinite(v) ? v : null }
+const fmtMoney = (amt, ccy) => {
+  const scale = (currencyMap.get(ccy)?.minor_unit_scale) ?? 2
+  try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: ccy, minimumFractionDigits: scale, maximumFractionDigits: scale }).format(amt) }
+  catch { return `${Number(amt).toFixed(scale)} ${ccy}` }
+}
+const CLASSES = ['ASSET','LIABILITY','EQUITY','INCOME','EXPENSE']
+const SUBTYPES = ['BANK','CREDIT_CARD','INVESTMENT','FIXED_ASSET','RECEIVABLE','PAYABLE','INTERCOMPANY','MORTGAGE','CASH_IN_TRANSIT','FX_GAIN_LOSS','RETAINED_EARNINGS','INCOME','EXPENSE','EQUITY']
+
+/* ── state ────────────────────────────────────────────────────────────────── */
+let role = null, canWrite = false
+let currencies = [], currencyMap = new Map()
+let entities = [], currentEntityId = null
+let accounts = [], entries = []
+let currentView = 'activity'
+
+const hub = mountHubHeader({
+  app: 'Financials',
+  eyebrow: 'Family Hub · Financials',
+  grace: 'general ledger, statements, and reconciliation.',
+  tabs: [
+    { id: 'activity',          label: 'Activity' },
+    { id: 'people',            label: 'People' },
+    { id: 'general-ledger',    label: 'General Ledger' },
+    { id: 'chart-of-accounts', label: 'Chart of Accounts' },
+    { id: 'trial-balance',     label: 'Trial Balance' },
+    { id: 'pl-report',         label: 'P&L Report' },
+    { id: 'balance-sheet',     label: 'Balance Sheet' },
+    { id: 'reconcile-bank',    label: 'Reconcile Bank' },
+    { id: 'tax-center',        label: 'Tax Center' },
+    { id: 'history',           label: 'History' },
+  ],
+  onTab: onViewChange,
+})
+hub.crLeft.innerHTML = `<div class="entity-pick"><label for="entitySel">Entity</label><select id="entitySel"></select></div>`
+
+const currentEntity = () => entities.find(e => e.id === currentEntityId) || null
+
+/* ── currency / select option helpers ─────────────────────────────────────── */
+function ccyOptions(selected) {
+  return currencies.filter(c => c.is_active || c.code === selected)
+    .map(c => `<option value="${c.code}"${c.code === selected ? ' selected' : ''}>${c.code} · ${c.name}</option>`).join('')
+}
+function renderEntitySelect() {
+  const sel = $('entitySel')
+  if (!entities.length) { sel.innerHTML = '<option>— no entities —</option>'; return }
+  sel.innerHTML = entities.map(e => `<option value="${e.id}"${e.id === currentEntityId ? ' selected' : ''}>${e.name} · ${e.functional_currency}</option>`).join('')
+}
+
+/* ── ACTIVITY ─────────────────────────────────────────────────────────────── */
+function renderActivity() {
+  const host = $('act-list')
+  if (!currentEntityId) { host.innerHTML = '<p class="shell-p" style="color:var(--text-muted)">Create an entity in Chart of Accounts first.</p>'; $('act-meta').textContent = ''; return }
+  if (!entries.length) { host.innerHTML = `<p style="color:var(--text-muted);font-size:var(--t-body)">No entries yet${canWrite ? ' — post the first one.' : '.'}</p>`; $('act-meta').textContent = ''; return }
+  host.innerHTML = entries.map(e => {
+    const legs = (e.postings || []).map(p => {
+      const amt = Number(p.amount)
+      const dr = amt >= 0
+      return `<div class="leg"><span>${p.account?.name || '—'}${p.memo ? ` · <span style="color:var(--text-muted)">${p.memo}</span>` : ''}</span>
+        <span class="l-amt ${dr ? 'debit' : 'credit'}">${dr ? '' : '('}${fmtMoney(Math.abs(amt), p.currency_code)}${dr ? '' : ')'}</span></div>`
+    }).join('')
+    return `<div class="entry"><div class="entry-head"><span class="entry-desc">${e.description || '—'}</span><span class="entry-date">${fmtDay(e.entry_date)}${e.reference ? ` · ${e.reference}` : ''}</span></div>
+      <div class="entry-legs">${legs}</div></div>`
+  }).join('')
+  $('act-meta').textContent = `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} · ${currentEntity()?.name || ''}`
+}
+
+/* ── GENERAL LEDGER ───────────────────────────────────────────────────────── */
+async function renderGeneralLedger() {
+  const tb = $('gl-list')
+  if (!currentEntityId) { tb.innerHTML = ''; $('gl-meta').textContent = ''; return }
+  const postings = await listPostings(currentEntityId, { limit: 500 })
+  tb.innerHTML = postings.map(p => {
+    const amt = Number(p.amount)
+    return `<tr>
+      <td class="label">${fmtDay(p.entry?.entry_date)}</td>
+      <td>${p.account?.name || '—'}</td>
+      <td class="muted">${p.memo || p.entry?.description || ''}</td>
+      <td class="num">${amt >= 0 ? fmtMoney(amt, p.currency_code) : ''}</td>
+      <td class="num">${amt < 0 ? fmtMoney(-amt, p.currency_code) : ''}</td>
+    </tr>`
+  }).join('')
+  $('gl-meta').textContent = `${postings.length} postings · ${currentEntity()?.name || ''}`
+}
+
+/* ── CHART OF ACCOUNTS ────────────────────────────────────────────────────── */
+function renderChartOfAccounts() {
+  const host = $('coa-list')
+  if (!entities.length) {
+    host.innerHTML = `<p style="color:var(--text-muted);font-size:var(--t-body)">No entities yet.${canWrite ? ' Create your first book to begin.' : ''}</p>`
+    $('coa-meta').textContent = ''
+    return
+  }
+  if (!accounts.length) {
+    host.innerHTML = `<p style="color:var(--text-muted);font-size:var(--t-body)">No accounts in ${currentEntity()?.name || 'this entity'} yet${canWrite ? ' — add one.' : '.'}</p>`
+    $('coa-meta').textContent = ''
+    return
+  }
+  host.innerHTML = CLASSES.map(cls => {
+    const rows = accounts.filter(a => a.account_class === cls)
+    if (!rows.length) return ''
+    return `<div class="coa-class"><div class="coa-class-head">${cls}</div>${rows.map(a => `
+      <div class="acct-row">
+        <span class="a-name">${canWrite ? `<button type="button" class="row-btn" data-acct="${a.id}">${a.name}</button>` : a.name}</span>
+        <span class="a-sub">${a.subtype ? a.subtype.replace(/_/g,' ') : ''}</span>
+        <span class="a-meta">${a.currency_code}${a.account_number_last4 ? ` · ••${a.account_number_last4}` : ''}${a.institution ? ` · ${a.institution}` : ''}</span>
+      </div>`).join('')}</div>`
+  }).join('')
+  $('coa-meta').textContent = `${accounts.length} accounts · ${currentEntity()?.name || ''}`
+}
+
+/* ── view switching ───────────────────────────────────────────────────────── */
+const RENDER = {
+  activity: renderActivity,
+  'general-ledger': renderGeneralLedger,
+  'chart-of-accounts': renderChartOfAccounts,
+}
+function showView(view) {
+  currentView = view
+  for (const el of document.querySelectorAll('.view')) el.classList.toggle('is-active', el.id === `view-${view}`)
+  RENDER[view]?.()
+  // footer actions relevant to the active view
+  $('new-entity-btn').hidden = !canWrite || view !== 'chart-of-accounts'
+  $('new-account-btn').hidden = !canWrite || view !== 'chart-of-accounts' || !entities.length
+  $('new-entry-btn').hidden = !canWrite || view !== 'activity' || !entities.length
+}
+function onViewChange(view) { if (view !== currentView) showView(view) }
+
+async function onEntityChange(id) {
+  currentEntityId = id
+  await loadEntityData()
+  showView(currentView)
+}
+async function loadEntityData() {
+  if (!currentEntityId) { accounts = []; entries = []; return }
+  ;[accounts, entries] = await Promise.all([
+    listAccounts(currentEntityId),
+    listEntries(currentEntityId),
+  ])
+}
+
+/* ── entity drawer ────────────────────────────────────────────────────────── */
+let editingEntityId = null
+function openEntityNew() {
+  editingEntityId = null
+  $('entity-eyebrow').textContent = 'An entity'
+  $('e-name').value = ''; $('e-type').value = 'personal'; $('e-type')._hubSelect?.refresh()
+  $('e-ccy').innerHTML = ccyOptions('USD')
+  $('entity-error').hidden = true
+  $('entity-drawer').showModal()
+}
+async function saveEntity() {
+  const name = $('e-name').value.trim()
+  if (!name) { showErr('entity-error', 'A name is required.'); return }
+  const row = { id: editingEntityId || undefined, name, type: $('e-type').value, functional_currency: $('e-ccy').value }
+  const btn = $('entity-save'); btn.disabled = true
+  try {
+    const saved = await upsertEntity(row)
+    entities = await listEntities()
+    if (!editingEntityId) currentEntityId = saved.id
+    renderEntitySelect()
+    await loadEntityData()
+    $('entity-drawer').close()
+    showView('chart-of-accounts'); hub.setTab('chart-of-accounts')
+    notify({ tone: 'success', message: `Entity "${saved.name}" saved.` })
+  } catch (e) { showErr('entity-error', e.message) } finally { btn.disabled = false }
+}
+
+/* ── account drawer ───────────────────────────────────────────────────────── */
+let editingAccountId = null
+function fillAccountSelects(selectedClass, selectedSub, selectedParent, selectedCcy) {
+  $('a-class').value = selectedClass || 'ASSET'; $('a-class')._hubSelect?.refresh()
+  $('a-ccy').innerHTML = ccyOptions(selectedCcy || currentEntity()?.functional_currency || 'USD')
+  $('a-subtype').innerHTML = `<option value="">— none —</option>` + SUBTYPES.map(s => `<option value="${s}"${s === selectedSub ? ' selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')
+  const parentable = accounts.filter(a => a.id !== editingAccountId)
+  $('a-parent').innerHTML = `<option value="">— none —</option>` + parentable.map(a => `<option value="${a.id}"${a.id === selectedParent ? ' selected' : ''}>${a.name}</option>`).join('')
+}
+function openAccountNew() {
+  if (!currentEntityId) { notify({ tone: 'warn', message: 'Pick or create an entity first.' }); return }
+  editingAccountId = null
+  $('account-eyebrow').textContent = 'An account'
+  $('a-name').value = ''; $('a-inst').value = ''; $('a-url').value = ''
+  $('a-acctno').value = ''; $('a-routing').value = ''
+  $('a-secret-note').hidden = true; $('a-reveal').hidden = true
+  $('account-delete').hidden = true; $('account-error').hidden = true
+  fillAccountSelects('ASSET', '', '', currentEntity()?.functional_currency)
+  $('account-drawer').showModal()
+}
+function openAccountEdit(a) {
+  editingAccountId = a.id
+  $('account-eyebrow').textContent = 'Edit account'
+  $('a-name').value = a.name; $('a-inst').value = a.institution || ''; $('a-url').value = a.external_url || ''
+  $('a-acctno').value = ''; $('a-routing').value = ''
+  $('account-delete').hidden = true  // delete deferred (entries may reference it)
+  $('account-error').hidden = true
+  fillAccountSelects(a.account_class, a.subtype, a.parent_id, a.currency_code)
+  const hasSecret = !!a.account_number_last4
+  $('a-secret-note').hidden = !hasSecret
+  $('a-secret-note').textContent = hasSecret ? `On file: ••${a.account_number_last4}. Re-entering replaces it.` : ''
+  $('a-reveal').hidden = !hasSecret
+  $('account-drawer').showModal()
+}
+async function saveAccount() {
+  const name = $('a-name').value.trim()
+  if (!name) { showErr('account-error', 'A name is required.'); return }
+  const row = {
+    id: editingAccountId || undefined,
+    entity_id: currentEntityId,
+    name,
+    account_class: $('a-class').value,
+    subtype: $('a-subtype').value || null,
+    currency_code: $('a-ccy').value,
+    parent_id: $('a-parent').value || null,
+    institution: $('a-inst').value.trim() || null,
+    external_url: $('a-url').value.trim() || null,
+  }
+  const btn = $('account-save'); btn.disabled = true
+  try {
+    const saved = await upsertAccount(row)
+    const acctno = $('a-acctno').value.trim(), routing = $('a-routing').value.trim()
+    if (acctno || routing) await setAccountSecret(saved.id, acctno, routing)
+    accounts = await listAccounts(currentEntityId)
+    $('account-drawer').close()
+    renderChartOfAccounts()
+    notify({ tone: 'success', message: `Account "${saved.name}" saved.` })
+  } catch (e) { showErr('account-error', e.message) } finally { btn.disabled = false }
+}
+async function revealSecret() {
+  if (!editingAccountId) return
+  try {
+    const s = await getAccountSecrets(editingAccountId)
+    $('a-acctno').value = s.account_number || ''
+    $('a-routing').value = s.routing_number || ''
+    $('a-secret-note').hidden = true; $('a-reveal').hidden = true
+  } catch (e) { notify({ tone: 'error', message: e.message }) }
+}
+
+/* ── new-entry drawer ─────────────────────────────────────────────────────── */
+function acctOptions(selected) {
+  return `<option value="">— account —</option>` + accounts.filter(a => a.is_active).map(a =>
+    `<option value="${a.id}"${a.id === selected ? ' selected' : ''}>${a.name} (${a.currency_code})</option>`).join('')
+}
+function addSplit(sel = '', amt = '') {
+  const div = document.createElement('div')
+  div.className = 'split'
+  div.innerHTML = `<select class="split-acct" aria-label="Account">${acctOptions(sel)}</select>
+    <div class="num-with-prefix"><span class="prefix">±</span><input type="text" class="split-amt" inputmode="decimal" placeholder="0.00" value="${amt}"></div>
+    <button type="button" class="split-x" aria-label="Remove split">&times;</button>`
+  $('splits').appendChild(div)
+  enhanceSelect(div.querySelector('.split-acct'))
+}
+function readSplits() {
+  return [...document.querySelectorAll('#splits .split')].map(d => ({
+    account_id: d.querySelector('.split-acct').value || null,
+    amount: toNum(d.querySelector('.split-amt').value),
+  }))
+}
+function refreshBalance() {
+  const rows = readSplits().filter(s => s.account_id && s.amount != null)
+  const byCcy = new Map()
+  for (const s of rows) {
+    const a = accounts.find(x => x.id === s.account_id); if (!a) continue
+    byCcy.set(a.currency_code, (byCcy.get(a.currency_code) || 0) + s.amount)
+  }
+  const out = $('balance-readout')
+  if (!byCcy.size) { out.textContent = ''; out.classList.remove('ok'); return }
+  const parts = [...byCcy.entries()].map(([c, t]) => `${c} ${t.toFixed(2)}`)
+  const single = byCcy.size === 1
+  const balanced = single && Math.abs([...byCcy.values()][0]) < 0.005
+  out.textContent = balanced ? 'balances ✓' : `sum: ${parts.join(' · ')}`
+  out.classList.toggle('ok', balanced)
+}
+function openEntryNew() {
+  if (!currentEntityId) { notify({ tone: 'warn', message: 'Pick or create an entity first.' }); return }
+  if (accounts.length < 2) { notify({ tone: 'warn', message: 'Add at least two accounts first.' }); return }
+  $('t-date').value = new Date().toISOString().slice(0, 10)
+  $('t-ref').value = ''; $('t-desc').value = ''
+  $('splits').innerHTML = ''; addSplit(); addSplit()
+  $('entry-error').hidden = true; refreshBalance()
+  $('entry-drawer').showModal()
+}
+async function saveEntry() {
+  const date = $('t-date').value
+  if (!date) { showErr('entry-error', 'A date is required.'); return }
+  const splits = readSplits().filter(s => s.account_id && s.amount != null)
+  if (splits.length < 2) { showErr('entry-error', 'At least two complete splits are required.'); return }
+  const btn = $('entry-save'); btn.disabled = true
+  try {
+    await postEntry(
+      { entity_id: currentEntityId, entry_date: date, description: $('t-desc').value.trim() || null, reference: $('t-ref').value.trim() || null },
+      splits.map(s => ({ account_id: s.account_id, amount: s.amount })),
+    )
+    entries = await listEntries(currentEntityId)
+    $('entry-drawer').close()
+    showView('activity')
+    notify({ tone: 'success', message: 'Entry posted.' })
+  } catch (e) { showErr('entry-error', e.message) } finally { btn.disabled = false }
+}
+
+function showErr(id, msg) { const el = $(id); el.textContent = msg; el.hidden = false }
+
+/* ── events ───────────────────────────────────────────────────────────────── */
+function wireEvents() {
+  $('entitySel').addEventListener('change', e => onEntityChange(e.target.value))
+
+  $('new-entity-btn').addEventListener('click', openEntityNew)
+  $('new-account-btn').addEventListener('click', openAccountNew)
+  $('new-entry-btn').addEventListener('click', openEntryNew)
+
+  // entity drawer
+  $('entity-close').addEventListener('click', () => $('entity-drawer').close())
+  $('entity-drawer').addEventListener('click', e => { if (e.target === $('entity-drawer')) $('entity-drawer').close() })
+  $('entity-save').addEventListener('click', saveEntity)
+
+  // account drawer
+  $('account-close').addEventListener('click', () => $('account-drawer').close())
+  $('account-drawer').addEventListener('click', e => { if (e.target === $('account-drawer')) $('account-drawer').close() })
+  $('account-save').addEventListener('click', saveAccount)
+  $('a-reveal').addEventListener('click', revealSecret)
+  $('coa-list').addEventListener('click', e => {
+    const b = e.target.closest('[data-acct]'); if (!b || !canWrite) return
+    const a = accounts.find(x => x.id === b.dataset.acct); if (a) openAccountEdit(a)
+  })
+
+  // entry drawer
+  $('entry-close').addEventListener('click', () => $('entry-drawer').close())
+  $('entry-drawer').addEventListener('click', e => { if (e.target === $('entry-drawer')) $('entry-drawer').close() })
+  $('entry-save').addEventListener('click', saveEntry)
+  $('split-add').addEventListener('click', () => { addSplit(); refreshBalance() })
+  $('splits').addEventListener('click', e => {
+    const x = e.target.closest('.split-x'); if (!x) return
+    if (document.querySelectorAll('#splits .split').length > 1) x.closest('.split').remove()
+    refreshBalance()
+  })
+  $('splits').addEventListener('input', refreshBalance)
+  $('splits').addEventListener('change', refreshBalance)
+
+  if (canWrite) hub.setActions([
+    { id: 'entity', label: 'New entity', onClick: openEntityNew },
+    { id: 'account', label: 'New account', onClick: openAccountNew },
+    { id: 'entry', label: 'New entry', meta: 'Post', onClick: openEntryNew },
+  ])
+}
+
+/* ── boot ─────────────────────────────────────────────────────────────────── */
+async function gate() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) { location.href = 'hub.html'; return false }
+  const { data: aal } = await getAAL()
+  if (!aal || aal.currentLevel !== 'aal2') { location.href = 'hub.html'; return false }
+  role = (await getCurrentRole()) || 'child'
+  canWrite = await hasMinRole('parent')
+  return true
+}
+
+async function init() {
+  if (!(await gate())) return
+  $('signoutBtn').hidden = false
+  $('signoutBtn').addEventListener('click', async () => { await signOut(); location.href = 'hub.html' })
+  if (role === 'child') hub.setGrace('general ledger, statements, and reconciliation · view only.')
+  startIdleTimeout(() => { location.href = 'hub.html' })
+
+  const lbar = $('state-loading'); const lt = setTimeout(() => { lbar.hidden = false }, 600)
+  try {
+    ;[currencies, entities] = await Promise.all([listCurrencies(), listEntities()])
+    currencyMap = new Map(currencies.map(c => [c.code, c]))
+    currentEntityId = entities[0]?.id || null
+    renderEntitySelect()
+    await loadEntityData()
+  } catch (e) { console.error('Failed to load ledger data', e) }
+  clearTimeout(lt); lbar.hidden = true
+
+  // Per-view empty states cover the messaging; keep the global banner off.
+  $('state-empty').hidden = true
+  enhanceWithin(document)   // themed dropdowns for the entity picker + all drawer selects
+  wireEvents()
+  showView('activity')
+  initCursor()
+}
+
+function initCursor() {
+  if (!matchMedia('(pointer: fine)').matches) return
+  const cur = $('cursor'), ring = $('ring')
+  let mx = 0, my = 0, rx = 0, ry = 0
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY })
+  ;(function tick() {
+    cur.style.left = mx + 'px'; cur.style.top = my + 'px'
+    rx += (mx - rx) * 0.14; ry += (my - ry) * 0.14
+    ring.style.left = rx + 'px'; ring.style.top = ry + 'px'
+    requestAnimationFrame(tick)
+  })()
+  const SEL = 'a, button, input, select, textarea, .row-btn, .split-x'
+  document.addEventListener('mouseover', e => { if (e.target.closest?.(SEL)) { ring.style.width = '52px'; ring.style.height = '52px' } }, { passive: true })
+  document.addEventListener('mouseout', e => { if (e.target.closest?.(SEL)) { ring.style.width = '32px'; ring.style.height = '32px' } }, { passive: true })
+}
+
+init()
+</script>
+</body>
+</html>
