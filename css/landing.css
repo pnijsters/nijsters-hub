@@ -1,0 +1,97 @@
+/* ============================================================================
+   Nijsters.com public landing — self-contained foundation.
+
+   The landing is a distinct surface from the authenticated Hub and owns its
+   look independently. It shares NO stylesheet with the Hub: index.html loads
+   only this file plus its own inline <style>. That decoupling is deliberate,
+   so the Hub design system (css/hub.css) can evolve without ever touching the
+   public page.
+
+   Scope: the editorial voice (Migra), the brand token palette the landing
+   consumes, and the one shared control it renders (.btn). The landing defines
+   its own html/body, custom cursor, masthead, sections and photo experience
+   inline in index.html.
+   ========================================================================= */
+
+/* --- Editorial display voice ---------------------------------------------- */
+@font-face { font-family:'Migra'; src:url('../fonts/Migra-Extrabold.woff2') format('woff2'); font-weight:800; font-style:normal; font-display:swap; }
+@font-face { font-family:'Migra'; src:url('../fonts/Migra-Extralight.woff2') format('woff2'); font-weight:200; font-style:normal; font-display:swap; }
+@font-face { font-family:'Migra'; src:url('../fonts/MigraItalic-ExtraboldItalic.woff2') format('woff2'); font-weight:800; font-style:italic; font-display:swap; }
+@font-face { font-family:'Migra'; src:url('../fonts/MigraItalic-ExtralightItalic.woff2') format('woff2'); font-weight:200; font-style:italic; font-display:swap; }
+
+:root {
+  /* ---- Primitive anchors (warm editorial brand) --------------------- */
+  --ground:    oklch(0.18 0.018 305);
+  --ground-up: oklch(0.22 0.018 305);
+  --bone:      oklch(0.94 0.018 80);
+  --accent:    oklch(0.72 0.16 38);
+  --accent-d:  oklch(0.62 0.18 38);
+  --warn:      oklch(0.62 0.18 22);
+  --error:     oklch(0.70 0.16 28);
+
+  /* ---- Semantic roles ---------------------------------------------- */
+  --surface:        var(--ground);
+  --surface-raised: var(--ground-up);
+  --text:           var(--bone);
+  --text-secondary: oklch(0.94 0.018 80 / 0.78);
+  --text-muted:     oklch(0.94 0.018 80 / 0.55);
+  --text-faint:     oklch(0.94 0.018 80 / 0.32);
+  --line:           oklch(0.94 0.018 80 / 0.16);
+  --line-soft:      oklch(0.94 0.018 80 / 0.08);
+  --veil:           oklch(0.94 0.018 80 / 0.10);
+  --signal:         var(--accent);
+  --signal-strong:  var(--accent-d);
+  --danger:         var(--warn);
+  --field-error:    var(--error);
+
+  /* ---- Inverted section (the landing's .section-2) ----------------- */
+  --inv-ground: var(--bone);
+  --inv-ink:    var(--ground);
+  --inv-soft:   oklch(0.18 0.018 305 / 0.55);
+  --inv-mute:   oklch(0.18 0.018 305 / 0.35);
+  --inv-faint:  oklch(0.18 0.018 305 / 0.22);
+
+  /* ---- Space + frame ----------------------------------------------- */
+  --space-2xs:4px;  --space-xs:8px;   --space-sm:12px;  --space-md:16px;
+  --space-lg:24px;  --space-xl:32px;  --space-2xl:48px; --space-3xl:64px;
+  --space-4xl:96px;
+  --frame-x: clamp(24px, 5vw, 96px);
+  --frame-y: var(--space-md);
+
+  /* ---- Fonts ------------------------------------------------------- */
+  --font-display:'Migra', serif;
+  --font-body:'Hanken Grotesk', sans-serif;
+
+  /* ---- Type scale (landing display voice included) ----------------- */
+  --t-eyebrow:0.5625rem;  --t-meta:0.6875rem;  --t-body:0.875rem;
+  --t-lead:1rem;          --t-h3:1.5rem;       --t-h2:2.25rem;
+  --t-h1:4rem;
+  --t-display:   clamp(3rem, 9vw, 6rem);
+  --t-grace:     clamp(1.5rem, 3vw, 2.5rem);
+
+  /* ---- Motion ------------------------------------------------------ */
+  --dur-fast:150ms; --dur-mid:250ms; --dur-slow:450ms;
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in:  cubic-bezier(0.55, 0, 0.6, 0.2);
+
+  /* ---- Depth + z --------------------------------------------------- */
+  --radius: 0;
+  --scrim:  oklch(0.12 0.018 305 / 0.6);
+  --z-base:0; --z-sticky:200; --z-dialog:400; --z-notify:500;
+}
+
+/* --- The one shared control the landing renders --------------------------- */
+.btn {
+  font-family:var(--font-body); font:inherit;
+  font-size:var(--t-eyebrow); letter-spacing:0.3em; text-transform:uppercase;
+  background:none; border:1px solid var(--line); color:var(--text-secondary);
+  padding:var(--space-xs) var(--space-md); border-radius:var(--radius);
+  transition:color var(--dur-mid) var(--ease-out),
+             border-color var(--dur-mid) var(--ease-out);
+}
+.btn:hover:not(:disabled){ color:var(--text); border-color:var(--text-secondary); }
+.btn:disabled{ color:var(--text-faint); border-color:var(--line-soft); }
+.btn--primary:hover:not(:disabled){ border-color:var(--signal); color:var(--text); }
+.btn--ghost{ border-color:transparent; padding-left:0; padding-right:0; }
+.btn--danger{ border-color:var(--danger); color:var(--danger); }
+.btn--danger:hover:not(:disabled){ background:var(--danger); color:var(--surface); }
