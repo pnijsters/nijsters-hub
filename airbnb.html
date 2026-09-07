@@ -1,0 +1,3448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AirBnB · Family Hub</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080808">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/hub.css">
+<link rel="stylesheet" href="css/hub-forms.css">
+</head>
+<body>
+
+<main class="hub-main">
+  <div id="view-month" class="view">
+
+  <section class="hero" id="hero-month">
+    <div class="section-eyebrow">The Beacon · Manila</div>
+    <div class="month-stack">
+      <span class="month-name" id="month-name">—</span>
+      <span class="year"       id="year-name">—</span>
+      <div class="month-nav">
+        <button type="button" id="month-prev" class="month-step" title="Previous month">←</button>
+        <button type="button" id="month-next" class="month-step" title="Next month">→</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="occupancy">
+    <div class="section-head">
+      <span class="title">Occupancy</span>
+      <span class="meta" id="occ-meta"></span>
+    </div>
+    <div class="occ-dow" aria-hidden="true">
+      <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+    </div>
+    <div class="occ-weeks" id="occ-grid" role="grid" aria-label="Occupancy calendar"></div>
+    <div class="occ-empty" id="occ-empty" hidden>No nights booked this month.</div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="title">Bookings</span>
+      <span class="meta" id="bookings-meta"></span>
+    </div>
+
+    <dialog class="hub-dialog hub-dialog--wide" id="import-modal" aria-labelledby="import-modal-title">
+      <article>
+        <div class="hub-dialog__head">
+          <div>
+            <h2 class="hub-dialog__title" id="import-modal-title">Import CSV</h2>
+            <span class="hub-dialog__meta">AirBnB host export, reservations + payouts</span>
+          </div>
+          <button type="button" class="hub-dialog__close" aria-label="Close">×</button>
+        </div>
+        <div id="import-dropzone" class="dropzone">
+          <span class="dropzone-cue">Drop your AirBnB host CSV here</span>
+          <button type="button" class="linklike" id="import-pick">Pick file</button>
+          <input type="file" id="import-file" accept=".csv,text/csv" hidden>
+          <div class="dropzone-aside">From AirBnB → Earnings → Export CSV. Reservations and Payouts are joined automatically.</div>
+        </div>
+        <div id="import-preview" class="stack" hidden></div>
+      </article>
+    </dialog>
+
+    <dialog class="hub-dialog hub-dialog--wide" id="export-modal" aria-labelledby="export-modal-title">
+      <article>
+        <div class="hub-dialog__head">
+          <div>
+            <h2 class="hub-dialog__title" id="export-modal-title">Build export</h2>
+            <span class="hub-dialog__meta">Moneydance CSV for the active period</span>
+          </div>
+          <button type="button" class="hub-dialog__close" aria-label="Close">×</button>
+        </div>
+        <div class="export-controls">
+          <div class="group">
+            <span class="group-label">Exchange rate · daily ECB rate (PHP per USD)</span>
+            <span id="export-fx-note" class="export-fx-note">each line at its own date · weekends use Friday</span>
+          </div>
+          <div class="group">
+            <span class="group-label">CSV amounts in</span>
+            <div class="seg" role="group" aria-label="Currency">
+              <button type="button" id="export-cur-php" data-cur="PHP" aria-pressed="true">PHP</button>
+              <button type="button" id="export-cur-usd" data-cur="USD" aria-pressed="false">USD</button>
+            </div>
+          </div>
+          <div class="group" style="margin-left: auto;">
+            <span class="group-label">&nbsp;</span>
+            <button type="button" id="export-download" class="export-trigger" style="margin-left: 0;">Download CSV</button>
+          </div>
+        </div>
+        <div class="export-totals">
+          <div><span class="lbl">Lines</span> <span class="val" id="export-rowcount">0</span></div>
+          <div><span class="lbl">Owner net</span> <span class="val" id="export-net">—</span></div>
+        </div>
+        <div class="export-preview" id="export-preview" role="table" aria-label="Moneydance export preview">
+          <div class="head" style="display: contents">
+            <div>Date</div>
+            <div>Description</div>
+            <div>Account</div>
+            <div class="col-num">Amount</div>
+          </div>
+        </div>
+      </article>
+    </dialog>
+
+    <div class="missing-banner" id="missing-banner" role="alert" hidden></div>
+
+    <div class="data-table-scroll">
+      <table class="data-table" id="bookings-table" aria-label="Bookings this month">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="num">Nights</th>
+            <th class="col-guest">Guest</th>
+            <th class="num">Gross PHP</th>
+          </tr>
+        </thead>
+        <tbody id="bookings-list"></tbody>
+        <tfoot id="bookings-foot"></tfoot>
+      </table>
+    </div>
+    <div class="empty-state" id="bookings-empty" hidden>No bookings this month.</div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="title">Other this month</span>
+      <span class="meta" id="other-meta"></span>
+    </div>
+    <dialog class="hub-dialog" id="adj-modal" aria-labelledby="adj-modal-title">
+      <article>
+        <div class="hub-dialog__head">
+          <div>
+            <h2 class="hub-dialog__title" id="adj-modal-title">Add adjustment</h2>
+            <span class="hub-dialog__meta">Refund, reimbursement, one-off ledger fix</span>
+          </div>
+          <button type="button" class="hub-dialog__close" aria-label="Close">×</button>
+        </div>
+        <form id="adj-form" class="stack">
+          <div class="field-grid">
+            <div class="field"><label for="adj-date">Date</label><input type="date" id="adj-date" required></div>
+            <div class="field"><label for="adj-desc">Description</label><input type="text" id="adj-desc" required placeholder="e.g. Guest refund, broken kettle"></div>
+            <div class="field"><label for="adj-amount">Amount PHP</label><input type="number" id="adj-amount" inputmode="decimal" step="0.01" required placeholder="Negative = refund · positive = reimbursement"></div>
+            <div class="field"><label for="adj-account">Moneydance account</label><select id="adj-account" required></select></div>
+          </div>
+          <div class="hub-dialog__foot">
+            <button type="button" class="btn btn--ghost" id="adj-cancel">Cancel</button>
+            <button type="submit" class="btn btn--accent" id="adj-save">Save</button>
+          </div>
+          <div id="adj-error" class="form-error" hidden></div>
+        </form>
+      </article>
+    </dialog>
+    <table class="data-table" id="other-table" aria-label="Other costs and adjustments">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th class="col-cat">Category</th>
+          <th class="num">Gross PHP</th>
+        </tr>
+      </thead>
+      <tbody id="other-body"></tbody>
+      <tfoot id="other-foot"></tfoot>
+    </table>
+    <div class="empty-state" id="other-empty" hidden>Nothing else this month.</div>
+  </section>
+
+  </div><!-- /#view-month -->
+
+  <!-- ──────── Quarter view ──────── -->
+  <div id="view-quarter" class="view" hidden>
+
+  <section class="hero" id="hero-quarter">
+    <div class="section-eyebrow">The Beacon · Manila</div>
+    <div class="month-stack">
+      <span class="month-name" id="q-name">Q—</span>
+      <span class="year" id="q-year">—</span>
+      <div class="month-nav">
+        <button type="button" id="q-prev" class="month-step" title="Previous quarter">←</button>
+        <button type="button" id="q-next" class="month-step" title="Next quarter">→</button>
+      </div>
+    </div>
+  </section>
+
+    <section>
+      <div class="section-head"><span class="title">AirBnB deposits</span></div>
+      <table class="data-table">
+        <thead><tr>
+          <th>Month</th><th></th>
+          <th class="num">Nights</th><th class="num">Net to bank</th>
+        </tr></thead>
+        <tbody id="q-deposits"></tbody>
+        <tfoot id="q-deposits-foot"></tfoot>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-head"><span class="title">Service fees &amp; expenses</span></div>
+      <table class="data-table">
+        <thead><tr>
+          <th>Date</th><th>Description</th>
+          <th class="num">VAT</th><th class="num">Gross PHP</th>
+        </tr></thead>
+        <tbody id="q-charges"></tbody>
+        <tfoot id="q-charges-foot"></tfoot>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <span class="title">Collections</span>
+      </div>
+
+      <dialog class="hub-dialog hub-dialog--wide" id="stmt-modal" aria-labelledby="stmt-modal-title">
+        <article>
+          <div class="hub-dialog__head">
+            <div>
+              <h2 class="hub-dialog__title" id="stmt-modal-title">Verify invoice</h2>
+              <span class="hub-dialog__meta">Reconcile the Always Home statement PDF</span>
+            </div>
+            <button type="button" class="hub-dialog__close" aria-label="Close">×</button>
+          </div>
+          <div id="stmt-dropzone" class="dropzone">
+            <span class="dropzone-cue">Drop the Always Home statement PDF here</span>
+            <button type="button" class="linklike" id="stmt-pick">Pick file</button>
+            <input type="file" id="stmt-file" accept="application/pdf" hidden>
+            <div class="dropzone-aside">Parsed server-side. The PDF is archived in the airbnb-statements bucket; parse output is reconciled line-by-line against the app's computed totals.</div>
+          </div>
+          <div id="stmt-result" class="empty-state" hidden></div>
+        </article>
+      </dialog>
+
+      <dialog class="hub-dialog" id="pay-modal" aria-labelledby="pay-modal-title">
+        <article>
+          <div class="hub-dialog__head">
+            <div>
+              <h2 class="hub-dialog__title" id="pay-modal-title">Add payment</h2>
+              <span class="hub-dialog__meta">Record an Always Home payout</span>
+            </div>
+            <button type="button" class="hub-dialog__close" aria-label="Close">×</button>
+          </div>
+          <form id="pay-form" class="stack">
+            <div class="field-grid">
+              <div class="field"><label for="pay-date">Paid</label><input type="date" id="pay-date" required></div>
+              <div class="field"><label for="pay-amount">Amount PHP</label><input type="number" id="pay-amount" inputmode="decimal" step="0.01" required min="0.01"></div>
+              <div class="field"><label for="pay-method">Method</label><input type="text" id="pay-method" placeholder="BDO transfer / GCash"></div>
+              <div class="field"><label for="pay-ref">Reference</label><input type="text" id="pay-ref" placeholder="(optional)"></div>
+            </div>
+            <div class="hub-dialog__foot">
+              <button type="button" class="btn btn--ghost" id="pay-cancel">Cancel</button>
+              <button type="submit" class="btn btn--accent" id="pay-save">Record payment</button>
+            </div>
+            <div id="pay-error" class="form-error" hidden></div>
+          </form>
+        </article>
+      </dialog>
+      <table class="data-table">
+        <thead><tr>
+          <th>Date</th><th>Description</th>
+          <th></th><th class="num">PHP</th>
+        </tr></thead>
+        <tbody id="q-collections"></tbody>
+      </table>
+    </section>
+  </div><!-- /#view-quarter -->
+
+  <!-- ──────── Insights view (analytics) ──────── -->
+  <div id="view-insights" class="view" hidden>
+
+  <section class="hero" id="hero-insights">
+    <div class="section-eyebrow">The Beacon · Manila</div>
+    <div class="month-stack">
+      <span class="month-name">Insights</span>
+      <span class="year" id="i-range">—</span>
+    </div>
+  </section>
+
+    <!-- Zone A — scoped to the selected year -->
+    <div class="insights-zone" id="zone-year">
+      <div class="zone-head">
+        <span class="zone-title">The year</span>
+        <div class="zone-scope">
+          <button type="button" id="i-prev" class="month-step" title="Previous year">←</button>
+          <span class="zone-year" id="i-year">—</span>
+          <button type="button" id="i-next" class="month-step" title="Next year">→</button>
+        </div>
+      </div>
+
+      <section class="trend">
+        <div class="block-head">
+          <div class="bh-value" id="i1-num">—</div>
+          <div class="bh-cap">This year</div>
+          <p class="bh-note" id="i1-cap">Earnings up, costs down, how full the unit was</p>
+        </div>
+        <div class="trend-legend">
+          <span class="tl-item"><span class="tl-sw tl-sw--gross"></span>Gross</span>
+          <span class="tl-item"><span class="tl-sw tl-sw--cost"></span>All costs</span>
+          <span class="tl-item"><span class="tl-sw tl-sw--occ"></span>Occupancy</span>
+        </div>
+        <div class="trend-chart" id="i1-chart"></div>
+      </section>
+
+      <div class="insights-pair">
+        <section class="trend">
+          <div class="block-head">
+            <div class="bh-value" id="i2-num">—</div>
+            <div class="bh-cap">This year</div>
+            <p class="bh-note">Where each peso of gross went</p>
+          </div>
+          <div class="trend-chart donut-chart" id="i2-chart"></div>
+        </section>
+
+        <section class="trend">
+          <div class="block-head">
+            <div class="bh-value" id="i3-num">—</div>
+            <div class="bh-cap">This year</div>
+            <p class="bh-note">Operating costs by category</p>
+          </div>
+          <div class="trend-chart donut-chart" id="i3-chart"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Zone B — all time -->
+    <div class="insights-zone" id="zone-all">
+      <div class="zone-head">
+        <span class="zone-title">All time</span>
+        <span class="zone-scope zone-scope--static" id="i-alltime-range">—</span>
+      </div>
+
+      <section class="trend">
+        <div class="block-head">
+          <div class="bh-value" id="i4-num">—</div>
+          <div class="bh-cap">All time</div>
+          <p class="bh-note" id="i4-cap">Every booking: stay length, nightly rate, earnings</p>
+        </div>
+        <div class="trend-chart" id="i4-chart"></div>
+      </section>
+
+      <section class="trend">
+        <div class="block-head">
+          <div class="bh-value" id="i5-num">—</div>
+          <div class="bh-cap">All time</div>
+          <p class="bh-note" id="i5-cap">Typical occupancy by calendar month</p>
+        </div>
+        <div class="trend-chart" id="i5-chart"></div>
+      </section>
+    </div>
+  </div><!-- /#view-insights -->
+
+  <!-- ──────── Settings view ──────── -->
+  <div id="view-settings" class="view" hidden>
+
+    <section>
+      <div class="section-head">
+        <span class="title">Contracts</span>
+        <span class="meta">Effective-dated fee schedules</span>
+        <div class="actions">
+          <button type="button" class="action" id="set-contract-toggle" aria-expanded="false"
+                  aria-controls="set-contract-panel" hidden>Add era</button>
+        </div>
+      </div>
+      <div class="collapse" id="set-contract-panel" data-open="false">
+        <div class="collapse-inner">
+      <form class="form-inline" id="set-contract-add">
+        <input type="date" name="effective_from" required title="From">
+        <input type="date" name="effective_to" placeholder="To (optional)">
+        <input type="number" name="airbnb_host_fee_pct" step="0.0001" min="0" max="1" placeholder="AirBnB %" value="0.03">
+        <input type="number" name="cleaning_fee_php" step="0.01" min="0" placeholder="Cleaning ₱" value="803.57">
+        <input type="number" name="cleaning_vat_pct" step="0.0001" min="0" max="1" placeholder="Cleaning VAT" value="0.12">
+        <input type="number" name="mgmt_fee_pct" step="0.0001" min="0" max="1" placeholder="Mgmt %" value="0.25">
+        <input type="number" name="mgmt_vat_pct" step="0.0001" min="0" max="1" placeholder="Mgmt VAT" value="0.12">
+        <button type="submit">Add era</button>
+      </form>
+        </div>
+      </div>
+      <table class="data-table" id="set-contracts" aria-label="Contracts">
+        <thead><tr>
+          <th>Effective</th>
+          <th>Cleaning fee</th>
+          <th>Management</th>
+          <th class="num">AirBnB host fee</th>
+          <th class="num" aria-label="Delete"></th>
+        </tr></thead>
+        <tbody id="set-contracts-rows"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <span class="title">Expense categories</span>
+        <span class="meta">Maps each category to a Moneydance account</span>
+        <div class="actions">
+          <button type="button" class="action" id="set-cat-toggle" aria-expanded="false"
+                  aria-controls="set-cat-panel" hidden>Add category</button>
+        </div>
+      </div>
+      <div class="collapse" id="set-cat-panel" data-open="false">
+        <div class="collapse-inner">
+      <form class="form-inline" id="set-cat-add">
+        <input type="text" name="slug" required placeholder="slug (e.g. internet)">
+        <input type="text" name="label" required placeholder="Label">
+        <input type="text" name="default_moneydance_account" required placeholder="Moneydance account">
+        <label class="check-inline"><input type="checkbox" name="default_has_vat"> Has VAT</label>
+        <button type="submit">Add</button>
+      </form>
+        </div>
+      </div>
+      <table class="data-table" id="set-cats" aria-label="Expense categories">
+        <thead><tr>
+          <th>Category</th>
+          <th>Moneydance account</th>
+          <th>VAT</th>
+          <th class="num" aria-label="Delete"></th>
+        </tr></thead>
+        <tbody id="set-cats-rows"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <span class="title">Moneydance accounts</span>
+        <span class="meta">Canonical account strings used by the export</span>
+        <div class="actions">
+          <button type="button" class="action" id="set-md-toggle" aria-expanded="false"
+                  aria-controls="set-md-panel" hidden>Add account</button>
+        </div>
+      </div>
+      <div class="collapse" id="set-md-panel" data-open="false">
+        <div class="collapse-inner">
+      <form class="form-inline" id="set-md-add">
+        <input type="text" name="account_path" required placeholder="Rental Expenses:…">
+        <input type="text" name="use_for" placeholder="use_for (e.g. cleaning)">
+        <button type="submit">Add</button>
+      </form>
+        </div>
+      </div>
+      <table class="data-table" id="set-md" aria-label="Moneydance accounts">
+        <thead><tr>
+          <th>Account path</th>
+          <th>Use for</th>
+          <th class="num" aria-label="Delete"></th>
+        </tr></thead>
+        <tbody id="set-md-rows"></tbody>
+      </table>
+    </section>
+  </div><!-- /#view-settings -->
+
+  <div class="empty-state" id="state-loading" hidden>loading…</div>
+  <div class="empty-state error" id="state-error" hidden></div>
+</main>
+
+<footer class="hub-footer">The Beacon · Manila</footer>
+
+<!-- Booking-detail modal: replaces the inline row-detail expansion.
+     Single instance, populated on each booking open and on every
+     prev/next navigation. Contains the fee breakdown, the era/meta
+     band, and the linked email history. Click an email row inside
+     to open the nested letter dialog above. -->
+<dialog id="booking-detail" class="bd-dialog" aria-labelledby="bd-headline">
+  <article>
+    <button type="button" class="bd-close" aria-label="Close">×</button>
+    <nav class="bd-nav" aria-label="Navigate bookings">
+      <button type="button" class="bd-prev" aria-label="Previous booking">←</button>
+      <button type="button" class="bd-next" aria-label="Next booking">→</button>
+    </nav>
+    <header class="bd-header">
+      <p class="bd-eyebrow">
+        <span>Booking</span>
+        <span aria-hidden="true">·</span>
+        <span data-bd-code></span>
+      </p>
+      <h2 class="bd-headline" id="bd-headline" data-bd-guest></h2>
+      <p class="bd-meta" data-bd-meta></p>
+      <p class="bd-meta bd-meta--muted" data-bd-submeta></p>
+    </header>
+    <section class="bd-breakdown" data-bd-breakdown></section>
+    <section class="bd-emails" data-bd-emails></section>
+  </article>
+</dialog>
+
+<!-- Letter modal: a single shared reading surface for any Airbnb email
+     in the booking-detail history. Populated on each open, no per-row
+     copies. The native <dialog> handles focus trap + ESC; CSS handles
+     entry/exit motion via @starting-style on the [open] state. -->
+<dialog id="email-letter" class="letter-dialog" aria-labelledby="letter-subject">
+  <article>
+    <button type="button" class="letter-close" aria-label="Close">×</button>
+    <header>
+      <p class="letter-eyebrow">
+        <span>Email history</span>
+        <span aria-hidden="true">·</span>
+        <span data-letter-cat></span>
+      </p>
+      <p class="letter-from">Airbnb</p>
+      <p class="letter-date" data-letter-date></p>
+      <h2 class="letter-subject" id="letter-subject" data-letter-subject></h2>
+    </header>
+    <div class="letter-body" data-letter-body></div>
+    <footer class="letter-footnote" data-letter-footnote></footer>
+  </article>
+</dialog>
+
+<script src="js/supabase-config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script type="module">
+import {
+  supabase, getAAL, signOut, getCurrentRole, hasMinRole,
+} from './js/supabase-client.js'
+import { ensureAuth } from './js/hub-auth.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { fmtUSD } from './js/format.js'
+import { mountHubHeader } from './js/hub-header.js'
+import { enhanceSelect } from './js/hub-select.js'
+import { mountChartSync, cssVar as css, chartTokens } from './js/chart-sync.js'
+import {
+  getProperty, listFeeSchedules,
+  listBookingsForMonth, listExpensesForMonth,
+  listFreestandingAdjustmentsForMonth, listAvailableMonths,
+  listMissingConfirmations,
+  scheduleForDate, deriveFees, fxRateForDate, fxRatesForDates, existingBookingsByCode, existingPayoutRefs, importBookingsAndPayouts,
+  setCleaningAdjustment, clearCleaningAdjustment,
+  addFreestandingAdjustment, deleteFreestandingAdjustment,
+  listMoneydanceAccounts,
+  quarterForMonth, listBookingsForQuarter, listExpensesForQuarter,
+  listMgmtPaymentsForQuarter, getStatementForQuarter, addMgmtPayment,
+  uploadStatementPdf, parseStatementPdf, upsertStatement, replaceStatementExpenses,
+  classifyExpense,
+  ensureFxRateForDate,
+  addFeeSchedule, deleteFeeSchedule,
+  listExpenseCategories, addExpenseCategory, deleteExpenseCategory,
+  addMoneydanceAccount, deleteMoneydanceAccount,
+  listAllBookings, listAllExpenses,
+} from './js/airbnb-client.js'
+import { escapeHtml, vText, vNumber, vDate, firstError } from './js/validate.js'
+import Papa from 'https://esm.sh/papaparse@5.4.1'
+import * as Plot from 'https://esm.sh/@observablehq/plot@0.6'
+
+/* ── State ─────────────────────────────────────────────────────────── */
+let availableMonths = []   // descending
+let currentMonth = null    // YYYY-MM
+let availableYears = []     // ascending; Year view pages one year at a time
+let currentYear = null      // number
+let feeSchedules = []
+let role = null
+let canWrite = false
+let _didIntroAnim = false
+
+// Booking-detail modal — populated on each open and on prev/next.
+// The list reference is kept alive between renders so the chevrons can
+// walk the same array the table just rendered.
+let currentBookings = []
+let currentBookingIndex = -1
+let bookingDetailTrigger = null
+
+/* ── Shared page framework ─────────────────────────────────────────
+   Airbnb supplies only its content: the ribbon words, the three
+   period tabs, the Settings cog (a shell-level destination, not a
+   tab), and the strip (via pushStrip). The strip is the SAME four
+   measures on every tab, recomputed for the active period. */
+const hub = mountHubHeader({
+  app: 'AirBnB',
+  eyebrow: 'Family Hub · AirBnB',
+  grace: 'Manila, by the night.',
+  tabs: [
+    { id: 'month',   label: 'Month' },
+    { id: 'quarter', label: 'Quarter' },
+    { id: 'insights', label: 'Insights' },
+  ],
+  gear: { label: 'Settings', onClick: () => switchView('settings') },
+  onTab: (view) => switchView(view),
+})
+
+const daysInYear = y => ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) ? 366 : 365
+
+// The uniform strip. Owner-net USD is daily-FX accurate: each
+// booking's PHP owner net converted at its start-date rate (the
+// export's daily model), summed over the period. Same shape for
+// month, quarter and year, only the booking set + day count differ.
+async function stripStats(bookings, daysInPeriod, schedules = feeSchedules, opts = {}) {
+  // clipRange = {startMs, endMs (exclusive)}: clips nights to the
+  // period and only counts gross/net for bookings whose start falls
+  // inside it (spillover-from-prior bookings are gross-counted in their
+  // own start period, never double-counted across views).
+  const range = opts.clipRange || null
+  let gross = 0, nights = 0
+  const rows = []
+  for (const b of bookings) {
+    const f = deriveFees(b, scheduleForDate(schedules, b.start_date))
+    const inP = range
+      ? nightsInRange(b.start_date, b.nights, range.startMs, range.endMs)
+      : (b.nights || 0)
+    const startsHere = range
+      ? startsInRange(b.start_date, range.startMs, range.endMs)
+      : true
+    nights += inP
+    if (startsHere) {
+      gross += f.gross || 0
+      if (Number.isFinite(f.net_to_owner)) {
+        rows.push({ date: b.start_date, net: f.net_to_owner })
+      }
+    }
+  }
+  let usd = NaN
+  try {
+    const fxAt = await fxRatesForDates([...new Set(rows.map(r => r.date))])
+    usd = rows.reduce((s, r) => s + r.net / fxAt(r.date), 0)
+  } catch (e) { console.warn('strip FX resolve failed', e) }
+  const occ = (nights && daysInPeriod) ? Math.round((nights / daysInPeriod) * 100) : 0
+  return { gross, nights, usd, occ, daysInPeriod, count: bookings.length }
+}
+
+function pushStrip(s) {
+  hub.setStrip({
+    hero: {
+      value: Number.isFinite(s.usd) ? fmtUSD(s.usd) : '—',
+      label: 'Owner net USD',
+    },
+    stats: [
+      { label: 'Gross PHP', value: fmtPHP(s.gross),
+        context: s.nights ? `ADR ₱${Math.round(s.gross / s.nights).toLocaleString('en-US')}` : '' },
+      { label: 'Nights', value: String(s.nights || 0),
+        context: s.count ? `${s.count} ${s.count === 1 ? 'booking' : 'bookings'}` : '' },
+      { label: 'Occupancy', value: s.nights ? `${s.occ}%` : '—',
+        context: s.nights ? `${s.nights} of ${s.daysInPeriod} nights` : '' },
+    ],
+  })
+}
+
+/* ── Page-load orchestration (GSAP, brief: under 700ms total) ────── */
+function runIntroAnim() {
+  if (_didIntroAnim || typeof gsap === 'undefined') return
+  _didIntroAnim = true
+  // Set initial hidden state right before the timeline so a render
+  // race doesn't leave elements stuck invisible.
+  const els = [
+    '#hero-month .section-eyebrow',
+    '#hero-month .month-name',
+    '#hero-month .year',
+    '#hero-month .month-nav',
+    '#view-month .section-head',
+  ].flatMap(sel => Array.from(document.querySelectorAll(sel)))
+  if (!els.length) return
+  gsap.set(els, { opacity: 0, y: 8 })
+  // Booking rows: cap the stagger at first 6 — pages with 30+
+  // bookings would otherwise overshoot the 700ms budget.
+  // Parent rows only; <tr> transforms are unreliable, so fade (no y).
+  const rows = Array.from(document.querySelectorAll('#view-month tr.row-parent')).slice(0, 6)
+  gsap.set(rows, { opacity: 0 })
+
+  const tl = gsap.timeline({ defaults: { ease: 'power2.out' } })
+  tl.to('#hero-month .section-eyebrow', { opacity: 1, y: 0, duration: 0.25 })
+    .to('#hero-month .month-name', { opacity: 1, y: 0, duration: 0.4 }, '-=0.1')
+    .to('#hero-month .year',       { opacity: 1, y: 0, duration: 0.3 }, '-=0.25')
+    .to('#hero-month .month-nav',  { opacity: 1, y: 0, duration: 0.3 }, '-=0.2')
+    .to('#view-month .section-head', { opacity: 1, y: 0, duration: 0.3, stagger: 0.06 }, '-=0.15')
+    .to(rows,                      { opacity: 1, duration: 0.35, stagger: 0.04 }, '-=0.2')
+}
+
+/* ── Formatters ───────────────────────────────────────────────────── */
+const MONTH_LONG  = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+// Null-input placeholder: three middots reads as "pending" in a
+// currency cell without colliding with a legitimate zero. Replaces an
+// earlier em-dash, which is banned across this project.
+const fmtPHP = n => n == null ? '· · ·' : '₱' + Math.round(n).toLocaleString('en-US')
+const fmtDay = d => {
+  const [y, m, dd] = d.split('-').map(Number)
+  return `${dd} ${MONTH_SHORT[m-1]}`
+}
+const daysInMonth = ym => {
+  const [y, m] = ym.split('-').map(Number)
+  return new Date(Date.UTC(y, m, 0)).getUTCDate()
+}
+// Period-aware booking arithmetic. A booking occupies [start_date,
+// start_date + nights). Cross-period stays are split between the
+// periods they touch (April-side keeps the April nights, May-side the
+// May nights). Gross stays attributed to the start-period so revenue
+// is never double-counted across views.
+function isoToUtcMs(iso) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return Date.UTC(y, (m || 1) - 1, d || 1)
+}
+function nightsInRange(startIso, nights, startMs, endMs) {
+  if (!startIso || !nights) return 0
+  const sd = isoToUtcMs(startIso)
+  const ed = sd + nights * 86400000
+  const lo = Math.max(sd, startMs)
+  const hi = Math.min(ed, endMs)
+  return hi <= lo ? 0 : Math.round((hi - lo) / 86400000)
+}
+function startsInRange(startIso, startMs, endMs) {
+  if (!startIso) return false
+  const sd = isoToUtcMs(startIso)
+  return sd >= startMs && sd < endMs
+}
+function monthRangeMs(yyyymm) {
+  const [y, m] = yyyymm.split('-').map(Number)
+  return { startMs: Date.UTC(y, m - 1, 1), endMs: Date.UTC(y, m, 1) }
+}
+function quarterRangeMs(yyyymm) {
+  const [y, m] = yyyymm.split('-').map(Number)
+  const qi = Math.floor((m - 1) / 3)
+  return { startMs: Date.UTC(y, qi * 3, 1), endMs: Date.UTC(y, qi * 3 + 3, 1) }
+}
+function yearRangeMs(yyyy) {
+  const y = Number(yyyy)
+  return { startMs: Date.UTC(y, 0, 1), endMs: Date.UTC(y + 1, 0, 1) }
+}
+function nightsInMonth(startIso, nights, yyyymm) {
+  const r = monthRangeMs(yyyymm)
+  return nightsInRange(startIso, nights, r.startMs, r.endMs)
+}
+const startsInMonth = (startIso, yyyymm) => {
+  const r = monthRangeMs(yyyymm)
+  return startsInRange(startIso, r.startMs, r.endMs)
+}
+// Two stays overlap iff their [start, start+nights) intervals intersect.
+function bookingsOverlap(a, b) {
+  if (!a?.start_date || !b?.start_date) return false
+  const aS = isoToUtcMs(a.start_date), aE = aS + (a.nights || 0) * 86400000
+  const bS = isoToUtcMs(b.start_date), bE = bS + (b.nights || 0) * 86400000
+  return aS < bE && bS < aE
+}
+// Shared action-modal controller. Each <dialog class="hub-dialog">
+// is the canonical source-of-truth for its open/close state (no
+// parallel data-attribute dance). Backdrop click and the .hub-dialog__close
+// button both call close(); Esc is handled by the native <dialog>.
+function bindActionDialog(id) {
+  const dlg = document.getElementById(id)
+  if (!dlg || dlg.dataset.bound === '1') return dlg
+  dlg.dataset.bound = '1'
+  dlg.addEventListener('click', (e) => {
+    // A click whose direct target is the dialog itself = the backdrop
+    // (children intercept clicks for their own target).
+    if (e.target === dlg) dlg.close()
+  })
+  dlg.querySelectorAll('.hub-dialog__close').forEach(b =>
+    b.addEventListener('click', () => dlg.close()))
+  return dlg
+}
+function openModal(id) {
+  const dlg = bindActionDialog(id); if (!dlg) return
+  if (!dlg.open) dlg.showModal()
+}
+function closeModal(id) {
+  const dlg = document.getElementById(id)
+  if (dlg?.open) dlg.close()
+}
+
+// Body-level singleton tooltip for the overlap-anomaly badge.
+// Positioned in JS so table-cell overflow can never clip it, and shown
+// instantly on hover/focus (the native title attribute's ~5s delay is
+// useless for in-table glances).
+let _warnTipEl = null
+function _ensureWarnTip() {
+  if (_warnTipEl) return _warnTipEl
+  _warnTipEl = document.createElement('div')
+  _warnTipEl.className = 'row-warn-tip'
+  _warnTipEl.setAttribute('role', 'tooltip')
+  document.body.appendChild(_warnTipEl)
+  return _warnTipEl
+}
+function _placeWarnTip(badge) {
+  const tip = _ensureWarnTip()
+  tip.textContent = badge.dataset.tip || ''
+  tip.dataset.shown = 'true'
+  // Measure after content is set; position above the badge, clamp to
+  // viewport, flip below when there isn't room above.
+  const r  = badge.getBoundingClientRect()
+  const tr = tip.getBoundingClientRect()
+  let left = r.left + r.width / 2 - tr.width / 2
+  left = Math.max(8, Math.min(window.innerWidth - tr.width - 8, left))
+  let top = r.top - tr.height - 10
+  if (top < 8) top = r.bottom + 10
+  tip.style.left = `${left}px`
+  tip.style.top  = `${top}px`
+}
+function _hideWarnTip() {
+  if (_warnTipEl) _warnTipEl.dataset.shown = 'false'
+}
+document.addEventListener('mouseover', (e) => {
+  const b = e.target.closest?.('.row-warn'); if (b) _placeWarnTip(b)
+})
+document.addEventListener('mouseout', (e) => {
+  const from = e.target.closest?.('.row-warn')
+  const to   = e.relatedTarget?.closest?.('.row-warn')
+  if (from && from !== to) _hideWarnTip()
+})
+document.addEventListener('focusin',  (e) => { const b = e.target.closest?.('.row-warn'); if (b) _placeWarnTip(b) })
+document.addEventListener('focusout', (e) => { if (e.target.closest?.('.row-warn')) _hideWarnTip() })
+// The badge sits inside the row trigger; swallow its click so a
+// curious tap doesn't open the booking-detail modal.
+document.addEventListener('click', (e) => {
+  if (e.target.closest?.('.row-warn')) { e.stopPropagation(); e.preventDefault() }
+}, true)
+
+// Inline SVG for the overlap-anomaly badge. Stroked warning triangle,
+// 16x16 viewBox, inherits color via currentColor. The wrapping span
+// carries the CSS tooltip (data-tip) and is aria-labelled.
+const WARN_SVG = `
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor"
+       stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"
+       aria-hidden="true" focusable="false">
+    <path d="M8 2.4 L14.4 13.4 H1.6 Z"/>
+    <line x1="8" y1="6.4" x2="8" y2="9.6"/>
+    <circle cx="8" cy="11.5" r="0.7" fill="currentColor" stroke="none"/>
+  </svg>`
+function warnBadge(tip, ariaLabel) {
+  return ` <span class="row-warn" tabindex="0" role="img"`
+       + ` aria-label="${escapeHtml(ariaLabel)}"`
+       + ` data-tip="${escapeHtml(tip)}">${WARN_SVG}</span>`
+}
+function findOverlaps(bookings) {
+  const out = new Map()    // i -> Set of overlapping indexes
+  for (let i = 0; i < bookings.length; i++) {
+    for (let j = i + 1; j < bookings.length; j++) {
+      if (bookingsOverlap(bookings[i], bookings[j])) {
+        if (!out.has(i)) out.set(i, new Set())
+        if (!out.has(j)) out.set(j, new Set())
+        out.get(i).add(j); out.get(j).add(i)
+      }
+    }
+  }
+  return out
+}
+// The date the hero FX rate is resolved as-of: the month's last day,
+// or today if the month is still in progress (D6 daily model).
+const monthLabel = ym => {
+  const [y, m] = ym.split('-').map(Number)
+  return { month: MONTH_LONG[m - 1], year: y }
+}
+
+/* ── Auth gate (matches utilities.html pattern) ───────────────────── */
+async function gate() {
+  if (!(await ensureAuth())) return false
+  role     = (await getCurrentRole()) || 'child'
+  canWrite = await hasMinRole('parent')
+  return true
+}
+
+/* ── Render: hero band ────────────────────────────────────────────── */
+// The month view's own body head: property + month-name + year + the
+// ← → stepper. The headline figures are the shared header strip now
+// (pushed from loadAndRender via stripStats), not this band.
+function renderHero(month) {
+  const { month: mname, year } = monthLabel(month)
+  document.getElementById('month-name').textContent = mname
+  document.getElementById('year-name').textContent  = year
+}
+
+/* Cross-highlight a booking between the occupancy bars and its table
+   row (a stay can have several bar segments; the row is one). */
+function setBookingHighlight(idx, on) {
+  document.querySelectorAll(`#view-month tr.row-parent[data-booking-index="${idx}"]`)
+    .forEach(el => el.classList.toggle('is-cued', on))
+  document.querySelectorAll(`#occ-grid .occ-bar[data-booking-index="${idx}"]`)
+    .forEach(el => el.classList.toggle('is-linked', on))
+}
+
+/* ── Render: occupancy quick-view ─────────────────────────────────────
+   A Sun→Sat calendar matrix above the table. Each stay clips to the
+   visible month and renders as a continuous bar across its nights; a
+   stay wrapping to a new week splits into segments that flatten the
+   joining edge. Indices match the bookings array the table renders,
+   so a bar opens the same detail modal (openBookingDetailByIndex). */
+function renderOccupancy(bookings) {
+  const grid  = document.getElementById('occ-grid')
+  const empty = document.getElementById('occ-empty')
+  const meta  = document.getElementById('occ-meta')
+  grid.innerHTML = ''
+
+  const [y, m] = currentMonth.split('-').map(Number)
+  const ndays        = daysInMonth(currentMonth)
+  const firstDow     = new Date(Date.UTC(y, m - 1, 1)).getUTCDay()  // 0=Sun
+  const monthStartMs = Date.UTC(y, m - 1, 1)
+  const monthEndMs   = Date.UTC(y, m, 1)                            // exclusive
+  const weekCount    = Math.ceil((firstDow + ndays) / 7)
+  const todayIso     = new Date().toISOString().slice(0, 10)
+  const todayDay     = todayIso.slice(0, 7) === currentMonth ? Number(todayIso.slice(8, 10)) : -1
+
+  // Day cells, week by week.
+  const weekEls = []
+  for (let w = 0; w < weekCount; w++) {
+    const week = document.createElement('div')
+    week.className = 'occ-week'
+    const row = document.createElement('div')
+    row.className = 'occ-row'
+    for (let c = 0; c < 7; c++) {
+      const day     = w * 7 + c - firstDow + 1
+      const inMonth = day >= 1 && day <= ndays
+      const cell = document.createElement('div')
+      cell.className = 'occ-day' + (inMonth ? '' : ' occ-day--out')
+        + (inMonth && day === todayDay ? ' occ-day--today' : '')
+      cell.setAttribute('role', 'gridcell')
+      cell.innerHTML = `<span class="occ-daynum">${inMonth ? day : ''}</span>`
+      row.appendChild(cell)
+    }
+    week.appendChild(row)
+    weekEls.push(week)
+    grid.appendChild(week)
+  }
+
+  // Lanes per week so two stays sharing a week stack instead of collide.
+  const lanes    = weekEls.map(() => [])
+  const overlaps = findOverlaps(bookings)
+  let totalNights = 0, placed = 0
+
+  bookings.forEach((b, i) => {
+    if (!b.start_date || !b.nights) return
+    const sd = isoToUtcMs(b.start_date)
+    const ed = sd + b.nights * 86400000
+    const lo = Math.max(sd, monthStartMs)
+    const hi = Math.min(ed, monthEndMs)
+    if (hi <= lo) return
+    const startDay = Math.round((lo - monthStartMs) / 86400000) + 1
+    const spanN    = Math.round((hi - lo) / 86400000)
+    totalNights += spanN
+    const spillIn  = sd < monthStartMs
+    const spillOut = ed > monthEndMs
+    const conflict = overlaps.has(i)
+    const first    = (b.guest_name || '(no name)').trim().split(/\s+/)[0]
+
+    let d = startDay, labelled = false
+    while (d < startDay + spanN) {
+      const w = Math.floor(((d - 1) + firstDow) / 7)
+      let c1 = d
+      while (c1 + 1 < startDay + spanN
+             && Math.floor((c1 + firstDow) / 7) === w) c1++
+      const c0col   = ((d - 1) + firstDow) % 7
+      const c1col   = ((c1 - 1) + firstDow) % 7
+      const contFrom = d > startDay || (spillIn  && d  === startDay)
+      const contTo   = c1 < startDay + spanN - 1 || (spillOut && c1 === startDay + spanN - 1)
+
+      const wlanes = lanes[w]
+      let lane = 0
+      for (; lane < wlanes.length; lane++) {
+        if (wlanes[lane].every(([a, z]) => c1col < a || c0col > z)) break
+      }
+      if (lane === wlanes.length) wlanes.push([])
+      wlanes[lane].push([c0col, c1col])
+
+      const bar = document.createElement('div')
+      bar.className = 'occ-bar'
+        + (contFrom ? ' occ-bar--contfrom' : '')
+        + (contTo   ? ' occ-bar--contto'   : '')
+        + (conflict ? ' occ-bar--conflict' : '')
+      const padL = contFrom ? 0 : 2, padR = contTo ? 0 : 2
+      bar.style.left   = `calc(${(c0col / 7 * 100).toFixed(4)}% + ${padL}px)`
+      bar.style.width  = `calc(${((c1col - c0col + 1) / 7 * 100).toFixed(4)}% - ${padL + padR}px)`
+      bar.style.bottom = `${4 + lane * 21}px`
+      bar.style.animationDelay = `${Math.min(placed, 9) * 40}ms`
+      bar.textContent = labelled ? '' : `${first} · ${b.nights}n`
+      labelled = true
+
+      bar.dataset.bookingIndex = String(i)
+      bar.addEventListener('mouseenter', () => setBookingHighlight(i, true))
+      bar.addEventListener('mouseleave', () => setBookingHighlight(i, false))
+      bar.tabIndex = 0
+      bar.setAttribute('role', 'button')
+      bar.setAttribute('aria-haspopup', 'dialog')
+      bar.setAttribute('aria-label',
+        `${b.guest_name || '(no name)'}, ${b.nights}-night stay from ${fmtDay(b.start_date)}`)
+      if (conflict) {
+        const others = [...overlaps.get(i)].map(k => {
+          const o = bookings[k]
+          return `${fmtDay(o.start_date)} · ${o.guest_name || '(no name)'} (${o.nights}n)`
+        }).join(' · ')
+        bar.title = `Overlapping stay. A single property can't host two guests on the same night. Conflicts with: ${others}`
+      } else {
+        bar.title = `${b.guest_name || '(no name)'} · ${b.nights}n · ${fmtDay(b.start_date)}`
+      }
+      const open = () => openBookingDetailByIndex(i, bar)
+      bar.addEventListener('click', open)
+      bar.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() }
+      })
+      weekEls[w].appendChild(bar)
+      placed++
+      d = c1 + 1
+    }
+  })
+
+  empty.hidden = totalNights > 0
+  meta.textContent = `${totalNights} of ${ndays} nights`
+}
+
+/* ── Render: bookings list ────────────────────────────────────────── */
+// Standing notice for reservations Airbnb emailed about that never
+// produced a booking row. Global (not month-scoped): these gaps have no
+// reliable date. Surfaced so a missed booking is visible, never invented.
+function renderMissingConfirmations(rows) {
+  const el = document.getElementById('missing-banner')
+  if (!rows || !rows.length) { el.hidden = true; el.innerHTML = ''; return }
+  const items = rows.map(r => {
+    const guest = escapeHtml(r.guest_name || '(unknown guest)')
+    const seen  = (r.event_types || []).join(', ')
+    const why = r.had_confirmation_email
+      ? 'confirmation arrived but no booking was created'
+      : 'confirmation email never arrived'
+    return `<div class="missing-banner__item">`
+      + `<span class="missing-banner__guest">${guest}</span>`
+      + `<span class="missing-banner__code">${escapeHtml(r.confirmation_code)}</span>`
+      + `<span class="missing-banner__why">${why} · seen in: ${escapeHtml(seen)}</span>`
+      + `</div>`
+  }).join('')
+  const n = rows.length
+  el.innerHTML =
+      `<div class="missing-banner__head">${WARN_SVG}`
+    + `<span>${n} reservation${n === 1 ? '' : 's'} missing from the calendar</span></div>`
+    + items
+    + `<div class="missing-banner__note">Airbnb emailed about ${n === 1 ? 'this stay' : 'these stays'},`
+    + ` but no booking exists. Re-import the host CSV to fill ${n === 1 ? 'it' : 'them'} in.</div>`
+  el.hidden = false
+}
+
+function renderBookings(bookings) {
+  currentBookings = bookings
+  const list  = document.getElementById('bookings-list')
+  const foot  = document.getElementById('bookings-foot')
+  list.innerHTML = ''
+  foot.innerHTML = ''
+  const empty = document.getElementById('bookings-empty')
+  if (!bookings.length) { empty.hidden = false; return }
+  empty.hidden = true
+
+  const overlapsOf = findOverlaps(bookings)
+
+  let totNights = 0, totGross = 0, pendingCount = 0
+  for (let i = 0; i < bookings.length; i++) {
+    const b = bookings[i]
+    const sched = scheduleForDate(feeSchedules, b.start_date)
+    const fees  = deriveFees(b, sched)
+    if (fees.is_provisional) pendingCount++
+    // Nights are clipped to the visible month (a stay that spans the
+    // month boundary contributes only its in-month nights). Gross stays
+    // with the start-month so revenue isn't double-counted across views.
+    const nIn        = nightsInMonth(b.start_date, b.nights, currentMonth)
+    const isSpillIn  = !startsInMonth(b.start_date, currentMonth)
+    totNights += nIn
+    if (!isSpillIn) totGross += fees.gross
+    const adjusted = !!b.booking_adjustments?.length
+    const overlapIdxs = overlapsOf.get(i)
+    const overlapBadge = overlapIdxs
+      ? (() => {
+          const others = [...overlapIdxs].map(k => {
+            const o = bookings[k]
+            return `${fmtDay(o.start_date)} · ${o.guest_name || '(no name)'} (${o.nights}n)`
+          }).join(' · ')
+          const tip = `Overlapping stay. A single property can't host two guests on the same night. Conflicts with: ${others}`
+          return warnBadge(tip, 'Overlapping booking')
+        })()
+      : ''
+
+    // Row is a trigger that opens the booking-detail modal. The inline
+    // row-detail expansion is gone; the chevron glyph is too.
+    const parent = document.createElement('tr')
+    parent.className = 'row-parent'
+      + (adjusted ? ' is-adj' : '')
+      + (fees.is_provisional ? ' row-parent--provisional' : '')
+      + (isSpillIn ? ' row-parent--spillover' : '')
+    parent.tabIndex = 0
+    parent.dataset.bookingIndex = String(i)
+    parent.setAttribute('role', 'button')
+    parent.setAttribute('aria-haspopup', 'dialog')
+    const nightsCell = isSpillIn
+      ? `<td class="num" title="${b.nights}-night stay started ${fmtDay(b.start_date)}; ${nIn} of those nights fall in this month">${nIn}</td>`
+      : (nIn !== b.nights
+          ? `<td class="num" title="${b.nights}-night stay; ${nIn} of those nights fall in this month, ${b.nights - nIn} in the next">${nIn}</td>`
+          : `<td class="num">${b.nights}</td>`)
+    const grossCell = isSpillIn
+      ? `<td class="num" title="Gross is attributed to the start month (${b.start_date.slice(0,7)})">·</td>`
+      : `<td class="num">${fmtPHP(fees.gross)}</td>`
+    parent.innerHTML = `
+      <td class="label">${fmtDay(b.start_date)}${overlapBadge}</td>
+      ${nightsCell}
+      <td class="col-guest">${escapeHtml(b.guest_name || '(no name)')}</td>
+      ${grossCell}
+    `
+    const open = () => openBookingDetailByIndex(i, parent)
+    parent.addEventListener('click', open)
+    parent.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() }
+    })
+    parent.addEventListener('mouseenter', () => setBookingHighlight(i, true))
+    parent.addEventListener('mouseleave', () => setBookingHighlight(i, false))
+    list.appendChild(parent)
+  }
+
+  const totals = document.createElement('tr')
+  // Total reflects every row in the table (confirmed + pending);
+  // pending stay visually dimmed so the breakdown is still clear.
+  totals.innerHTML = `
+    <td>Total</td>
+    <td class="num">${totNights}</td>
+    <td class="col-guest"></td>
+    <td class="num">${fmtPHP(totGross)}</td>
+  `
+  foot.appendChild(totals)
+
+  const confirmedCount = bookings.length - pendingCount
+  const baseCount = `${confirmedCount} ${confirmedCount === 1 ? 'booking' : 'bookings'}`
+  document.getElementById('bookings-meta').textContent =
+    pendingCount > 0 ? `${baseCount} · ${pendingCount} pending` : baseCount
+}
+
+// ── Booking-detail modal: open / navigate / populate / close ─────────
+
+function openBookingDetailByIndex(idx, triggerEl) {
+  const dlg = document.getElementById('booking-detail')
+  if (!dlg || !currentBookings[idx]) return
+  bookingDetailTrigger = triggerEl || bookingDetailTrigger
+  currentBookingIndex = idx
+  populateBookingDetail(idx)
+  if (!dlg.open) dlg.showModal()
+  requestAnimationFrame(() => dlg.querySelector('.bd-close')?.focus())
+}
+
+function navigateBookingDetail(delta) {
+  const next = currentBookingIndex + delta
+  if (next < 0 || next >= currentBookings.length) return
+  currentBookingIndex = next
+  populateBookingDetail(next)
+}
+
+function closeBookingDetail() {
+  const dlg = document.getElementById('booking-detail')
+  if (dlg?.open) dlg.close()
+  bookingDetailTrigger?.focus()
+  bookingDetailTrigger = null
+  currentBookingIndex = -1
+}
+
+function populateBookingDetail(idx) {
+  const b = currentBookings[idx]
+  if (!b) return
+  const sched = scheduleForDate(feeSchedules, b.start_date)
+  const fees  = deriveFees(b, sched)
+  const dlg   = document.getElementById('booking-detail')
+
+  const codeText = b.confirmation_code.startsWith('legacy-')
+    ? 'legacy (XLS)' : b.confirmation_code
+  dlg.querySelector('[data-bd-code]').textContent  = codeText
+  dlg.querySelector('[data-bd-guest]').textContent = b.guest_name || '(guest name unknown)'
+  dlg.classList.toggle('bd-dialog--provisional', !!fees.is_provisional)
+
+  const meta = dlg.querySelector('[data-bd-meta]')
+  meta.innerHTML = `
+    <span>${escapeHtml(fmtStayRange(b.start_date, b.end_date))}</span>
+    <span class="bd-meta__dot" aria-hidden="true">·</span>
+    <span>${b.nights} ${b.nights === 1 ? 'night' : 'nights'}</span>
+    <span class="bd-meta__dot" aria-hidden="true">·</span>
+    <span class="bd-gross">${fmtPHP(fees.gross)}</span>
+    ${fees.is_provisional ? '<span class="bd-pending-pill">Pending CSV</span>' : ''}
+  `
+
+  const era = sched.cleaning_vat_pct > 0 ? 'Era 2 · 12% VAT' : 'Era 1 · pre VAT'
+  const submetaParts = [
+    era,
+    `Contract era ${fees.era_label}`,
+  ]
+  if (b.booking_date) {
+    submetaParts.push(`Booked ${b.booking_date}`)
+    submetaParts.push(`${daysBetween(b.booking_date, b.start_date)} day lead`)
+  }
+  dlg.querySelector('[data-bd-submeta]').textContent = submetaParts.join(' · ')
+
+  dlg.querySelector('[data-bd-breakdown]').innerHTML = renderBreakdownHTML(b, fees, sched)
+  dlg.querySelector('[data-bd-emails]').innerHTML    = renderEmailHistory(b.email_events, b)
+
+  dlg.querySelector('.bd-prev').disabled = idx === 0
+  dlg.querySelector('.bd-next').disabled = idx === currentBookings.length - 1
+
+  dlg.dataset.bookingId    = b.id
+  dlg.dataset.bookingIndex = String(idx)
+}
+
+function renderBreakdownHTML(b, fees, sched) {
+  // Three states:
+  //   1. CSV-confirmed: full ledger with the Adjust affordance.
+  //   2. Email-sourced with parsed financials: full ledger, no
+  //      Adjust trigger (CSV will be the authoritative line; the
+  //      bookings list shows a Pending CSV pill in the header).
+  //   3. Email-sourced with no financial parse: quiet placeholder.
+  if (fees.gross == null) {
+    return `
+      <div class="bd-pending">
+        <p class="bd-pending__lead">No financials yet.</p>
+        <p class="bd-pending__detail">
+          This booking was opened from a confirmation email. The fee
+          breakdown lands when the monthly CSV is imported.
+        </p>
+      </div>
+    `
+  }
+
+  const adjusted = !!b.booking_adjustments?.length
+  const adjustment = adjusted ? b.booking_adjustments[0] : null
+  const reason = adjustment?.reason ? ' · ' + escapeHtml(adjustment.reason) : ''
+  // Suppress the Adjust trigger on provisional bookings: editing a
+  // cleaning value here would write a booking_adjustment row that
+  // gets layered on top of CSV cleaning later. Wait for the CSV
+  // first, then adjust.
+  const adjustBlock = (!canWrite || fees.is_provisional) ? '' : (adjusted
+    ? `<div class="bd-adjust" data-mode="view">
+         <span class="bd-adjust__pill">Cleaning override <strong>${fmtPHP(fees.cleaning_gross)}</strong>${reason}</span>
+         <button type="button" data-act="edit">Change</button>
+         <button type="button" data-act="clear">Clear</button>
+       </div>`
+    : `<div class="bd-adjust bd-adjust--collapsed" data-mode="view">
+         <button type="button" data-act="edit">Adjust cleaning</button>
+       </div>`)
+  return `
+    <dl class="bd-ledger" aria-label="Fee breakdown">
+      <div class="bd-ledger__row">
+        <dt>Gross earnings</dt>
+        <dd>${fmtPHP(fees.gross)}</dd>
+      </div>
+      <div class="bd-ledger__row is-neg">
+        <dt>AirBnB host fee (${pct(sched.airbnb_host_fee_pct)})</dt>
+        <dd>${fmtPHP(fees.airbnb_fee)}</dd>
+      </div>
+      <div class="bd-ledger__rule"></div>
+      <div class="bd-ledger__row">
+        <dt>Net to bank (BPI)</dt>
+        <dd>${fmtPHP(fees.net_to_bank)}</dd>
+      </div>
+      <div class="bd-ledger__row is-neg">
+        <dt>Cleaning${adjusted ? ' · adjusted' : ''}</dt>
+        <dd>${fmtPHP(fees.cleaning_gross)}</dd>
+      </div>
+      ${fees.cleaning_vat > 0 ? `
+        <div class="bd-ledger__row is-neg">
+          <dt>Cleaning VAT (${pct(sched.cleaning_vat_pct)})</dt>
+          <dd>${fmtPHP(fees.cleaning_vat)}</dd>
+        </div>` : ''}
+      <div class="bd-ledger__row is-neg">
+        <dt>Management fee (${pct(sched.mgmt_fee_pct)} of net less cleaning)</dt>
+        <dd>${fmtPHP(fees.mgmt_fee_gross)}</dd>
+      </div>
+      ${fees.mgmt_vat > 0 ? `
+        <div class="bd-ledger__row is-neg">
+          <dt>Management VAT (${pct(sched.mgmt_vat_pct)})</dt>
+          <dd>${fmtPHP(fees.mgmt_vat)}</dd>
+        </div>` : ''}
+      ${adjustBlock}
+      <div class="bd-ledger__rule"></div>
+      <div class="bd-ledger__row is-total">
+        <dt>Owner net</dt>
+        <dd>${fmtPHP(fees.net_to_owner)}</dd>
+      </div>
+    </dl>
+  `
+}
+
+// Single wiring pass at module load. Click delegation handles trigger
+// row clicks (set up per row in renderBookings) and modal-internal
+// affordances (close, prev/next, adjust, email-row).
+function wireBookingDetail() {
+  const dlg = document.getElementById('booking-detail')
+  if (!dlg) return
+
+  dlg.addEventListener('click', e => {
+    if (e.target.closest('.bd-close')) { closeBookingDetail(); return }
+    if (e.target.closest('.bd-prev'))  { navigateBookingDetail(-1); return }
+    if (e.target.closest('.bd-next'))  { navigateBookingDetail( 1); return }
+
+    // Adjust cleaning affordance — collapsed or full pill state both
+    // route through here. The editor lives in place inside .bd-adjust
+    // and posts to the existing booking_adjustments API.
+    const adjustEl = e.target.closest('.bd-adjust')
+    if (adjustEl) {
+      e.stopPropagation()
+      const act = e.target.dataset?.act
+      const b = currentBookings[currentBookingIndex]
+      if (!b) return
+      const sched = scheduleForDate(feeSchedules, b.start_date)
+      const fees  = deriveFees(b, sched)
+      if (act === 'edit')  return enterEditAdjustment(adjustEl, b, fees)
+      if (act === 'clear') return clearAdjustment(b)
+      return
+    }
+
+    // Scrim click — only when the dialog itself was the target.
+    if (e.target === dlg) closeBookingDetail()
+  })
+
+  // Arrow-key paging while the dialog is open. The native dialog still
+  // catches ESC and closes itself; restore focus after that.
+  dlg.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft')  { navigateBookingDetail(-1); e.preventDefault() }
+    if (e.key === 'ArrowRight') { navigateBookingDetail( 1); e.preventDefault() }
+  })
+  dlg.addEventListener('close', () => {
+    bookingDetailTrigger?.focus()
+    bookingDetailTrigger = null
+    currentBookingIndex = -1
+  })
+}
+
+function enterEditAdjustment(rowEl, booking, fees) {
+  const current = fees.cleaning_gross
+  rowEl.dataset.mode = 'edit'
+  rowEl.classList.add('editing')
+  rowEl.innerHTML = `
+    <span>New cleaning ₱</span>
+    <input type="number" inputmode="decimal" step="0.01" id="adj-amt" value="${current.toFixed(2)}">
+    <input type="text" id="adj-reason" class="wide" placeholder="Reason (required)">
+    <button type="button" class="save" data-act="save">Save</button>
+    <button type="button" data-act="cancel">Cancel</button>
+  `
+  rowEl.querySelector('#adj-amt').focus()
+  rowEl.addEventListener('click', async e => {
+    const act = e.target.dataset?.act
+    if (act === 'cancel') { await reloadAndRefocus(booking); return }
+    if (act === 'save') {
+      const amt = parseFloat(rowEl.querySelector('#adj-amt').value)
+      const reason = rowEl.querySelector('#adj-reason').value.trim()
+      if (vText(reason, { max: 200, label: 'Reason' })) { rowEl.querySelector('#adj-reason').focus(); return }
+      if (vNumber(rowEl.querySelector('#adj-amt').value, { min: 0, label: 'Amount' })) { rowEl.querySelector('#adj-amt').focus(); return }
+      e.target.disabled = true; e.target.textContent = 'Saving…'
+      try {
+        await setCleaningAdjustment(booking.id, amt, reason)
+        await reloadAndRefocus(booking)
+      } catch (err) {
+        e.target.disabled = false; e.target.textContent = 'Save'
+        const errLine = document.createElement('span')
+        errLine.className = 'pending'
+        errLine.textContent = `Failed: ${err.message || err}`
+        rowEl.appendChild(errLine)
+      }
+    }
+  }, { once: false })
+}
+
+// After a save/clear, refresh the bookings list and put the modal
+// back on the same booking. The reference in currentBookings is
+// replaced by loadAndRender; we re-resolve by id.
+async function reloadAndRefocus(booking) {
+  await loadAndRender()
+  const dlg = document.getElementById('booking-detail')
+  if (!dlg?.open) return
+  const newIdx = currentBookings.findIndex(x => x.id === booking.id)
+  if (newIdx >= 0) populateBookingDetail(newIdx)
+  else closeBookingDetail()
+}
+
+async function clearAdjustment(booking) {
+  if (!confirm('Remove cleaning adjustment for this booking?')) return
+  try {
+    await clearCleaningAdjustment(booking.id)
+    await reloadAndRefocus(booking)
+  } catch (e) {
+    alert(`Couldn't clear adjustment: ${e.message || e}`)
+  }
+}
+
+function pct(n) { return `${(Number(n) * 100).toFixed(0)}%` }
+function daysBetween(a, b) {
+  const da = new Date(a + 'T00:00:00Z'), db = new Date(b + 'T00:00:00Z')
+  return Math.round((db - da) / 86400000)
+}
+
+/* ── Render: per-booking email history ────────────────────────────── */
+
+// Categories we intentionally show on the booking timeline. 'other' and
+// 'account_activity' are operational noise — never relevant to a single
+// booking, so they're filtered out before render. 'unparsed' should not
+// reach here once backfill has run, but is filtered defensively.
+const VISIBLE_EMAIL_CATEGORIES = new Set([
+  'confirmation', 'alteration', 'cancellation',
+  'payout', 'payout_failed',
+  'reminder', 'review_request', 'review_left',
+  'guest_message', 'inquiry', 'pre_approval',
+])
+
+const CATEGORY_LABELS = {
+  confirmation:     'Confirmation',
+  alteration:       'Alteration',
+  cancellation:     'Cancellation',
+  payout:           'Payout',
+  payout_failed:    'Payout failed',
+  reminder:         'Reminder',
+  review_request:   'Review request',
+  review_left:      'Review received',
+  guest_message:    'Guest message',
+  inquiry:          'Inquiry',
+  pre_approval:     'Pre-approval',
+}
+
+function fmtEmailDate(ts) {
+  const d = new Date(ts)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function emailAuxText(ev) {
+  if (ev.parsed_type === 'payout' && ev.parsed_payload?.payout_php != null) {
+    return fmtPHP(Number(ev.parsed_payload.payout_php))
+  }
+  if (ev.parsed_type === 'review_left' && ev.parsed_payload?.rating) {
+    return `${ev.parsed_payload.rating}-star`
+  }
+  return ''
+}
+
+function renderEmailHistory(events, booking) {
+  if (!Array.isArray(events) || !events.length) return ''
+  const visible = events
+    .filter(e => VISIBLE_EMAIL_CATEGORIES.has(e.parsed_type))
+    .sort((a, b) => new Date(a.received_at) - new Date(b.received_at))
+  if (!visible.length) return ''
+
+  // Stay-range + confirmation code travel with each row so the letter
+  // modal can render its footnote without re-querying the booking.
+  const footnote = `${booking.confirmation_code} · ${fmtStayRange(booking.start_date, booking.end_date)}`
+
+  const rows = visible.map(ev => {
+    const subjectDecoded = ev.parsed_payload?.subject_decoded || ev.subject || ''
+    const subjectClean   = subjectDecoded.replace(/^re:\s*/i, '')
+    const aux            = emailAuxText(ev)
+    return `
+      <tr class="row-parent"
+          tabindex="0" role="button" aria-haspopup="dialog"
+          data-email-id="${ev.id}"
+          data-letter-cat="${escapeHtml(CATEGORY_LABELS[ev.parsed_type] || ev.parsed_type)}"
+          data-letter-subject="${escapeHtml(subjectDecoded)}"
+          data-letter-date-iso="${ev.received_at}"
+          data-letter-footnote="${escapeHtml(footnote)}">
+        <td class="label"><time datetime="${ev.received_at}">${fmtEmailDate(ev.received_at)}</time></td>
+        <td><span class="email-cat">${escapeHtml(CATEGORY_LABELS[ev.parsed_type] || ev.parsed_type)}</span></td>
+        <td>${escapeHtml(subjectClean)}</td>
+        <td class="num muted">${escapeHtml(aux)}</td>
+      </tr>`
+  }).join('')
+
+  return `
+    <div class="section-head">
+      <span class="title">Email history</span>
+      <span class="meta">${visible.length} ${visible.length === 1 ? 'email' : 'emails'}</span>
+    </div>
+    <table class="data-table email-history" aria-label="Email history">
+      <thead><tr>
+        <th class="label">Date</th>
+        <th>Category</th>
+        <th>Subject</th>
+        <th class="num"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `
+}
+
+function fmtStayRange(start, end) {
+  // "May 11 – 14, 2026" when same month + year, else "May 30 – Jun 2, 2026"
+  const a = new Date(start + 'T00:00:00Z')
+  const b = new Date(end + 'T00:00:00Z')
+  const sameMonth = a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth()
+  const m = (d) => d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
+  const dy = (d) => d.getUTCDate()
+  const y  = b.getUTCFullYear()
+  return sameMonth
+    ? `${m(a)} ${dy(a)} – ${dy(b)}, ${y}`
+    : `${m(a)} ${dy(a)} – ${m(b)} ${dy(b)}, ${y}`
+}
+
+function fmtLetterDateTime(iso) {
+  const d = new Date(iso)
+  const date = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${date} · ${time}`
+}
+
+// Body cleanup for the letter view. Airbnb's plain-text part is
+// padded with a %opentrack% pixel, redundant bracketed URLs, and bare
+// URLs that exist only to mirror the HTML part. The user can see the
+// original in Gmail if they need forensic fidelity; here we strip
+// noise and keep clickable links only where they have a human label.
+function cleanEmailBody(text) {
+  // 1. Drop the leading tracking block: %opentrack% line plus any
+  //    URL line that follows it before the first real paragraph.
+  text = text.replace(/^[\s\S]*?%opentrack%[^\n]*\n+/i, '')
+  text = text.replace(/^\s*https?:\/\/\S+\s*\n+/i, '')
+
+  // 2. Walk lines, merging Label + [URL] pairs into a single anchor
+  //    and dropping URL-only lines that have no preceding label.
+  // First, drop adjacent identical lines — Airbnb often emits the
+  // label twice (once as plain text, once as the anchor inner) which
+  // would otherwise render as "Send X a MessageSend X a Message".
+  const rawLines = text.split(/\r?\n/)
+  const lines = rawLines.filter((l, i) => l.trim() !== rawLines[i - 1]?.trim())
+  const out = []
+  const isUrlOnly = (s) => /^\s*\[?(https?:\/\/\S+)\]?\s*$/.test(s)
+  const isLabelish = (s) =>
+    /[A-Za-z]/.test(s) && !/https?:\/\//i.test(s) &&
+    s.trim().length > 0 && s.trim().length <= 60 && !/[.!?]$/.test(s.trim())
+  for (let i = 0; i < lines.length; i++) {
+    const cur = lines[i]
+    const nxt = lines[i + 1] || ''
+    if (isUrlOnly(cur)) continue // standalone URL or [URL] with no label
+    if (isLabelish(cur) && isUrlOnly(nxt)) {
+      const href = nxt.match(/(https?:\/\/[^\]\s]+)/)[1]
+      out.push(linkify(escapeHtml(cur.trim()), href))
+      i++ // consume the URL line
+      continue
+    }
+    out.push(escapeInlineUrls(cur))
+  }
+  // 3. Collapse runs of blank lines.
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function linkify(label, href) {
+  return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="letter-link">${label}<span class="letter-link__glyph" aria-hidden="true"> ↗</span></a>`
+}
+
+function escapeInlineUrls(line) {
+  // Mid-sentence URLs become a tiny ↗ anchor at their position; the
+  // raw URL text is hidden so the prose stays readable.
+  const URL_RE = /\[?(https?:\/\/[^\s\]]+)\]?/g
+  let out = ''
+  let last = 0
+  let m
+  while ((m = URL_RE.exec(line)) !== null) {
+    out += escapeHtml(line.slice(last, m.index))
+    out += `<a href="${escapeHtml(m[1])}" target="_blank" rel="noopener noreferrer" class="letter-link letter-link--inline" aria-label="External link">↗</a>`
+    last = URL_RE.lastIndex
+  }
+  out += escapeHtml(line.slice(last))
+  return out
+}
+
+// ── Letter modal (one shared dialog, populated on each open) ─────────
+
+const letterDlg = () => document.getElementById('email-letter')
+
+let lastTriggerRow = null
+
+async function openEmailLetter(button) {
+  const dlg = letterDlg()
+  if (!dlg) return
+  lastTriggerRow = button
+
+  // Fill what we have from the row immediately so the letter looks
+  // structurally complete during the body fetch.
+  dlg.querySelector('[data-letter-cat]').textContent      = button.dataset.letterCat
+  dlg.querySelector('[data-letter-subject]').textContent  = button.dataset.letterSubject
+  dlg.querySelector('[data-letter-date]').textContent     = fmtLetterDateTime(button.dataset.letterDateIso)
+  dlg.querySelector('[data-letter-footnote]').textContent = button.dataset.letterFootnote
+  const bodyEl = dlg.querySelector('[data-letter-body]')
+  bodyEl.classList.remove('is-error')
+  bodyEl.innerHTML = '<p class="letter-body__placeholder">Loading…</p>'
+
+  dlg.showModal()
+  // Move focus to the close affordance for a calm entry; the dialog
+  // itself receives focus by default, which causes a visible focus
+  // ring on the wrong element.
+  requestAnimationFrame(() => dlg.querySelector('.letter-close')?.focus())
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const url = `${window.NIJSTERS_SUPABASE.url}/functions/v1/airbnb-email-body?id=${encodeURIComponent(button.dataset.emailId)}`
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${session.access_token}` } })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const raw = (await r.text()) || ''
+    const cleaned = raw ? cleanEmailBody(raw) : ''
+    bodyEl.innerHTML = cleaned || '<p class="letter-body__placeholder">(no readable body)</p>'
+  } catch (err) {
+    console.error('email body fetch failed', err)
+    bodyEl.classList.add('is-error')
+    bodyEl.innerHTML = '<p class="letter-body__placeholder">Could not load this email. <button type="button" class="letter-retry">Retry</button></p>'
+  }
+}
+
+function closeEmailLetter() {
+  const dlg = letterDlg()
+  if (!dlg?.open) return
+  dlg.close()
+  lastTriggerRow?.focus()
+  lastTriggerRow = null
+}
+
+document.addEventListener('click', e => {
+  // Email rows inside the booking-detail modal use the shared
+  // .data-table primitive; the row-parent tr carries data-email-id.
+  const btn = e.target.closest('.email-history tr.row-parent[data-email-id]')
+  if (btn) {
+    e.stopPropagation()
+    openEmailLetter(btn)
+    return
+  }
+  const close = e.target.closest('.letter-close')
+  if (close) { closeEmailLetter(); return }
+  const retry = e.target.closest('.letter-retry')
+  if (retry && lastTriggerRow) { openEmailLetter(lastTriggerRow); return }
+  if (e.target.matches('dialog#email-letter')) closeEmailLetter()
+})
+
+// Keyboard activation on email-history rows (the .data-table primitive
+// already gives row-parent tabindex/cursor; we add Enter / Space.)
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return
+  const row = e.target.closest?.('.email-history tr.row-parent[data-email-id]')
+  if (!row) return
+  e.preventDefault()
+  openEmailLetter(row)
+})
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && letterDlg()?.open) {
+    // Native dialog already closes on ESC; we just want to restore focus.
+    queueMicrotask(() => lastTriggerRow?.focus())
+  }
+})
+
+/* ── Render: other this month ─────────────────────────────────────── */
+function renderOther(expenses, adjustments) {
+  const body = document.getElementById('other-body')
+  const foot = document.getElementById('other-foot')
+  body.innerHTML = ''
+  foot.innerHTML = ''
+  const empty = document.getElementById('other-empty')
+  const total = expenses.length + adjustments.length
+  if (!total) { empty.hidden = false; return }
+  empty.hidden = true
+
+  let totAmount = 0
+  const addRow = (date, desc, amount, cat) => {
+    totAmount += Number(amount)
+    const tr = document.createElement('tr')
+    const td = (text, cls = '') => {
+      const el = document.createElement('td')
+      if (cls) el.className = cls
+      el.textContent = text
+      tr.appendChild(el)
+    }
+    td(date, 'label')
+    td(desc)
+    td(cat, 'col-cat')
+    td(fmtPHP(amount), 'num')
+    body.appendChild(tr)
+  }
+
+  for (const e of expenses) {
+    addRow(fmtDay(e.incurred_date), e.description,
+           Number(e.gross_php) + Number(e.vat_php),
+           e.expense_categories?.label || e.expense_categories?.slug || '')
+  }
+  for (const a of adjustments) {
+    addRow(fmtDay(a.occurred_date), a.description + ' · adjustment',
+           a.amount_php, 'adjustment')
+  }
+
+  const totals = document.createElement('tr')
+  totals.innerHTML = `
+    <td>Total</td>
+    <td></td>
+    <td class="col-cat"></td>
+    <td class="num">${fmtPHP(totAmount)}</td>
+  `
+  foot.appendChild(totals)
+
+  document.getElementById('other-meta').textContent =
+    `${total} ${total === 1 ? 'line' : 'lines'}`
+}
+
+/* ── Month navigation ─────────────────────────────────────────────── */
+function setMonth(month) {
+  if (!availableMonths.includes(month)) return
+  currentMonth = month
+  // Toggle nav button enabled state. availableMonths is descending: index 0 is most recent.
+  const i = availableMonths.indexOf(month)
+  document.getElementById('month-prev').disabled = i >= availableMonths.length - 1
+  document.getElementById('month-next').disabled = i <= 0
+  // Close the export modal: its data is stale for the prior month.
+  const xp = document.getElementById('export-modal')
+  if (xp?.open) xp.close()
+  loadAndRender()
+}
+
+async function loadAndRender() {
+  const myTok = ++stripToken
+  const loading = document.getElementById('state-loading')
+  const errEl   = document.getElementById('state-error')
+  const lbTimer = setTimeout(() => { loading.hidden = false }, 200)
+  errEl.hidden = true
+  try {
+    const [bookings, expenses, adjustments, missing] = await Promise.all([
+      listBookingsForMonth(currentMonth),
+      listExpensesForMonth(currentMonth),
+      listFreestandingAdjustmentsForMonth(currentMonth),
+      listMissingConfirmations().catch(() => []),  // secondary notice; never break the month view
+    ])
+    if (myTok !== stripToken) return   // superseded by a newer switch
+    renderHero(currentMonth)
+    const s = await stripStats(bookings, daysInMonth(currentMonth), feeSchedules, { clipRange: monthRangeMs(currentMonth) })
+    if (myTok !== stripToken) return
+    pushStrip(s)
+    renderMissingConfirmations(missing)
+    renderBookings(bookings)
+    renderOccupancy(bookings)
+    renderOther(expenses, adjustments)
+    // First successful render kicks off the intro animation.
+    runIntroAnim()
+  } catch (e) {
+    console.error(e)
+    errEl.textContent = `Couldn't load ${currentMonth}: ${e.message || e}`
+    errEl.hidden = false
+  } finally {
+    clearTimeout(lbTimer); loading.hidden = true
+  }
+}
+
+/* ── CSV import ───────────────────────────────────────────────────── */
+
+// Parses an AirBnB host-dashboard CSV into { bookings, payouts }.
+// Each booking appears as a Reservation row + one or more Payout rows
+// in the same CSV, joined on
+// the reservation's "Amount" column, which equals the payout's "Paid
+// out" exactly (Airbnb has already netted gross, service fee, and any
+// remitted tax). Identical amounts are split by the nearest start date.
+async function parseAirbnbCsv(file, propertyId) {
+  const text = await file.text()
+  const { data, errors } = Papa.parse(text, { header: true, skipEmptyLines: true })
+  if (errors.length) {
+    throw new Error('CSV parse error: ' + errors[0].message)
+  }
+  const toIso = mdy => {
+    if (!mdy) return null
+    const [m, d, y] = mdy.split('/').map(Number)
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  }
+  const num = v => {
+    if (!v) return 0
+    return parseFloat(String(v).replace(/[,\s₱]/g, '').replace(/^PHP/, '')) || 0
+  }
+  const bookings = []
+  const payouts  = []
+  for (const r of data) {
+    const type = (r.Type || '').trim()
+    if (type === 'Reservation') {
+      bookings.push({
+        property_id: propertyId,
+        confirmation_code: (r['Confirmation code'] || '').trim(),
+        guest_name: (r.Guest || '').trim() || null,
+        listing:    (r.Listing || '').trim() || null,
+        booking_date: toIso(r['Booking date']),
+        start_date:   toIso(r['Start date']),
+        end_date:     toIso(r['End date']),
+        nights: parseInt(r.Nights || '0', 10),
+        currency: (r.Currency || 'PHP').trim(),
+        gross_earnings_php:      num(r['Gross earnings']),
+        airbnb_service_fee_php:  num(r['Service fee']),
+        fast_pay_fee_php:        num(r['Fast pay fee']),
+        cleaning_fee_php:        num(r['Cleaning fee']),
+        airbnb_remitted_tax_php: num(r['Airbnb remitted tax']),
+        source: 'airbnb_csv',
+        raw_csv_row: r,
+      })
+    } else if (type === 'Payout') {
+      payouts.push({
+        property_id: propertyId,
+        payout_date:       toIso(r.Date),
+        arriving_by_date:  toIso(r['Arriving by date']),
+        amount_php:        num(r['Paid out']),
+        payout_destination:(r.Details || '').trim() || null,
+        reference_code:    (r['Reference code'] || '').trim() || null,
+        source: 'airbnb_csv',
+        raw_csv_row: r,
+        _match_code: null,
+      })
+    }
+  }
+  // Pair each payout to its booking by exact host-payout amount: the
+  // reservation's "Amount" equals the payout's "Paid out" to the cent.
+  // (Multiple payouts can legitimately share one booking; that is fine.)
+  // When two bookings carry the same amount, the closest start date wins.
+  for (const p of payouts) {
+    const cands = bookings.filter(b =>
+      Math.abs(num(b.raw_csv_row['Amount']) - p.amount_php) <= 0.01)
+    if (!cands.length) continue
+    cands.sort((a, b) =>
+      Math.abs(new Date(p.payout_date) - new Date(a.start_date)) -
+      Math.abs(new Date(p.payout_date) - new Date(b.start_date)))
+    p._match_code = cands[0].confirmation_code
+  }
+  // Dedup bookings on confirmation_code (some bookings appear in the
+  // CSV multiple times when AirBnB issued multiple payouts).
+  const seen = new Set()
+  const unique = []
+  for (const b of bookings) {
+    if (seen.has(b.confirmation_code)) continue
+    seen.add(b.confirmation_code)
+    unique.push(b)
+  }
+  return { bookings: unique, payouts }
+}
+
+let _parsedImport = null   // last preview's parsed data
+
+async function handleImportFile(file) {
+  const preview = document.getElementById('import-preview')
+  preview.hidden = false
+  preview.innerHTML = `<div class="import-empty">Reading ${escapeHtml(file.name)}…</div>`
+  let parsed
+  try {
+    const prop = await getProperty()
+    parsed = await parseAirbnbCsv(file, prop.id)
+  } catch (e) {
+    preview.innerHTML = `<div class="empty-state error">${escapeHtml(e.message || String(e))}</div>`
+    return
+  }
+
+  // Bucket each booking by what the import will actually do, read from the
+  // existing row's source: no row -> New (insert); provisional 'email' row
+  // -> Updated (fill from CSV); already csv/legacy -> Already in (skip).
+  const codes     = parsed.bookings.map(b => b.confirmation_code).filter(Boolean)
+  const srcByCode = await existingBookingsByCode(codes)
+  const statusOf  = b => {
+    const s = srcByCode.get(b.confirmation_code)
+    return !s ? 'new' : (s === 'email' ? 'upd' : 'skip')
+  }
+  const rank   = { new: 0, upd: 1, skip: 2 }
+  const tagged = parsed.bookings
+    .map(b => ({ b, status: statusOf(b) }))
+    .sort((x, y) => rank[x.status] - rank[y.status]
+      || (y.b.start_date || '').localeCompare(x.b.start_date || ''))
+  const count  = s => tagged.filter(t => t.status === s).length
+  const writes = tagged.filter(t => t.status !== 'skip').map(t => t.b)
+
+  // Payouts: genuinely new vs already stored (reference_code is unique;
+  // a re-import skips the rest rather than aborting on the constraint).
+  const payoutRefs     = parsed.payouts.map(p => p.reference_code).filter(Boolean)
+  const havePayout     = await existingPayoutRefs(payoutRefs)
+  const newPayoutCount = parsed.payouts.filter(p =>
+    !p.reference_code || !havePayout.has(p.reference_code)).length
+
+  _parsedImport = { writes, payouts: parsed.payouts }
+
+  const STATUS = {
+    new:  ['import-status--new',  'New'],
+    upd:  ['import-status--upd',  'Updated'],
+    skip: ['import-status--skip', 'Already in'],
+  }
+  const bodyRows = tagged.map(({ b, status }) => {
+    const [cls, word] = STATUS[status]
+    return `
+      <tr${status === 'skip' ? ' class="import-row--skip"' : ''}>
+        <td class="label">${fmtDay(b.start_date)}</td>
+        <td class="col-guest">${escapeHtml(b.guest_name || 'no name')}</td>
+        <td class="num">${b.nights}</td>
+        <td><span class="import-code">${escapeHtml(b.confirmation_code)}</span></td>
+        <td class="num">${status === 'skip' ? '·' : fmtPHP(b.gross_earnings_php)}</td>
+        <td class="num"><span class="import-status ${cls}">${word}</span></td>
+      </tr>`
+  }).join('')
+
+  const stat = (n, lbl, mod = '', sub = '') => `
+    <div class="import-ledger__stat">
+      <span class="import-ledger__num ${mod}">${n}</span>
+      <span class="import-ledger__lbl">${lbl}${sub ? `<span class="import-ledger__sub">${sub}</span>` : ''}</span>
+    </div>`
+  const NUM_ACCENT = 'import-ledger__num--accent'
+  const NUM_MUTED  = 'import-ledger__num--muted'
+
+  preview.innerHTML = `
+    <div class="import-file">
+      <span class="import-file__name">${escapeHtml(file.name)}</span>
+      <span>${parsed.bookings.length} reservations · ${parsed.payouts.length} payouts</span>
+      <button type="button" class="import-file__change" id="import-rechoose">Choose another</button>
+    </div>
+
+    <div class="import-ledger">
+      ${stat(count('new'), 'New bookings', count('new') ? NUM_ACCENT : NUM_MUTED)}
+      ${stat(count('upd'), 'Updated', count('upd') ? '' : NUM_MUTED)}
+      ${stat(count('skip'), 'Already in', NUM_MUTED)}
+      ${stat(newPayoutCount, 'New payouts', newPayoutCount ? '' : NUM_MUTED, `of ${parsed.payouts.length}`)}
+    </div>
+
+    <div class="data-table-scroll import-review">
+      <table class="data-table">
+        <thead><tr>
+          <th>Date</th><th class="col-guest">Guest</th><th class="num">Nights</th>
+          <th>Code</th><th class="num">Gross</th><th class="num">Status</th>
+        </tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+
+    <div class="hub-dialog__foot">
+      <button type="button" class="btn btn--ghost" id="import-cancel">Cancel</button>
+      <button type="button" id="import-commit" class="btn btn--accent"${writes.length ? '' : ' disabled'}>${
+        writes.length ? `Import ${writes.length} booking${writes.length === 1 ? '' : 's'}` : 'Nothing new'
+      }</button>
+    </div>`
+
+  document.getElementById('import-dropzone').hidden = true
+  document.getElementById('import-rechoose').addEventListener('click', resetImport)
+  document.getElementById('import-cancel').addEventListener('click', resetImport)
+  document.getElementById('import-commit').addEventListener('click', commitImport)
+}
+
+// Return to the drop state: clear the parse and re-reveal the dropzone.
+function resetImport() {
+  _parsedImport = null
+  const preview = document.getElementById('import-preview')
+  preview.hidden = true; preview.innerHTML = ''
+  document.getElementById('import-dropzone').hidden = false
+  document.getElementById('import-file').value = ''
+}
+
+async function commitImport() {
+  if (!_parsedImport) return
+  const btn = document.getElementById('import-commit')
+  btn.disabled = true
+  btn.textContent = 'Importing…'
+  try {
+    const { writes, payouts } = _parsedImport
+    const result = await importBookingsAndPayouts(writes, payouts)
+    btn.textContent = `Imported ${result.bookingsInserted} · ${result.payoutsInserted} payouts`
+    _parsedImport = null
+    // Refresh data so the new month appears in the month list, and
+    // re-render the current view.
+    availableMonths = await listAvailableMonths()
+    await loadAndRender()
+    // Close the modal after a beat so Patrick sees the success, then
+    // reset back to the drop state for next time.
+    setTimeout(() => {
+      closeModal('import-modal')
+      resetImport()
+    }, 1400)
+  } catch (e) {
+    console.error(e)
+    btn.disabled = false
+    btn.textContent = `Retry`
+    const errLine = document.createElement('div')
+    errLine.className = 'state error'
+    errLine.textContent = `Couldn't import: ${e.message || e}`
+    document.getElementById('import-preview').appendChild(errLine)
+  }
+}
+
+/* ── Views switcher ───────────────────────────────────────────────── */
+
+let currentView = 'month'
+// Monotonic token: each period load bumps it and captures the value;
+// after its awaits it only applies if still the latest, so a slower
+// earlier switch can't overwrite a faster later one (the strip went
+// stale on fast Month/Quarter/Year switching).
+let stripToken = 0
+
+/* The Insights combo chart (the only month-band figure) gets the SAME
+   synchronized month-guide + hover readout as utilities, via the shared
+   controller (js/chart-sync.js). Airbnb supplies only what a month means
+   here: which SVG, the readout HTML, and the bar highlight colour.
+   insightsSlots is the latest renderInsights per-month data, read by the
+   readout. The donuts/bubble/seasonality are not month-band, so they are
+   intentionally not part of the synced guide. */
+let insightsSlots = []
+let insightsYearOf = null
+// Hovered combo bars lift to bright bone (NOT accent): ochre is reserved
+// for the occupancy line, so the hover highlight must not borrow it.
+const INSIGHTS_BAR_HI = 'oklch(0.93 0.02 80)'
+const yearSync = mountChartSync({
+  svgs: () => currentView !== 'insights' ? []
+    : ['i1-chart']
+        .map(id => document.getElementById(id)?.querySelector('svg'))
+        .filter(Boolean),
+  readout: (mo) => {
+    const s = insightsSlots.find(r => r.mo === mo)
+    if (!s) return null
+    const row = (k, v) => `<span class="cr-row">${k}<span class="cr-v">${v}</span></span>`
+    if (!s.active && !s.cost) {
+      return `<span class="cr-key">${mo} ${insightsYearOf}</span>`
+        + `<span class="cr-row">No activity</span>`
+    }
+    return `<span class="cr-key">${mo} ${insightsYearOf}</span>`
+      + row('Gross', fmtPHP(s.gross))
+      + row('Expenses', fmtPHP(s.cost))
+      + row('Owner net', fmtPHP(s.ownerNet))
+      + row('Occupancy', s.active ? `${Math.round(s.occ * 100)}%` : '—')
+      + row('Nights', String(s.nights))
+  },
+  barRamp: () => INSIGHTS_BAR_HI,
+})
+function scheduleYearSync() {
+  requestAnimationFrame(() => requestAnimationFrame(() => yearSync.refresh()))
+}
+let currentQuarterAnchor = null   // YYYY-MM inside the visible quarter
+
+function switchView(view) {
+  if (!['month', 'quarter', 'insights', 'settings'].includes(view)) return
+  currentView = view
+  // The shared header owns tab aria-current. Tabs are the data lens;
+  // Settings is a shell-level destination (the cog), never a tab, so
+  // in Settings no tab is highlighted and the cog carries
+  // aria-current. The strip is app-wide and recomputed per view by
+  // each loadAndRender*, so there is nothing view-specific to clear.
+  if (view === 'settings') hub.clearActive()
+  else hub.setTab(view)
+  if (hub.gearEl) {
+    hub.gearEl.setAttribute('aria-current', view === 'settings' ? 'true' : 'false')
+  }
+  document.getElementById('view-month').hidden    = view !== 'month'
+  document.getElementById('view-quarter').hidden  = view !== 'quarter'
+  document.getElementById('view-insights').hidden = view !== 'insights'
+  document.getElementById('view-settings').hidden = view !== 'settings'
+  if (view === 'month')    loadAndRender()
+  if (view === 'quarter') {
+    if (!currentQuarterAnchor) currentQuarterAnchor = currentMonth
+    loadAndRenderQuarter()
+  }
+  if (view === 'insights') loadAndRenderInsights()
+  if (view === 'settings') loadAndRenderSettings()
+  // Leaving Insights tears the synced guide down (refresh with no svgs
+  // removes the document listener + overlay lines).
+  if (view !== 'insights') yearSync.refresh()
+}
+
+/* ── Quarter view render ──────────────────────────────────────────── */
+
+function quarterLabel(anchor) {
+  const q = quarterForMonth(anchor)
+  return { name: `Q${q.qIdx + 1}`, year: q.year, range: q }
+}
+
+async function loadAndRenderQuarter() {
+  const myTok = ++stripToken
+  if (!currentQuarterAnchor) currentQuarterAnchor = currentMonth
+  const errEl = document.getElementById('state-error')
+  errEl.hidden = true
+  try {
+    const [bookings, expenses, payments, statement] = await Promise.all([
+      listBookingsForQuarter(currentQuarterAnchor),
+      listExpensesForQuarter(currentQuarterAnchor),
+      listMgmtPaymentsForQuarter(currentQuarterAnchor),
+      getStatementForQuarter(currentQuarterAnchor),
+    ])
+    if (myTok !== stripToken) return   // superseded by a newer switch
+    renderQuarter({ bookings, expenses, payments, statement })
+    const q = quarterForMonth(currentQuarterAnchor)
+    const qDays = q.months.reduce((s, m) => s + daysInYM(q.year, m), 0)
+    const s = await stripStats(bookings, qDays, feeSchedules, { clipRange: quarterRangeMs(currentQuarterAnchor) })
+    if (myTok !== stripToken) return
+    pushStrip(s)
+  } catch (e) {
+    console.error(e)
+    errEl.textContent = `Couldn't load quarter: ${e.message || e}`
+    errEl.hidden = false
+  }
+}
+
+function renderQuarter({ bookings, expenses, payments, statement }) {
+  const q = quarterForMonth(currentQuarterAnchor)
+  const { name, year, range } = quarterLabel(currentQuarterAnchor)
+  document.getElementById('q-name').textContent = name
+  document.getElementById('q-year').textContent = year
+
+  // Group bookings by month within the quarter. Nights are distributed
+  // across the months a stay touches (a Jan 30 5-night booking puts 2
+  // nights in Jan, 3 in Feb). Gross/fees stay with the booking's
+  // start-month so revenue isn't double-counted. Spillover bookings
+  // (start in a prior quarter) contribute only nights.
+  const perMonth = new Map(range.months.map(m => [m, { nights: 0, gross: 0, airbnbFee: 0, cleaning: 0, count: 0 }]))
+  let totalGross = 0, totalNetBank = 0, totalOwed = 0, totalCleaningGross = 0,
+      totalCleaningVat = 0, totalMgmtFee = 0, totalMgmtVat = 0
+  for (const b of bookings) {
+    const sched = scheduleForDate(feeSchedules, b.start_date)
+    const fees = deriveFees(b, sched)
+    if (fees.is_provisional) continue
+    let startSlotM = null
+    for (const m of range.months) {
+      const ym  = `${range.year}-${String(m).padStart(2, '0')}`
+      const inM = nightsInMonth(b.start_date, b.nights, ym)
+      if (inM > 0) perMonth.get(m).nights += inM
+      if (startsInMonth(b.start_date, ym)) startSlotM = m
+    }
+    if (startSlotM != null) {
+      const slot = perMonth.get(startSlotM)
+      slot.count++
+      slot.gross    += fees.gross
+      slot.airbnbFee += fees.airbnb_fee
+      slot.cleaning += fees.cleaning_gross
+      totalGross += fees.gross
+      totalNetBank += fees.net_to_bank
+      totalCleaningGross += fees.cleaning_gross
+      totalCleaningVat += fees.cleaning_vat
+      totalMgmtFee += fees.mgmt_fee_gross
+      totalMgmtVat += fees.mgmt_vat
+    }
+  }
+  // Per-month overlap warning: any bookings whose stays intersect.
+  // A single-property unit can't host two guests on the same night.
+  const overlapsByMonth = new Map(range.months.map(m => [m, []]))
+  const qOverlaps = findOverlaps(bookings)
+  for (const i of qOverlaps.keys()) {
+    const b = bookings[i]
+    if (!startsInRange(b.start_date,
+        quarterRangeMs(currentQuarterAnchor).startMs,
+        quarterRangeMs(currentQuarterAnchor).endMs)) continue
+    const m = parseInt(b.start_date.slice(5, 7), 10)
+    if (overlapsByMonth.has(m)) overlapsByMonth.get(m).push(b)
+  }
+  // Don't double-count: app-computed mgmt + cleaning + VATs come from
+  // bookings; skip those same categories in the imported expense
+  // table when summing for the hero "Owed mgmt" stat.
+  const SKIP_DERIVED_TOTALS = new Set(['cleaning', 'management', 'vat-cleaning', 'vat-management'])
+  const totalExpenses = expenses
+    .filter(e => !SKIP_DERIVED_TOTALS.has(e.expense_categories?.slug))
+    .reduce((s, e) => s + Number(e.gross_php) + Number(e.vat_php || 0), 0)
+  totalOwed = totalCleaningGross + totalCleaningVat + totalMgmtFee + totalMgmtVat + totalExpenses
+
+  // Gross / net-to-bank / owed-mgmt headline cells moved out of the
+  // body: the header strip now carries the uniform period figures.
+  // These totals still feed the detail tables below; net-to-bank and
+  // owed remain visible there.
+  const ttlNights = [...perMonth.values()].reduce((s, x) => s + x.nights, 0)
+  const ttlBookings = [...perMonth.values()].reduce((s, x) => s + x.count, 0)
+  void totalOwed
+
+  // The three quarter sub-tables are the shared .data-table. Each
+  // builder appends <tr> into its <tbody>; the <thead> is static
+  // markup. Cell roles: .label = Migra identity (month), .num =
+  // tabular right, .num.muted = the soft VAT aux column, .strong =
+  // the totals/ledger emphasis row.
+  const trOf = (cells) => {
+    const tr = document.createElement('tr')
+    for (const c of cells) {
+      const td = document.createElement('td')
+      if (c.cls) td.className = c.cls
+      if (c.style) td.style.cssText = c.style
+      if (c.html != null) td.innerHTML = c.html
+      else td.textContent = c.t ?? ''
+      tr.appendChild(td)
+    }
+    return tr
+  }
+  const monthCellHtml = (m) => {
+    const ovs = overlapsByMonth.get(m) || []
+    if (!ovs.length) return null
+    const names = ovs.map(b => `${fmtDay(b.start_date)} · ${b.guest_name || '(no name)'} (${b.nights}n)`).join(' · ')
+    const tip = `Overlapping stays this month. A single property can't host two guests on the same night. Conflicts include: ${names}`
+    return `${escapeHtml(MONTH_LONG[m - 1])}${warnBadge(tip, 'Overlapping bookings')}`
+  }
+
+  // AirBnB deposits sub-table.
+  const dep = document.getElementById('q-deposits')
+  const depFoot = document.getElementById('q-deposits-foot')
+  dep.innerHTML = ''
+  depFoot.innerHTML = ''
+  for (const m of range.months) {
+    const s = perMonth.get(m)
+    const mh = monthCellHtml(m)
+    dep.appendChild(trOf([
+      mh ? { html: mh, cls: 'label' } : { t: MONTH_LONG[m - 1], cls: 'label' },
+      { t: `${s.count} ${s.count === 1 ? 'booking' : 'bookings'}` },
+      { t: String(s.nights), cls: 'num' },
+      { t: fmtPHP(s.gross - s.airbnbFee), cls: 'num' },
+    ]))
+  }
+  depFoot.appendChild(trOf([
+    { t: 'Total' }, { t: '' },
+    { t: String(ttlNights), cls: 'num' },
+    { t: fmtPHP(totalNetBank), cls: 'num' },
+  ]))
+
+  // Service fees & expenses.
+  const chg = document.getElementById('q-charges')
+  const chgFoot = document.getElementById('q-charges-foot')
+  chg.innerHTML = ''
+  chgFoot.innerHTML = ''
+  // Per-month mgmt + cleaning aggregates.
+  for (const m of range.months) {
+    const s = perMonth.get(m)
+    if (s.count === 0) continue
+    const mname = MONTH_SHORT[m - 1]
+    const mFees = bookings
+      .filter(b => parseInt(b.start_date.slice(5,7),10) === m)
+      .map(b => deriveFees(b, scheduleForDate(feeSchedules, b.start_date)))
+      .filter(f => !f.is_provisional)
+    const cl    = mFees.reduce((s,f)=>s+f.cleaning_gross,0)
+    const clVat = mFees.reduce((s,f)=>s+f.cleaning_vat,0)
+    const mg    = mFees.reduce((s,f)=>s+f.mgmt_fee_gross,0)
+    const mgVat = mFees.reduce((s,f)=>s+f.mgmt_vat,0)
+    chg.appendChild(trOf([
+      { t: mname, cls: 'label' },
+      { t: 'Management fees (25%)' },
+      { t: clVat > 0 ? fmtPHP(mgVat) : '—', cls: 'num muted' },
+      { t: fmtPHP(mg), cls: 'num' },
+    ]))
+    chg.appendChild(trOf([
+      { t: mname, cls: 'label' },
+      { t: 'Cleaning fees' },
+      { t: clVat > 0 ? fmtPHP(clVat) : '—', cls: 'num muted' },
+      { t: fmtPHP(cl), cls: 'num' },
+    ]))
+  }
+  // Other expenses (utilities, repairs, etc.) — pulled from the
+  // expenses table, one row per entry. Skip cleaning/mgmt/VAT
+  // categories: those are echoes of mgmt-invoice line items that the
+  // app already computes per-booking from fee_schedules and shows
+  // above. Showing both leads to the visual duplication that looked
+  // like a bug in Q1 2026 (the only quarter with a parsed PDF).
+  const SKIP_DERIVED = new Set(['cleaning', 'management', 'vat-cleaning', 'vat-management'])
+  for (const e of expenses) {
+    if (SKIP_DERIVED.has(e.expense_categories?.slug)) continue
+    chg.appendChild(trOf([
+      { t: fmtDay(e.incurred_date) },
+      { t: e.description },
+      { t: Number(e.vat_php) > 0 ? fmtPHP(Number(e.vat_php)) : '—', cls: 'num muted' },
+      { t: fmtPHP(Number(e.gross_php)), cls: 'num' },
+    ]))
+  }
+  chgFoot.appendChild(trOf([
+    { t: 'Total' }, { t: '' },
+    { t: fmtPHP(totalCleaningVat + totalMgmtVat), cls: 'num muted' },
+    { t: fmtPHP(totalOwed), cls: 'num' },
+  ]))
+
+  // Collections ledger.
+  const col = document.getElementById('q-collections')
+  col.innerHTML = ''
+  const opening = statement?.opening_balance_php ?? 0
+  col.appendChild(trOf([
+    { t: '' }, { t: 'Opening balance', cls: 'strong' },
+    { t: '' }, { t: fmtPHP(Number(opening)), cls: 'num' },
+  ]))
+  for (const p of payments) {
+    col.appendChild(trOf([
+      { t: fmtDay(p.paid_at) },
+      { t: `Payment ${p.method ? '· ' + p.method : ''}` },
+      { t: '' },
+      { t: '−' + fmtPHP(Number(p.amount_php)), cls: 'num' },
+    ]))
+  }
+  col.appendChild(trOf([
+    { t: '' }, { t: "This quarter's charges" },
+    { t: '' }, { t: '+' + fmtPHP(totalOwed), cls: 'num' },
+  ]))
+  const paid = payments.reduce((s, p) => s + Number(p.amount_php), 0)
+  const ending = Number(opening) - paid + totalOwed
+  col.appendChild(trOf([
+    { t: '' }, { t: 'Ending balance (computed)', cls: 'strong' },
+    { t: '' }, { t: fmtPHP(ending), cls: 'num strong' },
+  ]))
+  if (statement?.ending_balance_php != null) {
+    const variance = Number(statement.ending_balance_php) - ending
+    const c = Math.abs(variance) < 0.5 ? 'var(--text-muted)' : 'var(--accent)'
+    col.appendChild(trOf([
+      { t: '' },
+      { t: `Variance vs invoice (${fmtPHP(Number(statement.ending_balance_php))})`,
+        style: `color:${c}` },
+      { t: '' },
+      { t: Math.abs(variance) < 0.5 ? 'in sync' : (variance > 0 ? '+' : '') + fmtPHP(variance),
+        cls: 'num', style: `color:${c}` },
+    ]))
+  }
+}
+
+function wireQuarterNav() {
+  document.getElementById('q-prev').addEventListener('click', () => {
+    const q = quarterForMonth(currentQuarterAnchor)
+    const newM = q.months[0] - 1
+    const newY = newM < 1 ? q.year - 1 : q.year
+    const m = newM < 1 ? 12 : newM
+    currentQuarterAnchor = `${newY}-${String(m).padStart(2,'0')}`
+    loadAndRenderQuarter()
+  })
+  document.getElementById('q-next').addEventListener('click', () => {
+    const q = quarterForMonth(currentQuarterAnchor)
+    const newM = q.months[2] + 1
+    const newY = newM > 12 ? q.year + 1 : q.year
+    const m = newM > 12 ? 1 : newM
+    currentQuarterAnchor = `${newY}-${String(m).padStart(2,'0')}`
+    loadAndRenderQuarter()
+  })
+  document.getElementById('i-prev').addEventListener('click', () => {
+    const i = availableYears.indexOf(currentYear)
+    if (i > 0) { currentYear = availableYears[i - 1]; loadAndRenderInsights() }
+  })
+  document.getElementById('i-next').addEventListener('click', () => {
+    const i = availableYears.indexOf(currentYear)
+    if (i >= 0 && i < availableYears.length - 1) { currentYear = availableYears[i + 1]; loadAndRenderInsights() }
+  })
+}
+
+function wireStatementVerify() {
+  const dz   = document.getElementById('stmt-dropzone')
+  const pick = document.getElementById('stmt-pick')
+  const file = document.getElementById('stmt-file')
+  bindActionDialog('stmt-modal')
+  pick.addEventListener('click', () => file.click())
+  file.addEventListener('change', e => {
+    if (e.target.files[0]) handleStatementPdf(e.target.files[0])
+  })
+  ;['dragenter', 'dragover'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('is-drag') }))
+  ;['dragleave', 'drop'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('is-drag') }))
+  dz.addEventListener('drop', e => {
+    const f = e.dataTransfer.files?.[0]
+    if (f) handleStatementPdf(f)
+  })
+}
+
+async function handleStatementPdf(file) {
+  const result = document.getElementById('stmt-result')
+  result.hidden = false
+  result.className = 'state'
+  result.textContent = `Uploading ${file.name}…`
+  const q = quarterForMonth(currentQuarterAnchor)
+  try {
+    const { storage_path } = await uploadStatementPdf(file, q.start, q.end)
+    result.textContent = 'Parsing PDF on the Edge Function…'
+    const parsed = await parseStatementPdf(storage_path)
+    if (!parsed || parsed.error) throw new Error(parsed?.error || 'Parse returned empty')
+
+    // Reconcile against the INVOICE'S OWN period (not the currently-viewed
+    // quarter). Management + cleaning are re-derived from the bookings that
+    // start inside that period; pass-through / repair lines have no other
+    // source, so they're trusted and recorded, not reconciled.
+    const model = buildVerificationModel(parsed,
+      await listBookingsForQuarter(parsed.period_start.slice(0, 7)))
+    // Drop `.state` (Migra-italic + centered loading style) so the
+    // reconciliation renders in its own Hanken, left-aligned voice.
+    result.className = ''
+    result.innerHTML = renderVerification(parsed, model)
+    document.getElementById('stmt-save').addEventListener('click', async () => {
+      const btn = document.getElementById('stmt-save')
+      btn.disabled = true; btn.textContent = 'Saving…'
+      try {
+        const stmt = await upsertStatement({
+          periodStart: parsed.period_start,
+          periodEnd: parsed.period_end,
+          periodLength: 'quarterly',
+          opening: parsed.opening_balance_php,
+          paymentsReceived: parsed.payments_received_php,
+          charges: parsed.charges_php,
+          ending: parsed.ending_balance_php,
+          pdfStoragePath: storage_path,
+          parsedJson: parsed,
+          status: model.inSync ? 'verified' : 'flagged_variance',
+        })
+        // Pass-through / repair lines have no other source — record them,
+        // keyed to this statement so a re-verify replaces cleanly.
+        await replaceStatementExpenses(stmt.id, parsed.period_end.slice(0, 7), model.passThrough)
+        btn.textContent = 'Saved'
+        await loadAndRenderQuarter()
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Retry save'
+        const err = document.createElement('div')
+        err.className = 'state error'
+        err.textContent = `Couldn't save: ${e.message || e}`
+        result.appendChild(err)
+      }
+    })
+  } catch (e) {
+    result.className = 'state error'
+    result.textContent = `Failed: ${e.message || e}`
+  }
+}
+
+// Build the per-month reconciliation model for the invoice's own period:
+// expected management + cleaning fees (re-derived from the bookings that
+// start inside the period) vs what the invoice charged, plus the trusted
+// pass-through / repair lines. Comparison is on gross (VAT tracks it at a
+// fixed rate); if gross matches, VAT matches.
+function buildVerificationModel(parsed, bookings) {
+  const [sy, sm] = parsed.period_start.split('-').map(Number)
+  const [ey, em] = parsed.period_end.split('-').map(Number)
+  const byMonth = new Map()
+  const months = []
+  for (let y = sy, m = sm; y < ey || (y === ey && m <= em); ) {
+    const ym = `${y}-${String(m).padStart(2, '0')}`
+    const row = { ym, short: MONTH_SHORT[m - 1], expMgmt: 0, expClean: 0, chgMgmt: 0, chgClean: 0 }
+    byMonth.set(ym, row); months.push(row)
+    m++; if (m > 12) { m = 1; y++ }
+  }
+  // Expected: derive fees from bookings starting inside the period. Skip
+  // provisional (email) rows — they aren't billed yet.
+  for (const b of bookings) {
+    const row = byMonth.get((b.start_date || '').slice(0, 7))
+    if (!row) continue
+    const f = deriveFees(b, scheduleForDate(feeSchedules, b.start_date))
+    if (f.is_provisional || f.mgmt_fee_gross == null) continue
+    row.expMgmt += f.mgmt_fee_gross
+    row.expClean += f.cleaning_gross
+  }
+  // Charged: split the invoice lines. Management + cleaning bucket by month;
+  // everything else is pass-through to record as-is.
+  const passThrough = []
+  for (const e of (parsed.expenses || [])) {
+    const slug = classifyExpense(e.description)
+    const row = byMonth.get((e.incurred_date || '').slice(0, 7))
+    if ((slug === 'management' || slug === 'cleaning') && row) {
+      row[slug === 'management' ? 'chgMgmt' : 'chgClean'] += Number(e.gross_php)
+    } else {
+      passThrough.push({ ...e, slug })
+    }
+  }
+  const sum = k => months.reduce((s, r) => s + r[k], 0)
+  const totals = { expMgmt: sum('expMgmt'), chgMgmt: sum('chgMgmt'),
+                   expClean: sum('expClean'), chgClean: sum('chgClean') }
+  const feeVariance = (totals.chgMgmt + totals.chgClean) - (totals.expMgmt + totals.expClean)
+  const passThroughTotal = passThrough.reduce(
+    (s, e) => s + Number(e.gross_php) + Number(e.vat_php || 0), 0)
+  return { months, totals, passThrough, passThroughTotal, feeVariance,
+           inSync: Math.abs(feeVariance) < 1 }
+}
+
+function renderVerification(parsed, model) {
+  const php = n => '₱' + Number(n).toLocaleString('en-US',
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const delta = d => Math.abs(d) < 0.005 ? '₱0.00'
+    : (d < 0 ? '−' : '+') + php(Math.abs(d))
+  const dCls = d => Math.abs(d) >= 1 ? 'd-off' : 'd-ok'
+
+  const feeTable = (eyebrow, tag, note, expKey, chgKey) => {
+    const rows = model.months.map(r => {
+      const d = r[chgKey] - r[expKey]
+      return `<tr><td>${r.short}</td><td>${php(r[expKey])}</td>` +
+        `<td>${php(r[chgKey])}</td><td class="${dCls(d)}">${delta(d)}</td></tr>`
+    }).join('')
+    const te = model.totals[expKey], tc = model.totals[chgKey], td = tc - te
+    return `<section class="vfy-section">
+      <div class="vfy-section__head"><span class="vfy-section__eyebrow">${eyebrow}</span><span class="vfy-section__tag">${tag}</span></div>
+      <div class="vfy-section__note">${note}</div>
+      <table class="vt fee"><colgroup><col class="m"><col class="n"><col class="n"><col class="n"></colgroup>
+        <thead><tr><th>Month</th><th>Expected</th><th>Charged</th><th>Δ</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td>Quarter</td><td>${php(te)}</td><td>${php(tc)}</td>
+          <td class="${dCls(td)}">${delta(td)}</td></tr></tfoot>
+      </table></section>`
+  }
+
+  const passRows = model.passThrough.map(e => `<tr><td>${fmtDay(e.incurred_date)}</td>` +
+    `<td class="item">${escapeHtml(e.description)}</td><td>${php(e.gross_php)}</td></tr>`).join('')
+  const n = model.passThrough.length
+  const passSection = n ? `<section class="vfy-section">
+      <div class="vfy-section__head"><span class="vfy-section__eyebrow">Pass-through &amp; repairs</span><span class="vfy-section__tag">recorded as-is</span></div>
+      <div class="vfy-section__note">Utilities and one-offs the invoice is the only record of. Check them against the actual bills, then save.</div>
+      <table class="vt pt"><colgroup><col class="d"><col class="i"><col class="a"></colgroup>
+        <thead><tr><th>Date</th><th class="l">Item</th><th>Amount</th></tr></thead>
+        <tbody>${passRows}</tbody>
+        <tfoot><tr><td>${n} line${n === 1 ? '' : 's'}</td><td></td><td>${php(model.passThroughTotal)}</td></tr></tfoot>
+      </table></section>` : ''
+
+  const paid = Number(parsed.payments_received_php || 0)
+  const open = Number(parsed.opening_balance_php || 0)
+  const chg = Number(parsed.charges_php || 0)
+  const endStated = Number(parsed.ending_balance_php || 0)
+  const endVar = endStated - (open - paid + chg)
+  const startM = model.months[0].short, endM = model.months[model.months.length - 1].short
+  const ok = model.inSync
+
+  return `<div class="vfy">
+    <div class="vfy-head">
+      <div class="vfy-period">${startM} <em>–</em> ${endM} ${parsed.period_start.slice(0, 4)}</div>
+      <div class="vfy-source">Always Home · quarterly</div>
+    </div>
+    <div class="vfy-verdict ${ok ? 'vfy-verdict--ok' : 'vfy-verdict--off'}">
+      <span class="vfy-verdict__mark">${ok ? 'In balance' : delta(model.feeVariance)}</span>
+      <span class="vfy-verdict__note">${ok
+        ? 'Management and cleaning fees match your bookings to the centavo.'
+        : 'Fees differ from your bookings — review the months flagged in ochre.'}</span>
+    </div>
+    ${feeTable('Management fee', '25% of net rental',
+      "25% of rental net of Airbnb's host fee, computed from your bookings, against what Always Home billed.",
+      'expMgmt', 'chgMgmt')}
+    ${feeTable('Cleaning fee', 'fee + 12% VAT',
+      'Cleaning revenue your guests paid, billed back at the same amount.',
+      'expClean', 'chgClean')}
+    ${passSection}
+    <section class="vfy-section">
+      <div class="vfy-section__head"><span class="vfy-section__eyebrow">Collections</span></div>
+      <div class="vfy-ledger">
+        <div class="k">Opening balance due</div><div class="v">${php(open)}</div>
+        <div class="k">Payments received</div><div class="v">−${php(paid)}</div>
+        <div class="k">This quarter's charges</div><div class="v">+${php(chg)}</div>
+        <div class="rule"></div>
+        <div class="k tot">Ending balance due</div><div class="v tot">${php(endStated)}</div>
+        ${Math.abs(endVar) >= 1 ? `<div class="k off">Ledger variance</div><div class="v off">${delta(endVar)}</div>` : ''}
+      </div>
+    </section>
+    <div class="vfy-foot">
+      <button type="button" class="btn btn--accent" id="stmt-save">Save statement</button>
+    </div></div>`
+}
+
+/* ── Insights view (analytics) ────────────────────────────────────── */
+
+
+function chartStyle(C) {
+  return { background: 'transparent', color: C.ink,
+           fontFamily: 'var(--font-body)', fontSize: '11px' }
+}
+
+function daysInYM(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate() }
+
+const peso = n => '₱' + Math.round(n || 0).toLocaleString('en-US')
+
+// Tonal bone ramp for donut/categorical fills: dark→light steps of the
+// brand bone hue. NO rainbow — slices read by lightness, accent (ochre)
+// stays reserved for the single owner-net slice and the occupancy line.
+function boneRamp(n) {
+  if (n <= 1) return ['oklch(0.70 0.02 80)']
+  const out = []
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1)
+    const L = 0.40 + t * 0.50
+    out.push(`oklch(${L.toFixed(3)} 0.022 80)`)
+  }
+  return out
+}
+
+// Hand-rolled donut: a static SVG of arc paths + external labels + a
+// centre total. Built as a string and assigned once (no pointer marks,
+// no node churn — mistake #12 is moot for a static figure). Plot has no
+// pie/arc mark, so this stays dependency-free and gives full colour and
+// label control. Slices with value <= 0 are dropped.
+function renderDonut(containerId, slices, centreTop, centreSub) {
+  const el = document.getElementById(containerId)
+  el.innerHTML = ''
+  const data = slices.filter(s => s.value > 0)
+  const total = data.reduce((s, x) => s + x.value, 0)
+  if (!total) {
+    el.innerHTML = `<div class="chart-empty">${centreSub || 'No data'}</div>`
+    return
+  }
+  // SVG presentation attributes don't resolve var() — resolve tokens to
+  // literals. (Slice fills are already resolved values from the caller.)
+  const cGround = css('--ground'), cSec = css('--text-secondary'),
+        cMuted = css('--text-muted'), cText = css('--text')
+  const W = el.clientWidth || 360
+  const H = 460
+  const cx = W / 2, cy = H / 2
+  // Fill the space, but cap the radius so the external labels always have
+  // horizontal room (W/2 - 96) and never clip at the container edge.
+  const R = Math.min(Math.min(W, H) / 2 - 56, W / 2 - 96)
+  const r0 = R * 0.62
+  const TAU = Math.PI * 2
+  const polar = (r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)]
+  const arc = (a0, a1) => {
+    const large = (a1 - a0) > Math.PI ? 1 : 0
+    const [x0, y0] = polar(R, a0), [x1, y1] = polar(R, a1)
+    const [x2, y2] = polar(r0, a1), [x3, y3] = polar(r0, a0)
+    return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${R} ${R} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`
+         + ` L${x2.toFixed(2)} ${y2.toFixed(2)} A${r0} ${r0} 0 ${large} 0 ${x3.toFixed(2)} ${y3.toFixed(2)} Z`
+  }
+  let a = -Math.PI / 2
+  const paths = [], labels = []
+  for (const s of data) {
+    const frac = s.value / total
+    const a1 = a + frac * TAU
+    const mid = (a + a1) / 2
+    // A single ~100% slice is a full ring: a lone 360° arc has identical
+    // start/end points and renders nothing, so split it at the midpoint.
+    if (a1 - a >= TAU - 1e-6) {
+      const half = a + Math.PI
+      paths.push(`<path d="${arc(a, half)}" fill="${s.color}" stroke="${cGround}" stroke-width="1.5"></path>`)
+      paths.push(`<path d="${arc(half, a1)}" fill="${s.color}" stroke="${cGround}" stroke-width="1.5"></path>`)
+    } else {
+      paths.push(`<path d="${arc(a, a1)}" fill="${s.color}" stroke="${cGround}" stroke-width="1.5"></path>`)
+    }
+    if (frac >= 0.04) {
+      const [lx, ly] = polar(R + 14, mid)
+      const right = Math.cos(mid) >= 0
+      const anchor = right ? 'start' : 'end'
+      const pct = Math.round(frac * 100)
+      labels.push(
+        `<text x="${lx.toFixed(1)}" y="${(ly - 2).toFixed(1)}" text-anchor="${anchor}" `
+        + `fill="${cSec}" font-size="11">${escapeHtml(s.label)}</text>`
+        + `<text x="${lx.toFixed(1)}" y="${(ly + 11).toFixed(1)}" text-anchor="${anchor}" `
+        + `fill="${cMuted}" font-size="10">${pct}%</text>`)
+    }
+    a = a1
+  }
+  const centre =
+    `<text x="${cx}" y="${cy - 2}" text-anchor="middle" fill="${cText}" `
+    + `font-size="26" font-variant-numeric="tabular-nums">${escapeHtml(centreTop)}</text>`
+    + (centreSub
+      ? `<text x="${cx}" y="${cy + 18}" text-anchor="middle" fill="${cMuted}" `
+        + `font-size="11" letter-spacing="0.12em">${escapeHtml(centreSub)}</text>`
+      : '')
+  el.innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img">`
+    + paths.join('') + labels.join('') + centre + `</svg>`
+}
+
+async function loadAndRenderInsights() {
+  const myTok = ++stripToken
+  const errEl = document.getElementById('state-error')
+  errEl.hidden = true
+  let bookings, expenses, schedules, categories
+  try {
+    ;[bookings, expenses, schedules, categories] = await Promise.all([
+      listAllBookings(), listAllExpenses(), listFeeSchedules(), listExpenseCategories(),
+    ])
+  } catch (e) {
+    errEl.textContent = `Insights load failed: ${e.message || e}`
+    errEl.hidden = false
+    return
+  }
+  if (myTok !== stripToken) return   // superseded by a newer switch
+
+  const C = chartTokens()
+  const style = chartStyle(C)
+  const W = id => document.getElementById(id).clientWidth || 720
+  const labelBySlug = new Map(categories.map(c => [c.slug, c.label]))
+
+  // Aggregate per month. Financial fields attributed to the start month;
+  // nights distributed across every calendar month a stay touches.
+  const byMonth = new Map()
+  const ensureMonth = ym => {
+    if (!byMonth.has(ym)) byMonth.set(ym, {
+      ym, nights: 0, gross: 0, airbnbFee: 0,
+      cleaning_gross: 0, cleaning_vat: 0, mgmt_gross: 0, mgmt_vat: 0,
+      net_to_owner: 0, overhead: 0,
+    })
+    return byMonth.get(ym)
+  }
+  for (const b of bookings) {
+    const fees = deriveFees(b, scheduleForDate(schedules, b.start_date))
+    if (fees.is_provisional || fees.gross == null) continue
+    const startYm = b.start_date.slice(0, 7)
+    const [sy, sm] = startYm.split('-').map(Number)
+    for (let off = 0; off < 12; off++) {
+      const cm = new Date(Date.UTC(sy, sm - 1 + off, 1))
+      const ym = `${cm.getUTCFullYear()}-${String(cm.getUTCMonth() + 1).padStart(2, '0')}`
+      const inN = nightsInMonth(b.start_date, b.nights, ym)
+      if (!inN) { if (off > 0) break; else continue }
+      ensureMonth(ym).nights += inN
+    }
+    const ms = ensureMonth(startYm)
+    ms.gross += fees.gross
+    ms.airbnbFee += fees.airbnb_fee
+    ms.cleaning_gross += fees.cleaning_gross
+    ms.cleaning_vat += fees.cleaning_vat
+    ms.mgmt_gross += fees.mgmt_fee_gross
+    ms.mgmt_vat += fees.mgmt_vat
+    ms.net_to_owner += fees.net_to_owner
+  }
+  // Overhead = expenses NOT in the derived cleaning/mgmt/VAT categories.
+  const SKIP = new Set(['cleaning', 'management', 'vat-cleaning', 'vat-management'])
+  for (const e of expenses) {
+    if (SKIP.has(e.expense_categories?.slug)) continue
+    ensureMonth(e.incurred_date.slice(0, 7)).overhead += Number(e.gross_php) + Number(e.vat_php || 0)
+  }
+  for (const m of byMonth.values()) {
+    const [y, mn] = m.ym.split('-').map(Number)
+    m.daysInMonth = daysInYM(y, mn)
+    m.occupancy = m.daysInMonth ? Math.min(1, m.nights / m.daysInMonth) : 0
+    m.cost = m.airbnbFee + m.cleaning_gross + m.cleaning_vat
+           + m.mgmt_gross + m.mgmt_vat + m.overhead
+    m.ownerNet = m.gross - m.cost
+  }
+
+  const years = [...new Set([...byMonth.keys()].map(ym => +ym.slice(0, 4)))].sort((a, b) => a - b)
+  availableYears = years
+
+  // ── Empty state: nothing imported yet.
+  if (!years.length) {
+    currentYear = null
+    document.getElementById('i-year').textContent = '—'
+    document.getElementById('i-range').textContent = 'No data yet'
+    document.getElementById('i-alltime-range').textContent = '—'
+    document.getElementById('i-prev').disabled = true
+    document.getElementById('i-next').disabled = true
+    for (const id of ['i1', 'i2', 'i3', 'i4', 'i5']) {
+      document.getElementById(`${id}-num`).textContent = '—'
+      document.getElementById(`${id}-chart`).innerHTML =
+        '<div class="chart-empty">No bookings yet. Import an AirBnB CSV to start.</div>'
+    }
+    pushStrip({ gross: 0, nights: 0, usd: NaN, occ: 0, daysInPeriod: 0, count: 0 })
+    return
+  }
+
+  if (currentYear == null || !years.includes(currentYear)) {
+    currentYear = years[years.length - 1]
+  }
+  const yi = years.indexOf(currentYear)
+  document.getElementById('i-year').textContent = String(currentYear)
+  document.getElementById('i-range').textContent =
+    years.length > 1 ? `${years[0]} to ${years[years.length - 1]}` : String(years[0])
+  document.getElementById('i-prev').disabled = yi <= 0
+  document.getElementById('i-next').disabled = yi >= years.length - 1
+
+  // Strip = the SELECTED year (Zone A is the primary lens).
+  const yr = yearRangeMs(currentYear)
+  const yearBookings = bookings.filter(b => {
+    if (!b.start_date) return false
+    const sd = isoToUtcMs(b.start_date)
+    return sd < yr.endMs && sd + (b.nights || 0) * 86400000 > yr.startMs
+  })
+  const yStrip = await stripStats(yearBookings, daysInYear(currentYear), schedules, { clipRange: yr })
+  if (myTok !== stripToken) return
+  pushStrip(yStrip)
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const xM = { type: 'band', domain: MONTHS, label: null, tickSize: 0, paddingInner: 0.28 }
+
+  /* ════ Zone A · the selected year ════════════════════════════════ */
+  const byMi = new Map([...byMonth.values()]
+    .filter(m => +m.ym.slice(0, 4) === currentYear)
+    .map(m => [Number(m.ym.slice(5, 7)), m]))
+  // FIXED Jan..Dec band, zero-filled (period fixed-band rule, mistake #15).
+  const slots = MONTHS.map((mo, i) => {
+    const m = byMi.get(i + 1)
+    return {
+      mo,
+      gross:    m ? m.gross : 0,
+      cost:     m ? m.cost : 0,
+      ownerNet: m ? m.ownerNet : 0,
+      occ:      m ? m.occupancy : 0,
+      nights:   m ? m.nights : 0,
+      active:   !!m && m.nights > 0,
+    }
+  })
+  const grossMax = Math.max(1, ...slots.map(s => s.gross))
+  const occLine = slots.filter(s => s.active)   // line only over booked months
+
+  const sum = k => slots.reduce((s, x) => s + x[k], 0)
+  const yGross = sum('gross'), yCost = sum('cost'), yOwner = yGross - yCost
+  const yNights = sum('nights')
+
+  // ── 1: HEADLINE combo — gross up, expenses down, occupancy line.
+  document.getElementById('i1-num').textContent = `${peso(yOwner)} kept`
+  document.getElementById('i1-cap').textContent =
+    `of ${peso(yGross)} gross across ${yNights} night${yNights === 1 ? '' : 's'}.`
+  const i1 = document.getElementById('i1-chart'); i1.innerHTML = ''
+  i1.appendChild(Plot.plot({
+    style, width: W('i1-chart'), height: 320,
+    marginLeft: 64, marginRight: 24, marginTop: 18, marginBottom: 34,
+    x: xM,
+    y: { tickSize: 0, grid: true, label: 'PHP', line: false,
+         tickFormat: d => Math.abs(d) >= 1000 ? `${Math.round(d / 1000)}k` : String(d) },
+    marks: [
+      Plot.barY(slots, { x: 'mo', y: 'gross', fill: C.soft, fillOpacity: 0.85 }),
+      Plot.barY(slots, { x: 'mo', y: s => -s.cost, fill: C.mute, fillOpacity: 0.6 }),
+      Plot.ruleY([0], { stroke: C.rule }),
+      Plot.line(occLine, { x: 'mo', y: s => s.occ * grossMax, stroke: C.accent,
+                           strokeWidth: 1.8, curve: 'monotone-x' }),
+      Plot.dot(occLine,  { x: 'mo', y: s => s.occ * grossMax, r: 2.2, fill: C.accent }),
+    ],
+  }))
+
+  // ── 2: Gross slice donut (this year). Owner net = the lone ochre.
+  const yAirbnb   = [...byMi.values()].reduce((s, m) => s + m.airbnbFee, 0)
+  const yCleaning = [...byMi.values()].reduce((s, m) => s + m.cleaning_gross + m.cleaning_vat, 0)
+  const yMgmt     = [...byMi.values()].reduce((s, m) => s + m.mgmt_gross + m.mgmt_vat, 0)
+  const yOverhead = [...byMi.values()].reduce((s, m) => s + m.overhead, 0)
+  const grossRamp = boneRamp(4)
+  document.getElementById('i2-num').textContent = peso(yGross)
+  renderDonut('i2-chart', [
+    { label: 'Owner net',  value: Math.max(0, yOwner), color: C.accent },
+    { label: 'Management', value: yMgmt,     color: grossRamp[0] },
+    { label: 'Cleaning',   value: yCleaning, color: grossRamp[1] },
+    { label: 'AirBnB fee', value: yAirbnb,   color: grossRamp[2] },
+    { label: 'Overhead',   value: yOverhead, color: grossRamp[3] },
+  ], peso(yGross), 'gross')
+
+  // ── 3: Operating-cost donut (this year), overhead categories only.
+  const opByCat = new Map()
+  for (const e of expenses) {
+    const slug = e.expense_categories?.slug
+    if (SKIP.has(slug)) continue
+    if (e.incurred_date.slice(0, 4) !== String(currentYear)) continue
+    const label = labelBySlug.get(slug) || slug || 'Other'
+    opByCat.set(label, (opByCat.get(label) || 0) + Number(e.gross_php) + Number(e.vat_php || 0))
+  }
+  const opRows = [...opByCat.entries()].map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+  const opTotal = opRows.reduce((s, x) => s + x.value, 0)
+  const opRamp = boneRamp(Math.max(1, opRows.length))
+  opRows.forEach((r, i) => { r.color = opRamp[i] })
+  document.getElementById('i3-num').textContent = peso(opTotal)
+  renderDonut('i3-chart', opRows, peso(opTotal),
+    opTotal ? 'op. cost' : '')
+  if (!opTotal) document.getElementById('i3-chart').innerHTML =
+    '<div class="chart-empty">No operating costs logged this year.</div>'
+
+  /* ════ Zone B · all time ═════════════════════════════════════════ */
+  const span = years.length > 1 ? `${years[0]} to ${years[years.length - 1]}` : String(years[0])
+
+  // ── 4: Booking economics bubble — every booking (all time).
+  const bubble = []
+  for (const b of bookings) {
+    const fees = deriveFees(b, scheduleForDate(schedules, b.start_date))
+    if (fees.is_provisional || fees.gross == null || !b.nights) continue
+    bubble.push({ nights: b.nights, adr: fees.gross / b.nights,
+                  earnings: fees.gross, year: +b.start_date.slice(0, 4) })
+  }
+  document.getElementById('i-alltime-range').textContent = `${span} · ${bubble.length} bookings`
+  const median = (arr) => {
+    if (!arr.length) return 0
+    const s = [...arr].sort((a, b) => a - b)
+    const h = Math.floor(s.length / 2)
+    return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2
+  }
+  const medNights = median(bubble.map(d => d.nights))
+  const medAdr = median(bubble.map(d => d.adr))
+  const yearRamp = boneRamp(Math.max(1, years.length))
+  const yearColor = y => yearRamp[Math.max(0, years.indexOf(y))]
+  document.getElementById('i4-num').textContent = `${bubble.length} bookings`
+  document.getElementById('i4-cap').textContent =
+    `Each circle a stay: further right = longer, higher = pricier per night, bigger = more earned. Shade = year, dark for early, bright for recent.`
+  const i4 = document.getElementById('i4-chart'); i4.innerHTML = ''
+  if (bubble.length) {
+    i4.appendChild(Plot.plot({
+      style, width: W('i4-chart'), height: 340,
+      marginLeft: 64, marginRight: 24, marginTop: 18, marginBottom: 40,
+      x: { label: 'Nights →', tickSize: 0, grid: false, inset: 8 },
+      y: { label: '↑ ₱ per night', tickSize: 0, grid: true, line: false,
+           tickFormat: d => Math.abs(d) >= 1000 ? `${Math.round(d / 1000)}k` : String(d) },
+      r: { range: [2, 22] },
+      marks: [
+        Plot.ruleX([medNights], { stroke: C.faint, strokeDasharray: '2,3' }),
+        Plot.ruleY([medAdr],    { stroke: C.faint, strokeDasharray: '2,3' }),
+        Plot.dot(bubble, { x: 'nights', y: 'adr', r: 'earnings',
+                           fill: d => yearColor(d.year), fillOpacity: 0.42,
+                           stroke: d => yearColor(d.year), strokeOpacity: 0.7 }),
+      ],
+    }))
+  } else {
+    i4.innerHTML = '<div class="chart-empty">No bookings to chart yet.</div>'
+  }
+
+  // ── 5: Occupancy seasonality — average occupancy per calendar month.
+  const seas = MONTHS.map((mo, i) => {
+    const cm = i + 1
+    const vals = years.map(y => byMonth.get(`${y}-${String(cm).padStart(2, '0')}`)?.occupancy ?? 0)
+    const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0
+    return { mo, occ: avg }
+  })
+  const peak = seas.reduce((a, b) => b.occ > a.occ ? b : a, seas[0])
+  const seasMax = Math.max(0.1, ...seas.map(s => s.occ))
+  document.getElementById('i5-num').textContent = `${peak.mo} busiest`
+  document.getElementById('i5-cap').textContent =
+    `Average occupancy by calendar month across ${years.length} year${years.length === 1 ? '' : 's'}.`
+  const i5 = document.getElementById('i5-chart'); i5.innerHTML = ''
+  i5.appendChild(Plot.plot({
+    style, width: W('i5-chart'), height: 240,
+    marginLeft: 52, marginRight: 24, marginTop: 18, marginBottom: 34,
+    x: xM,
+    // Keep occupancy in fraction units and format ticks as %. (percent:true
+    // would scale the DATA x100 while the domain stayed in fractions, which
+    // threw every point ~100x off-frame and rendered a solid block.)
+    y: { grid: true, tickSize: 0, line: false, label: 'occupancy',
+         domain: [0, Math.min(1, seasMax * 1.2)],
+         tickFormat: d => `${Math.round(d * 100)}%` },
+    marks: [
+      Plot.areaY(seas, { x: 'mo', y: 'occ', curve: 'monotone-x', fill: C.soft, fillOpacity: 0.16 }),
+      Plot.line(seas,  { x: 'mo', y: 'occ', curve: 'monotone-x', stroke: C.ink, strokeWidth: 1.6 }),
+      Plot.dot(seas,   { x: 'mo', y: 'occ', r: 1.8, fill: C.ink }),
+    ],
+  }))
+
+  // Hand the combo's per-month data to the shared month-guide controller.
+  insightsSlots = slots
+  insightsYearOf = currentYear
+  scheduleYearSync()
+}
+
+
+/* ── Settings view ────────────────────────────────────────────────── */
+
+async function loadAndRenderSettings() {
+  try {
+    const [contracts, cats, accs] = await Promise.all([
+      listFeeSchedules(),
+      listExpenseCategories(),
+      listMoneydanceAccounts(),
+    ])
+    renderSettingsContracts(contracts)
+    renderSettingsCategories(cats)
+    renderSettingsMoneydance(accs)
+  } catch (e) {
+    console.error(e)
+    document.getElementById('state-error').textContent = `Settings load failed: ${e.message || e}`
+    document.getElementById('state-error').hidden = false
+  }
+}
+
+// Settings rows are the shared .data-table standard: a real <tr> of
+// <td>, identity cell = .label, secondary = .muted, the trailing
+// action cell is the standard .link (no bespoke table CSS). The action
+// cell is always emitted so the column count matches <thead> even when
+// the viewer can't write.
+function dtRow(cells, onDelete) {
+  const tr = document.createElement('tr')
+  for (const c of cells) {
+    const td = document.createElement('td')
+    if (c && typeof c === 'object') {
+      td.textContent = c.text ?? ''
+      if (c.cls) td.className = c.cls
+    } else {
+      td.textContent = c ?? ''
+    }
+    tr.appendChild(td)
+  }
+  const act = document.createElement('td')
+  act.className = 'num'
+  if (onDelete) {
+    const btn = document.createElement('button')
+    btn.type = 'button'; btn.className = 'btn btn--ghost'; btn.textContent = 'Delete'
+    btn.addEventListener('click', onDelete)
+    act.appendChild(btn)
+  }
+  tr.appendChild(act)
+  return tr
+}
+
+function renderSettingsContracts(rows) {
+  const t = document.getElementById('set-contracts-rows')
+  t.innerHTML = ''
+  for (const r of rows) {
+    t.appendChild(dtRow([
+      { text: `${r.effective_from} → ${r.effective_to ?? 'open'}`, cls: 'label' },
+      `₱${Number(r.cleaning_fee_php).toFixed(2)} · VAT ${pct(r.cleaning_vat_pct)}`,
+      `${pct(r.mgmt_fee_pct)} · VAT ${pct(r.mgmt_vat_pct)}`,
+      { text: pct(r.airbnb_host_fee_pct), cls: 'num' },
+    ], canWrite ? () => confirmDelete('contract era', () => deleteFeeSchedule(r.id)) : null))
+  }
+}
+
+function renderSettingsCategories(rows) {
+  const t = document.getElementById('set-cats-rows')
+  t.innerHTML = ''
+  for (const r of rows) {
+    t.appendChild(dtRow([
+      { text: `${r.slug} · ${r.label}`, cls: 'label' },
+      r.default_moneydance_account,
+      { text: r.default_has_vat ? 'yes' : '—', cls: 'muted' },
+    ], canWrite ? () => confirmDelete(`category "${r.slug}"`, () => deleteExpenseCategory(r.id)) : null))
+  }
+}
+
+function renderSettingsMoneydance(rows) {
+  const t = document.getElementById('set-md-rows')
+  t.innerHTML = ''
+  for (const r of rows) {
+    t.appendChild(dtRow([
+      { text: r.account_path, cls: 'label' },
+      { text: r.use_for ?? '—', cls: 'muted' },
+    ], canWrite ? () => confirmDelete(`account "${r.account_path}"`, () => deleteMoneydanceAccount(r.id)) : null))
+  }
+}
+
+async function confirmDelete(label, fn) {
+  if (!confirm(`Delete this ${label}?`)) return
+  try {
+    await fn()
+    await loadAndRenderSettings()
+    // Clear cached lookups in airbnb-client (categories used elsewhere)
+    location.reload()
+  } catch (e) {
+    alert(`Delete failed: ${e.message || e}`)
+  }
+}
+
+// Each Settings add-form is the shared collapsible .panel pattern
+// (identical to Month "Add adjustment" / Quarter "Add payment"): the
+// .action toggle in the section-head opens it; closed = zero height,
+// so a Settings section's rhythm equals every other section's.
+function wireAddPanel(toggleId, panelId) {
+  const toggle = document.getElementById(toggleId)
+  const panel  = document.getElementById(panelId)
+  toggle.hidden = !canWrite
+  const set = open => {
+    panel.dataset.open = open ? 'true' : 'false'
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+  }
+  toggle.addEventListener('click', () => {
+    const next = panel.dataset.open !== 'true'
+    set(next)
+    if (next) panel.querySelector('input, select')?.focus()
+  })
+  return () => set(false)
+}
+
+function wireSettingsForms() {
+  const closeContract = wireAddPanel('set-contract-toggle', 'set-contract-panel')
+  const closeCat      = wireAddPanel('set-cat-toggle',      'set-cat-panel')
+  const closeMd       = wireAddPanel('set-md-toggle',       'set-md-panel')
+
+  // Contracts add
+  document.getElementById('set-contract-add').addEventListener('submit', async e => {
+    e.preventDefault()
+    const f = e.target
+    try {
+      await addFeeSchedule({
+        effective_from:      f.effective_from.value,
+        effective_to:        f.effective_to.value || null,
+        airbnb_host_fee_pct: parseFloat(f.airbnb_host_fee_pct.value),
+        cleaning_fee_php:    parseFloat(f.cleaning_fee_php.value),
+        cleaning_vat_pct:    parseFloat(f.cleaning_vat_pct.value),
+        mgmt_fee_pct:        parseFloat(f.mgmt_fee_pct.value),
+        mgmt_vat_pct:        parseFloat(f.mgmt_vat_pct.value),
+      })
+      f.reset()
+      closeContract()
+      await loadAndRenderSettings()
+    } catch (e) { alert(`Add failed: ${e.message || e}`) }
+  })
+  // FX rates are auto-only (backfill + daily cron); no manual add.
+  // Category add
+  document.getElementById('set-cat-add').addEventListener('submit', async e => {
+    e.preventDefault()
+    const f = e.target
+    try {
+      await addExpenseCategory({
+        slug: f.slug.value.trim(),
+        label: f.label.value.trim(),
+        default_moneydance_account: f.default_moneydance_account.value.trim(),
+        default_has_vat: f.default_has_vat.checked,
+      })
+      f.reset()
+      closeCat()
+      await loadAndRenderSettings()
+    } catch (e) { alert(`Add failed: ${e.message || e}`) }
+  })
+  // Moneydance add
+  document.getElementById('set-md-add').addEventListener('submit', async e => {
+    e.preventDefault()
+    const f = e.target
+    try {
+      await addMoneydanceAccount({
+        account_path: f.account_path.value.trim(),
+        use_for: f.use_for.value.trim() || null,
+      })
+      f.reset()
+      closeMd()
+      await loadAndRenderSettings()
+    } catch (e) { alert(`Add failed: ${e.message || e}`) }
+  })
+}
+
+function wireMgmtPayment() {
+  const form  = document.getElementById('pay-form')
+  const errEl = document.getElementById('pay-error')
+  bindActionDialog('pay-modal')
+  document.getElementById('pay-cancel').addEventListener('click', () => {
+    closeModal('pay-modal'); form.reset()
+  })
+  form.addEventListener('submit', async e => {
+    e.preventDefault()
+    errEl.hidden = true
+    const saveBtn = document.getElementById('pay-save')
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving…'
+    try {
+      const payErr = firstError(
+        () => vDate(document.getElementById('pay-date').value, { label: 'Paid date' }),
+        () => vNumber(document.getElementById('pay-amount').value, { min: 0.01, label: 'Amount' }),
+        () => vText(document.getElementById('pay-method').value.trim(), { required: false, max: 80, label: 'Method' }),
+      )
+      if (payErr) throw new Error(payErr)
+      await addMgmtPayment({
+        paidAt:    document.getElementById('pay-date').value,
+        amountPhp: parseFloat(document.getElementById('pay-amount').value),
+        method:    document.getElementById('pay-method').value.trim(),
+        reference: document.getElementById('pay-ref').value.trim(),
+        notes: null,
+      })
+      form.reset()
+      closeModal('pay-modal')
+      await loadAndRenderQuarter()
+    } catch (e) {
+      errEl.textContent = `Couldn't save: ${e.message || e}`
+      errEl.hidden = false
+    } finally {
+      saveBtn.disabled = false; saveBtn.textContent = 'Record payment'
+    }
+  })
+}
+
+/* ── Moneydance export ────────────────────────────────────────────── */
+
+let _exportState = {
+  currency: 'PHP',
+  rows: [],
+  fxAt: () => 58.0,   // (isoDate) => PHP per USD, as-of carry-forward
+}
+
+let _mdAccountsCache = null
+async function getMdAccounts() {
+  if (_mdAccountsCache) return _mdAccountsCache
+  _mdAccountsCache = await listMoneydanceAccounts()
+  return _mdAccountsCache
+}
+
+function accountFor(useFor, accounts) {
+  // Match if `use_for` value contains the keyword (e.g. 'vat,tax' for VAT).
+  return accounts.find(a => (a.use_for || '').split(/[,;\s]+/).includes(useFor))
+                 ?.account_path || ''
+}
+
+async function buildExportRows(month) {
+  const [bookings, expenses, adjustments, accounts] = await Promise.all([
+    listBookingsForMonth(month),
+    listExpensesForMonth(month),
+    listFreestandingAdjustmentsForMonth(month),
+    getMdAccounts(),
+  ])
+  const acctCleaning = accountFor('cleaning',   accounts)
+  const acctMgmt     = accountFor('management', accounts)
+  const acctVat      = accountFor('vat',        accounts)
+                    || accountFor('tax',        accounts)
+
+  const rows = []
+  // Per-booking expense lines (4 in era 2, 2 in era 1).
+  for (const b of bookings) {
+    const sched = scheduleForDate(feeSchedules, b.start_date)
+    const fees  = deriveFees(b, sched)
+    if (fees.is_provisional) continue  // nothing to export for a CSV-pending row
+    rows.push({ date: b.start_date,
+                desc: 'Unit Cleaning By Management',
+                account: acctCleaning,
+                amount: -round2(fees.cleaning_gross) })
+    rows.push({ date: b.start_date,
+                desc: 'Management Fee AirBnB Host - ETO',
+                account: acctMgmt,
+                amount: -round2(fees.mgmt_fee_gross) })
+    if (fees.cleaning_vat > 0) {
+      rows.push({ date: b.start_date,
+                  desc: 'VAT - Cleaning Fee',
+                  account: acctVat,
+                  amount: -round2(fees.cleaning_vat) })
+    }
+    if (fees.mgmt_vat > 0) {
+      rows.push({ date: b.start_date,
+                  desc: 'VAT - Management Fee',
+                  account: acctVat,
+                  amount: -round2(fees.mgmt_vat) })
+    }
+  }
+  // Expenses straight through. Split VAT into its own row if > 0.
+  for (const e of expenses) {
+    const acct = e.expense_categories?.default_moneydance_account || ''
+    rows.push({ date: e.incurred_date,
+                desc: e.description,
+                account: acct,
+                amount: -round2(Number(e.gross_php)) })
+    const vat = Number(e.vat_php || 0)
+    if (vat > 0) {
+      rows.push({ date: e.incurred_date,
+                  desc: `${e.description} VAT`,
+                  account: acctVat,
+                  amount: -round2(vat) })
+    }
+  }
+  // Freestanding adjustments preserve their sign.
+  for (const a of adjustments) {
+    rows.push({ date: a.occurred_date,
+                desc: a.description,
+                account: a.moneydance_account,
+                amount: round2(Number(a.amount_php)) })
+  }
+  rows.sort((a, b) => a.date.localeCompare(b.date)
+                   || a.desc.localeCompare(b.desc))
+  return rows
+}
+
+function round2(n) { return Math.round(n * 100) / 100 }
+
+function ownerNetFor(rows) {
+  // Sum of all rows: this equals owner's net (incoming AirBnB
+  // deposits would normally add back as positives, but the export
+  // is expenses-only matching the legacy XLS workflow).
+  return rows.reduce((s, r) => s + r.amount, 0)
+}
+
+// USD net: each row converted at the as-of rate for ITS OWN date
+// (D6 daily model: no single month rate to divide by).
+function ownerNetUsd(rows, fxAt) {
+  return rows.reduce((s, r) => s + r.amount / fxAt(r.date), 0)
+}
+
+function csvEscape(s) {
+  const v = String(s ?? '')
+  if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`
+  return v
+}
+
+function rowsToCsv(rows, currency, fxAt) {
+  const header = 'Date,Description,Account,Amount\n'
+  const lines = rows.map(r => {
+    const amt = currency === 'USD' ? round2(r.amount / fxAt(r.date)) : round2(r.amount)
+    return [r.date, csvEscape(r.desc), csvEscape(r.account), amt.toFixed(2)].join(',')
+  })
+  return header + lines.join('\n') + '\n'
+}
+
+function renderExportPreview() {
+  const preview = document.getElementById('export-preview')
+  while (preview.children.length > 1) preview.removeChild(preview.lastChild)
+  const { rows, currency, fxAt } = _exportState
+  const symbol = currency === 'USD' ? '$' : '₱'
+  for (const r of rows) {
+    const amt = currency === 'USD' ? round2(r.amount / fxAt(r.date)) : round2(r.amount)
+    const row = document.createDocumentFragment()
+    const add = (text, cls = '') => {
+      const el = document.createElement('div')
+      if (cls) el.className = cls
+      el.textContent = text
+      row.appendChild(el)
+    }
+    add(fmtDay(r.date))
+    add(r.desc)
+    add(r.account || '—')
+    add(symbol + (amt < 0 ? '−' : '') + Math.abs(amt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 'col-num')
+    preview.appendChild(row)
+  }
+  document.getElementById('export-rowcount').textContent = rows.length
+  const phpNet = ownerNetFor(rows)
+  const usdNet = ownerNetUsd(rows, fxAt)
+  const usdEcho = ` (${usdNet.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })})`
+  document.getElementById('export-net').textContent =
+    `${symbol}${Math.round(currency === 'USD' ? usdNet : phpNet).toLocaleString('en-US')}${currency === 'PHP' ? usdEcho : ''}`
+}
+
+async function openExportPanel() {
+  openModal('export-modal')
+  _exportState.rows = await buildExportRows(currentMonth)
+  const dates = _exportState.rows.map(r => r.date)
+  // Daily model: each line converts at the as-of rate for its own
+  // date. The backfill + daily cron normally cover every date; if a
+  // line is newer than the latest stored row (a same-day entry before
+  // today's cron), best-effort top up via the Edge Function. That
+  // upsert needs aal2+parent, so non-writers just fall through to
+  // carry-forward; never a hard failure.
+  if (canWrite && dates.length) {
+    const maxD = dates.reduce((a, b) => (a > b ? a : b))
+    try { await ensureFxRateForDate(maxD) } catch (e) { console.warn('FX top-up skipped', e) }
+  }
+  try {
+    _exportState.fxAt = await fxRatesForDates(dates)
+  } catch (e) {
+    console.warn('FX resolver failed, using fallback', e)
+    _exportState.fxAt = () => 58.0
+  }
+  renderExportPreview()
+}
+
+function wireExport() {
+  bindActionDialog('export-modal')
+  for (const cur of ['PHP', 'USD']) {
+    const btn = document.getElementById(`export-cur-${cur.toLowerCase()}`)
+    btn.addEventListener('click', () => {
+      _exportState.currency = cur
+      document.getElementById('export-cur-php').setAttribute('aria-pressed', cur === 'PHP')
+      document.getElementById('export-cur-usd').setAttribute('aria-pressed', cur === 'USD')
+      renderExportPreview()
+    })
+  }
+  document.getElementById('export-download').addEventListener('click', () => {
+    const { rows, currency, fxAt } = _exportState
+    const csv = rowsToCsv(rows, currency, fxAt)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `airbnb-${currentMonth}-${currency.toLowerCase()}.csv`
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  })
+}
+
+async function wireFreestandingAdj() {
+  const form   = document.getElementById('adj-form')
+  const errEl  = document.getElementById('adj-error')
+  bindActionDialog('adj-modal')
+  document.getElementById('adj-cancel').addEventListener('click', () => {
+    closeModal('adj-modal'); form.reset(); accSelect._hubSelect?.refresh()
+  })
+  // Populate Moneydance account dropdown lazily.
+  const accSelect = document.getElementById('adj-account')
+  try {
+    const accounts = await listMoneydanceAccounts()
+    accSelect.innerHTML = '<option value="" disabled selected>Choose an account…</option>'
+      + accounts.map(a => `<option value="${escapeHtml(a.account_path)}">${escapeHtml(a.account_path)}</option>`).join('')
+  } catch (e) {
+    accSelect.innerHTML = '<option value="">(failed to load accounts)</option>'
+  }
+  enhanceSelect(accSelect)   // themed dropdown; rebuilds from the options above
+  // Default date to first day of current month.
+  document.getElementById('adj-date').value = currentMonth ? `${currentMonth}-01` : ''
+  form.addEventListener('submit', async e => {
+    e.preventDefault()
+    errEl.hidden = true
+    const saveBtn = document.getElementById('adj-save')
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving…'
+    try {
+      const adjErr = firstError(
+        () => vDate(document.getElementById('adj-date').value, { label: 'Date' }),
+        () => vText(document.getElementById('adj-desc').value.trim(), { max: 200, label: 'Description' }),
+        () => vNumber(document.getElementById('adj-amount').value, { label: 'Amount' }),
+      )
+      if (adjErr) throw new Error(adjErr)
+      await addFreestandingAdjustment({
+        occurredDate: document.getElementById('adj-date').value,
+        statementPeriod: null,
+        description: document.getElementById('adj-desc').value.trim(),
+        amountPhp: parseFloat(document.getElementById('adj-amount').value),
+        moneydanceAccount: accSelect.value,
+      })
+      form.reset()
+      accSelect._hubSelect?.refresh()
+      document.getElementById('adj-date').value = `${currentMonth}-01`
+      closeModal('adj-modal')
+      await loadAndRender()
+    } catch (e) {
+      errEl.textContent = `Couldn't save: ${e.message || e}`
+      errEl.hidden = false
+    } finally {
+      saveBtn.disabled = false; saveBtn.textContent = 'Save'
+    }
+  })
+}
+
+function wireImport() {
+  const dz     = document.getElementById('import-dropzone')
+  const pick   = document.getElementById('import-pick')
+  const file   = document.getElementById('import-file')
+  const dlg = bindActionDialog('import-modal')
+  // Closing via ×, Esc, or backdrop should drop any in-progress preview
+  // so the next open starts at the dropzone, not a stale review.
+  dlg.addEventListener('close', resetImport)
+  pick.addEventListener('click', () => file.click())
+  file.addEventListener('change', e => {
+    if (e.target.files[0]) handleImportFile(e.target.files[0])
+  })
+  ;['dragenter', 'dragover'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('is-drag') }))
+  ;['dragleave', 'drop'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('is-drag') }))
+  dz.addEventListener('drop', e => {
+    const f = e.dataTransfer.files?.[0]
+    if (f) handleImportFile(f)
+  })
+}
+
+/* ── Bootstrap ────────────────────────────────────────────────────── */
+async function init() {
+  if (!(await gate())) return
+
+  const signoutBtn = document.getElementById('signoutBtn')
+  signoutBtn.hidden = false
+  signoutBtn.addEventListener('click', async () => {
+    await signOut(); location.reload()
+  })
+  startIdleTimeout(() => { location.reload() })
+
+  // Tab clicks and the Settings cog are wired by the shared header
+  // (config.onTab / config.gear.onClick). Just reveal the cog now
+  // that the session is authenticated.
+  if (hub.gearEl) hub.gearEl.hidden = false
+
+  wireImport()
+  wireBookingDetail()
+
+  try {
+    feeSchedules    = await listFeeSchedules()
+    availableMonths = await listAvailableMonths()
+  } catch (e) {
+    console.error(e)
+    document.getElementById('state-error').textContent =
+      `Couldn't reach the AirBnB data: ${e.message || e}`
+    document.getElementById('state-error').hidden = false
+    return
+  }
+
+  if (!availableMonths.length) {
+    // First-visit empty state — open the import panel directly.
+    document.getElementById('hero-month').hidden = true
+    document.getElementById('bookings-empty').hidden = false
+    document.getElementById('bookings-empty').textContent =
+      'No bookings yet. Drop your AirBnB host CSV in the panel above to start.'
+    if (canWrite) openModal('import-modal')
+    return
+  }
+
+  // Default-visible month: the current calendar month if present;
+  // otherwise the most recent past month; otherwise the earliest
+  // future month we have. availableMonths is sorted descending.
+  const now = new Date()
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}`
+  const defaultMonth =
+       availableMonths.find(m => m === thisMonth)
+    ?? availableMonths.find(m => m < thisMonth)
+    ?? availableMonths[availableMonths.length - 1]
+  setMonth(defaultMonth)
+
+  // Wire the freestanding adjustment form after currentMonth is set,
+  // so its date default lands on the visible month.
+  wireFreestandingAdj()
+  wireExport()
+  wireQuarterNav()
+  wireMgmtPayment()
+  wireStatementVerify()
+  wireSettingsForms()
+
+  // Module-level commands live in the shared header's Actions slot.
+  // Each one opens a self-contained <dialog>, so no view switch is
+  // needed: a payment recorded from the Month view still lands on the
+  // same quarter's collections list. Section-heads describe data; the
+  // actions slot describes the app (AGENT mistake #22).
+  if (canWrite) {
+    const openFrom = (viewId, modalId, after) => () => {
+      if (viewId && currentView !== viewId) switchView(viewId)
+      requestAnimationFrame(() => { openModal(modalId); after?.() })
+    }
+    hub.setActions([
+      { id:'import',     label:'Import CSV',      meta:'Bookings from the AirBnB host CSV',
+        onClick: openFrom('month',   'import-modal') },
+      { id:'export',     label:'Build export',    meta:'Moneydance CSV for the active period',
+        onClick: () => {
+          if (currentView !== 'month') switchView('month')
+          requestAnimationFrame(() => openExportPanel())
+        } },
+      { id:'adjustment', label:'Add adjustment',  meta:'Refund, reimbursement, one-off fix',
+        onClick: openFrom('month',   'adj-modal',
+          () => document.getElementById('adj-date')?.focus()) },
+      { id:'verify',     label:'Verify invoice',  meta:'Reconcile the Always Home statement PDF',
+        onClick: openFrom('quarter', 'stmt-modal') },
+      { id:'payment',    label:'Add payment',     meta:'Record an Always Home payout',
+        onClick: openFrom('quarter', 'pay-modal',
+          () => document.getElementById('pay-date')?.focus()) },
+    ])
+  }
+
+  document.getElementById('month-prev').addEventListener('click', () => {
+    const i = availableMonths.indexOf(currentMonth)
+    if (i < availableMonths.length - 1) setMonth(availableMonths[i + 1])
+  })
+  document.getElementById('month-next').addEventListener('click', () => {
+    const i = availableMonths.indexOf(currentMonth)
+    if (i > 0) setMonth(availableMonths[i - 1])
+  })
+}
+
+init()
+</script>
+</body>
+</html>

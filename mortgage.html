@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mortgage · Family Hub</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080808">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/hub.css">
+<link rel="stylesheet" href="css/hub-forms.css">
+</head>
+<body>
+
+<main id="main" class="hub-main uses-active">
+  <div class="loading-bar" id="state-loading" hidden></div>
+  <div class="empty" id="state-empty" hidden>No statements filed yet. Drop your first Chase statement and the rest writes itself.</div>
+
+  <!-- OVERVIEW -->
+  <section class="view" id="view-overview">
+    <div class="section">
+      <div class="section-head">
+        <span class="title">Balance, <span class="it">real and on paper.</span></span>
+        <span class="meta" id="ov-balance-meta">&nbsp;</span>
+      </div>
+      <div class="chart-host" id="ov-balance-host"></div>
+      <p class="chart-note" id="ov-balance-note"></p>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><span class="title">Statements</span><span class="meta" id="ov-stmt-meta">&nbsp;</span></div>
+      <div class="data-table-scroll">
+        <table class="data-table" aria-label="All statements">
+          <thead>
+            <tr>
+              <th>Statement</th>
+              <th class="num">Principal</th>
+              <th class="num">Interest</th>
+              <th class="num">Escrow</th>
+              <th class="num">Balance</th>
+            </tr>
+          </thead>
+          <tbody id="stmt-list"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCHEDULE -->
+  <section class="view" id="view-schedule">
+    <div class="section">
+      <div class="section-head">
+        <span class="title">Where the payment <span class="it">goes.</span></span>
+        <span class="meta">Contract schedule · principal overtakes interest</span>
+      </div>
+      <div class="chart-host" id="sch-host"></div>
+      <p class="chart-note">The contractual split if every payment were exactly the scheduled $2,498. Your real payments run ahead of this; see Overview.</p>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><span class="title">Amortization</span><span class="meta" id="sch-meta">&nbsp;</span></div>
+      <div class="data-table-scroll">
+        <table class="data-table" aria-label="Amortization schedule">
+          <thead>
+            <tr><th>#</th><th>Month</th><th class="num">Payment</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Balance</th></tr>
+          </thead>
+          <tbody id="sch-list"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODEL -->
+  <section class="view" id="view-model">
+    <div class="model-impact" id="model-impact"></div>
+    <div class="model-grid">
+      <div class="model-rail">
+        <div class="panel">
+          <span class="panel-title">Extra payments</span>
+          <div class="rules" id="rules"></div>
+          <div class="add-grid">
+            <select id="rule-kind" aria-label="Kind of extra payment">
+              <option value="monthly">Monthly extra</option>
+              <option value="annual">Annual lump</option>
+              <option value="onetime">One-time</option>
+            </select>
+            <div class="num-with-prefix">
+              <span class="prefix">$</span>
+              <input type="text" inputmode="decimal" id="rule-amt" placeholder="amount" autocomplete="off">
+            </div>
+            <div class="when" id="when-annual">
+              <select id="rule-month" aria-label="Which month">
+                <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+                <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+                <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+                <option value="10">October</option><option value="11">November</option><option value="12" selected>December</option>
+              </select>
+            </div>
+            <div class="when" id="when-onetime"><input type="month" id="rule-date" aria-label="Which month"></div>
+            <button type="button" class="btn" id="rule-add">Add</button>
+          </div>
+          <p class="panel-hint">Modeled on top of your current pace, from today's balance.</p>
+        </div>
+
+        <details class="itemize panel-d">
+          <summary>Reach a payoff date</summary>
+          <div class="panel-d-body">
+            <div class="num-with-suffix">
+              <input type="number" id="target-year" min="2026" max="2052" placeholder="2040">
+              <span class="suffix">payoff year</span>
+            </div>
+            <div class="solve-readout" id="solve-readout">
+              <p class="rules-empty">Enter a year between 2026 and 2052.</p>
+            </div>
+          </div>
+        </details>
+
+        <details class="itemize panel-d">
+          <summary>Saved scenarios</summary>
+          <div class="panel-d-body">
+            <div class="scenario-chips" id="scenario-chips"></div>
+            <div class="add-grid">
+              <input type="text" id="scenario-name" placeholder="Name this scenario" autocomplete="off">
+              <button type="button" class="btn" id="scenario-save">Save current</button>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="title">Projection</span><span class="meta">From today's balance</span></div>
+        <div class="chart-host" id="model-host"></div>
+        <p class="chart-note" id="model-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ESCROW -->
+  <section class="view" id="view-escrow">
+    <div class="section">
+      <div class="section-head">
+        <span class="title">The escrow <span class="it">account.</span></span>
+        <span class="meta" id="esc-meta">&nbsp;</span>
+      </div>
+      <div class="chart-host" id="esc-host"></div>
+      <p class="chart-note">Taxes and insurance are collected monthly and paid out in lumps, so the balance saw-tooths down at each disbursement, then climbs back.</p>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><span class="title">Paid out of escrow</span><span class="meta" id="esc-out-meta">&nbsp;</span></div>
+      <div class="data-table-scroll">
+        <table class="data-table" aria-label="Escrow disbursements">
+          <thead><tr><th>Date</th><th>Item</th><th class="num">Amount</th></tr></thead>
+          <tbody id="esc-list"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="page-foot page-foot--sticky">
+    <button class="btn btn--accent" id="enter-btn" hidden>Add a statement</button>
+  </div>
+</main>
+
+<!-- DRAWER: add / edit one statement -->
+<dialog class="drawer" id="drawer" aria-labelledby="drawer-title">
+  <form method="dialog" class="drawer-inner" id="drawer-form" novalidate>
+    <div class="drawer-head">
+      <span class="drawer-eyebrow" id="drawer-eyebrow">A statement</span>
+      <button type="button" class="drawer-close" id="drawer-close-x" aria-label="Close">Close</button>
+    </div>
+
+    <!-- Step: Drop -->
+    <div id="drawer-step-drop">
+      <h2 class="drawer-title">Drop the <span class="it">statement.</span></h2>
+      <p class="drawer-helper">A Chase PDF. I'll read the date, the balance, the split, and every line of activity straight off it.</p>
+      <div class="dropzone" id="dropzone">
+        <span class="dropzone-cue">Drag a PDF in</span>
+        <button type="button" class="linklike" id="drop-choose">or choose a file</button>
+      </div>
+      <p class="drop-msg" id="drop-msg" hidden></p>
+      <p class="dropzone-aside"><button type="button" class="linklike muted" id="drop-manual">Enter one by hand instead</button></p>
+      <input type="file" id="drop-file" accept="application/pdf" hidden>
+    </div>
+
+    <!-- Step: Reading -->
+    <div id="drawer-step-reading" hidden aria-live="polite">
+      <h2 class="drawer-title">Reading<span class="ellip" aria-hidden="true"></span></h2>
+      <p class="reading-file" id="reading-file"></p>
+      <div class="reading-sweep" aria-hidden="true"><span class="reading-sweep-fill"></span></div>
+      <p class="reading-detected" id="reading-detected" hidden></p>
+    </div>
+
+    <!-- Step: Review -->
+    <div id="drawer-step-2" hidden>
+      <div class="review-head">
+        <p class="review-source" id="review-source" hidden><span id="review-source-text"></span></p>
+        <p class="dup-note" id="dup-note" hidden><span id="dup-note-text"></span></p>
+      </div>
+
+      <div class="form-row" data-field="statement_date">
+        <label for="f-stmt-date">Statement date <span class="check-flag" hidden>unread — check</span></label>
+        <input type="date" id="f-stmt-date" required>
+      </div>
+      <div class="form-row" data-field="unpaid_principal">
+        <label for="f-upb">Unpaid principal <span class="check-flag" hidden>unread — check</span></label>
+        <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-upb" autocomplete="off"></div>
+      </div>
+      <div class="form-row" data-field="escrow_balance">
+        <label for="f-escrow">Escrow balance <span class="check-flag" hidden>unread — check</span></label>
+        <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-escrow" autocomplete="off"></div>
+      </div>
+      <div class="form-row" data-field="amount_due">
+        <label for="f-due">Amount due</label>
+        <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-due" autocomplete="off"></div>
+      </div>
+      <div class="itemize" id="due-itemize">
+        <summary>Amount due breakdown</summary>
+        <div class="itemize-grid">
+          <div class="form-row" data-field="next_principal"><label for="f-np">Principal <span class="check-flag" hidden>unread — check</span></label><div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-np"></div></div>
+          <div class="form-row" data-field="next_interest"><label for="f-ni">Interest <span class="check-flag" hidden>unread — check</span></label><div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-ni"></div></div>
+          <div class="form-row" data-field="next_escrow"><label for="f-ne">Escrow</label><div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-ne"></div></div>
+        </div>
+      </div>
+      <div class="itemize" id="paid-itemize">
+        <summary>Paid since last statement</summary>
+        <div class="itemize-grid">
+          <div class="form-row" data-field="paid_principal"><label for="f-pp">Principal</label><div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-pp"></div></div>
+          <div class="form-row" data-field="paid_interest"><label for="f-pi">Interest</label><div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-pi"></div></div>
+          <div class="form-row" data-field="paid_escrow"><label for="f-pe">Escrow</label><div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-pe"></div></div>
+        </div>
+      </div>
+
+      <div class="form-row stmt-row">
+        <span class="form-legend">Statement PDF</span>
+        <div class="stmt" id="stmt">
+          <div class="stmt-filed" id="stmt-filed" hidden>
+            <button type="button" class="stmt-view" id="stmt-view">View statement</button>
+            <button type="button" class="stmt-act" id="stmt-replace">Replace</button>
+          </div>
+          <button type="button" class="stmt-attach" id="stmt-attach">Attach the PDF</button>
+          <div class="stmt-staged" id="stmt-staged" hidden>
+            <span class="stmt-name" id="stmt-name"></span>
+            <button type="button" class="stmt-act" id="stmt-clear">Remove</button>
+          </div>
+          <div class="stmt-prog" id="stmt-prog" hidden>
+            <span class="stmt-prog-track" aria-hidden="true"><span class="stmt-prog-fill" id="stmt-prog-fill"></span></span>
+            <span class="stmt-prog-label" id="stmt-prog-label">Preparing…</span>
+          </div>
+          <p class="stmt-msg" id="stmt-msg" hidden></p>
+          <input type="file" id="stmt-file" accept="application/pdf" hidden>
+        </div>
+      </div>
+
+      <div class="form-error" id="form-error" hidden></div>
+      <div class="drawer-foot">
+        <button type="button" class="drawer-delete" id="drawer-delete" hidden>Delete this statement</button>
+        <button type="button" class="drawer-save" id="drawer-save">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<!-- DRAWER: bulk import -->
+<dialog class="drawer" id="import-drawer" aria-labelledby="import-title">
+  <div class="drawer-inner">
+    <div class="drawer-head">
+      <span class="drawer-eyebrow">Bulk import</span>
+      <button type="button" class="drawer-close" id="import-close-x" aria-label="Close">Close</button>
+    </div>
+    <div id="import-step-pick">
+      <h2 class="drawer-title">Import the <span class="it">backlog.</span></h2>
+      <p class="drawer-helper">Select every Chase PDF at once. I'll read each, flag duplicates, and you confirm before anything is saved.</p>
+      <div class="dropzone" id="import-dropzone">
+        <span class="dropzone-cue">Drop the PDFs in</span>
+        <button type="button" class="linklike" id="import-choose">or choose files</button>
+      </div>
+      <input type="file" id="import-file" accept="application/pdf" multiple hidden>
+    </div>
+    <div id="import-step-review" hidden>
+      <h2 class="drawer-title">Review<span class="ellip" id="import-ellip" aria-hidden="true"></span></h2>
+      <p class="reading-file" id="import-progress"></p>
+      <div class="import-list" id="import-list"></div>
+      <p class="import-summary" id="import-summary"></p>
+      <div class="drawer-foot">
+        <button type="button" class="drawer-delete" id="import-cancel">Cancel</button>
+        <button type="button" class="drawer-save" id="import-confirm" disabled>Import</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- READER: PDF / loan terms -->
+<dialog class="reader" id="reader" aria-labelledby="reader-title">
+  <div class="reader-inner">
+    <div class="reader-head">
+      <span class="reader-title" id="reader-title">Statement</span>
+      <button type="button" class="reader-close" id="reader-close" aria-label="Close">Close</button>
+    </div>
+    <div class="reader-body" id="reader-body"><p class="reader-status" id="reader-status">Preparing…</p></div>
+  </div>
+</dialog>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import * as Plot from 'https://esm.sh/@observablehq/plot@0.6'
+import * as d3   from 'https://esm.sh/d3@7'
+import {
+  supabase, getAAL, signOut, getCurrentRole, hasMinRole,
+  getMortgageLoan, listStatements, upsertStatement, deleteStatement,
+  listScenarios, upsertScenario, deleteScenario,
+  parseMortgagePdf, getMortgageStatementUrl, getMortgageStatementUploadUrl,
+  uploadStatement, setStatementMime,
+} from './js/supabase-client.js'
+import { ensureAuth } from './js/hub-auth.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { toNum } from './js/format.js'
+import { mountHubHeader } from './js/hub-header.js'
+import { enhanceWithin } from './js/hub-select.js'
+import { notify } from './js/hub-notify.js'
+import { cssVar as css, styleChartSvg } from './js/chart-sync.js'
+import { escapeHtml, vText, vNumber, vDate, firstError } from './js/validate.js'
+import {
+  baselineSchedule, applyExtra, compare, solveExtra, overlayActuals,
+} from './js/mortgage-model.js'
+
+/* ── tokens read from CSS so charts match the theme ───────────────────────── */
+const COLOR = {
+  ink: css('--text'), mute: css('--text-muted'), faint: css('--text-faint'),
+  rule: css('--line'), ground: css('--ground'), groundUp: css('--ground-up'),
+  s1: css('--series-1'), s2: css('--series-2'), s3: css('--series-3'),
+  accent: css('--accent'), error: css('--error'),
+}
+
+/* ── formatting ───────────────────────────────────────────────────────────── */
+const f0 = d3.format('$,.0f')
+const f2 = d3.format('$,.2f')
+const toDate = (iso) => new Date(iso + (iso.length === 7 ? '-01' : '') + 'T00:00:00Z')
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const fmtMonth = (iso) => { const [y, m] = iso.split('-'); return `${MONTHS[+m - 1]} ${y}` }
+const fmtDay = (iso) => { const [y, m, d] = iso.split('-'); return `${MONTHS[+m - 1]} ${+d}, ${y}` }
+
+/* ── state ────────────────────────────────────────────────────────────────── */
+let loan = null, terms = null, base = null
+let statements = [], scenarios = [], overlay = null
+let role = null, canWrite = false
+let currentView = 'overview'
+let rules = []                 // working scenario (ExtraPaymentRule[])
+let activeScenarioId = null
+
+const hub = mountHubHeader({
+  app: 'Mortgage',
+  eyebrow: 'Family Hub · Mortgage',
+  grace: '3.00% fixed · Sugar Land · maturing 2052.',
+  gear: { label: 'Loan terms', onClick: showLoanTerms },
+  tabs: [
+    { id: 'overview', label: 'Overview' },
+    { id: 'schedule', label: 'Schedule' },
+    { id: 'model',    label: 'Model' },
+    { id: 'escrow',   label: 'Escrow' },
+  ],
+  onTab: onViewChange,
+})
+hub.crLeft.innerHTML = '<div class="legend legend--line" id="legend"></div>'
+
+/* ── chart helpers (Plot, with the hub's tip styling) ─────────────────────── */
+
+// A time-series line chart. series = [{ name, points:[{date:Date,value}], stroke, dash }].
+function lineChart(hostId, series, { tipLabel } = {}) {
+  const host = document.getElementById(hostId)
+  if (!host) return
+  host.replaceChildren()
+  const width = host.clientWidth || 800
+  const union = series.flatMap(s => s.points.map(p => ({ ...p, name: s.name })))
+  if (!union.length) return
+  const marks = [
+    Plot.ruleY([0], { stroke: COLOR.rule }),
+    ...series.map(s => Plot.line(s.points, {
+      x: 'date', y: 'value', stroke: s.stroke, strokeWidth: s.width || 1.75,
+      strokeDasharray: s.dash || null, curve: 'monotone-x',
+    })),
+    Plot.tip(union, Plot.pointer({
+      x: 'date', y: 'value',
+      title: d => `${d.name}\n${fmtMonth(d.date.toISOString().slice(0, 7))}\n${f0(d.value)}`,
+    })),
+  ]
+  const chart = Plot.plot({
+    width, height: Math.max(280, Math.min(440, width * 0.42)),
+    marginTop: 14, marginRight: 16, marginBottom: 26, marginLeft: 56,
+    style: { background: 'transparent', color: COLOR.mute, fontFamily: 'var(--font-body)', fontSize: '11px' },
+    x: { type: 'utc', label: null, tickSize: 0, ticks: 6, tickFormat: d => String(d.getUTCFullYear()) },
+    y: { label: null, tickSize: 0, grid: true, ticks: 5, tickFormat: d => Math.abs(d) >= 1000 ? '$' + d3.format('.2~s')(d).replace('G', 'B') : f0(d) },
+    marks,
+  })
+  styleChartSvg(chart)
+  host.appendChild(chart)
+}
+
+function setLegend(keys) {
+  document.getElementById('legend').innerHTML = keys.map(k =>
+    `<span class="key"><span class="sw ${k.cls}${k.dash ? ' dash' : ''}"></span>${escapeHtml(k.label)}</span>`).join('')
+}
+
+/* ── OVERVIEW ─────────────────────────────────────────────────────────────── */
+function renderOverview() {
+  const latest = overlay.latest
+  const upb = latest ? Number(latest.unpaid_principal) : terms.originalPrincipal
+  // 12-month-ago balance for the delta.
+  const yearAgo = overlay.actualBalance.filter(p => toDate(p.date) <= new Date(toDate(latest.statement_date).getTime() - 350 * 864e5)).pop()
+  const delta = yearAgo ? upb - yearAgo.balance : null
+  hub.setStrip({
+    hero: {
+      value: f0(upb), label: 'unpaid principal',
+      delta: delta != null ? `<span style="color:var(--accent)">${delta < 0 ? '▼' : '▲'} ${f0(Math.abs(delta))}</span> in 12 months` : null,
+    },
+    stats: [
+      { label: 'Interest paid', value: f0(overlay.interestPaid) },
+      { label: 'Extra principal', value: f0(overlay.extraPrincipalPaid) },
+      { label: 'Ahead of schedule', value: f0(overlay.aheadOfSchedule), context: overlay.monthsAhead != null ? `${overlay.monthsAhead} mo early` : '' },
+      { label: 'Escrow', value: f0(latest ? Number(latest.escrow_balance) : 0) },
+    ],
+  })
+
+  // Project forward continuing the observed overpayment pace, so the green
+  // line tracks reality rather than assuming extra payments stop.
+  const proj = overlay.project(overlay.extraPace > 0 ? [{ kind: 'monthly', amount: overlay.extraPace }] : [])
+  lineChart('ov-balance-host', [
+    { name: 'Scheduled', points: base.rows.map(r => ({ date: toDate(r.date), value: r.balance })), stroke: COLOR.s2, dash: '4 4', width: 1.25 },
+    { name: 'Actual', points: overlay.actualBalance.map(p => ({ date: toDate(p.date), value: p.balance })), stroke: COLOR.accent, width: 2 },
+    { name: 'Projected', points: proj.rows.map(r => ({ date: toDate(r.date), value: r.balance })), stroke: COLOR.s3, dash: '1 4' },
+  ])
+  setLegend([
+    { cls: 'actual', label: 'Actual' },
+    { cls: 'scheduled', dash: true, label: 'Scheduled' },
+    { cls: 'projection', dash: true, label: 'Projected payoff' },
+  ])
+  // Months earlier than the contract, measured from the projected payoff (not
+  // the balance-snapshot monthsAhead, which only matched under a no-extra proj).
+  const ym = (d) => { const [y, m] = d.slice(0, 7).split('-').map(Number); return y * 12 + m }
+  const monthsEarlier = ym(base.payoffDate) - ym(proj.payoffDate)
+  document.getElementById('ov-balance-meta').textContent =
+    `payoff on this pace ${fmtMonth(proj.payoffDate.slice(0, 7))} · contract ${fmtMonth(base.payoffDate.slice(0, 7))}`
+  document.getElementById('ov-balance-note').textContent =
+    `At the current pace the loan clears in ${fmtMonth(proj.payoffDate.slice(0, 7))}, ${monthsEarlier} months ahead of the 30-year contract. You've paid ${f0(overlay.extraPrincipalPaid)} in extra principal so far.`
+
+  renderStatementsTable()
+}
+
+function renderStatementsTable() {
+  const tb = document.getElementById('stmt-list')
+  const desc = [...statements].reverse()  // newest first
+  const openYear = desc.length ? desc[0].statement_date.slice(0, 4) : ''
+  const groups = new Map()
+  for (const s of desc) { const y = s.statement_date.slice(0, 4); if (!groups.has(y)) groups.set(y, []); groups.get(y).push(s) }
+  tb.innerHTML = [...groups.entries()].map(([y, items]) => {
+    const open = y === openYear
+    const yearEnd = items[0].unpaid_principal  // newest statement in the year
+    const head = `<tr class="row-parent" data-year="${y}" tabindex="0" role="button" aria-expanded="${open}">
+      <td class="label"><span class="row-chevron"></span>${y}</td>
+      <td class="num muted" colspan="3">${items.length} statement${items.length === 1 ? '' : 's'}</td>
+      <td class="num">${yearEnd != null ? f0(yearEnd) : '—'}</td></tr>`
+    const rows = items.map(s => {
+      const id = s.id
+      const filed = s.statement_mime ? `<button type="button" class="r-stmt-btn" data-pdf="${id}" title="View statement PDF" aria-label="View statement PDF">${docIcon()}</button>` : ''
+      return `<tr class="stmt-item" data-y="${y}"${open ? '' : ' hidden'}>
+        <td class="label">${canWrite ? `<button type="button" class="cell-btn" data-edit="${id}">${fmtDay(s.statement_date)}</button>` : fmtDay(s.statement_date)}${filed}</td>
+        <td class="num">${s.paid_principal != null ? f0(s.paid_principal) : '—'}</td>
+        <td class="num">${s.paid_interest != null ? f0(s.paid_interest) : '—'}</td>
+        <td class="num">${s.paid_escrow != null ? f0(s.paid_escrow) : '—'}</td>
+        <td class="num">${s.unpaid_principal != null ? f0(s.unpaid_principal) : '—'}</td>
+      </tr>`
+    }).join('')
+    return head + rows
+  }).join('')
+  document.getElementById('ov-stmt-meta').textContent = `${statements.length} on file · ${groups.size} years`
+}
+const docIcon = () => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/></svg>`
+
+/* ── SCHEDULE ─────────────────────────────────────────────────────────────── */
+function renderSchedule() {
+  hub.setStrip({
+    hero: { value: fmtMonth(base.payoffDate.slice(0, 7)), label: 'scheduled payoff' },
+    stats: [
+      { label: 'Lifetime interest', value: f0(base.totalInterest) },
+      { label: 'Total of payments', value: f0(base.totalPaid) },
+      { label: 'Scheduled P&I', value: f2(terms.scheduledPi), context: 'monthly' },
+      { label: 'Rate', value: (terms.annualRate * 100).toFixed(3) + '%', context: 'fixed' },
+    ],
+  })
+  setLegend([{ cls: 'principal', label: 'Principal' }, { cls: 'interest', label: 'Interest' }])
+  lineChart('sch-host', [
+    { name: 'Principal', points: base.rows.map(r => ({ date: toDate(r.date), value: r.principal })), stroke: COLOR.s3 },
+    { name: 'Interest', points: base.rows.map(r => ({ date: toDate(r.date), value: r.interest })), stroke: COLOR.accent },
+  ])
+  const tb = document.getElementById('sch-list')
+  const todayYm = (overlay.latest?.statement_date || '').slice(0, 7)
+  // Group by year; the current year (latest statement's year) opens.
+  const openYear = (overlay.latest?.statement_date || base.rows[0].date).slice(0, 4)
+  const groups = new Map()
+  for (const r of base.rows) { const y = r.date.slice(0, 4); if (!groups.has(y)) groups.set(y, []); groups.get(y).push(r) }
+  tb.innerHTML = [...groups.entries()].map(([y, rows]) => {
+    const open = y === openYear
+    const last = rows[rows.length - 1]
+    const head = `<tr class="row-parent" data-year="${y}" tabindex="0" role="button" aria-expanded="${open}">
+      <td></td><td class="label"><span class="row-chevron"></span>${y}</td>
+      <td class="num muted" colspan="3">${rows.length} payment${rows.length === 1 ? '' : 's'}</td>
+      <td class="num">${f0(last.balance)}</td></tr>`
+    const items = rows.map(r => `<tr class="sch-item${r.date.slice(0, 7) === todayYm ? ' now-row' : ''}" data-y="${y}"${open ? '' : ' hidden'}>
+      <td>${r.n}</td><td class="label">${fmtMonth(r.date.slice(0, 7))}</td>
+      <td class="num">${f2(r.payment)}</td><td class="num">${f2(r.principal)}</td>
+      <td class="num">${f2(r.interest)}</td><td class="num">${f0(r.balance)}</td></tr>`).join('')
+    return head + items
+  }).join('')
+  document.getElementById('sch-meta').textContent = `${base.months} payments · ${groups.size} years`
+}
+
+/* ── MODEL ────────────────────────────────────────────────────────────────── */
+function renderModel() {
+  hub.clearActive?.()
+  renderRules()
+  recomputeModel()
+}
+
+function renderRules() {
+  const el = document.getElementById('rules')
+  if (!rules.length) { el.innerHTML = '<p class="rules-empty">No extra payments yet. Add one to see the impact.</p>'; return }
+  el.innerHTML = rules.map((r, i) => `
+    <div class="rule">
+      <span>${ruleLabel(r)}</span>
+      <button type="button" class="rule-x" data-rm="${i}">remove</button>
+    </div>`).join('')
+}
+function ruleLabel(r) {
+  if (r.kind === 'monthly') return `${f0(r.amount)} every month`
+  if (r.kind === 'annual') return `${f0(r.amount)} each ${MONTHS[(r.month || 12) - 1]}`
+  return `${f0(r.amount)} once in ${fmtMonth((r.date || '').slice(0, 7))}`
+}
+
+function recomputeModel() {
+  const projNo = overlay.project([])
+  const proj = overlay.project(rules)
+  const cmp = compare(projNo, proj)
+  document.getElementById('model-impact').innerHTML = `
+    <div class="impact"><span class="iv">${fmtMonth(proj.payoffDate.slice(0, 7))}</span><span class="il">New payoff</span></div>
+    <div class="impact"><span class="iv ${cmp.interestSaved > 0 ? 'good' : ''}">${f0(cmp.interestSaved)}</span><span class="il">Interest saved</span></div>
+    <div class="impact"><span class="iv ${cmp.monthsSaved > 0 ? 'good' : ''}">${cmp.monthsSaved}</span><span class="il">Months saved</span></div>`
+  setLegend([
+    { cls: 'actual', label: 'Actual' },
+    { cls: 'scheduled', dash: true, label: 'No extra' },
+    { cls: 'projection', label: 'With extra' },
+  ])
+  lineChart('model-host', [
+    { name: 'Actual', points: overlay.actualBalance.map(p => ({ date: toDate(p.date), value: p.balance })), stroke: COLOR.mute, width: 1.25 },
+    { name: 'No extra', points: projNo.rows.map(r => ({ date: toDate(r.date), value: r.balance })), stroke: COLOR.s2, dash: '4 4' },
+    { name: 'With extra', points: proj.rows.map(r => ({ date: toDate(r.date), value: r.balance })), stroke: COLOR.accent, width: 2 },
+  ])
+  document.getElementById('model-note').textContent = rules.length
+    ? `Projected from today's ${f0(Number(overlay.latest.unpaid_principal))} balance: payoff moves to ${fmtMonth(proj.payoffDate.slice(0, 7))}, saving ${f0(cmp.interestSaved)} in interest.`
+    : `Add an extra payment to see how much sooner the loan clears.`
+}
+
+function renderSolve() {
+  const targetErr = vNumber(document.getElementById('target-year').value, { min: 2026, max: 2052, integer: true, label: 'Target year' })
+  if (targetErr) { notify({ tone: 'warn', message: targetErr }); return }
+  const yr = parseInt(document.getElementById('target-year').value, 10)
+  const out = document.getElementById('solve-readout')
+  if (!yr || yr < 2026 || yr > 2052) { out.innerHTML = '<p class="rules-empty">Enter a year between 2026 and 2052.</p>'; return }
+  const target = `${yr}-01`
+  const opts = overlay.projectOpts || {}
+  const mo = solveExtra(terms, target, { kind: 'monthly' }, opts)
+  const an = solveExtra(terms, target, { kind: 'annual', month: 12 }, opts)
+  out.innerHTML = `
+    <div class="solve-line"><span class="sl-label">Extra each month</span><span class="sl-value">${mo.amount ? f0(mo.amount) : '— already there'}</span></div>
+    <div class="solve-line"><span class="sl-label">Or a lump each December</span><span class="sl-value">${an.amount ? f0(an.amount) : '— already there'}</span></div>
+    <div class="solve-line"><span class="sl-label">Achieved payoff</span><span class="sl-value">${fmtMonth(mo.achievedPayoff.slice(0, 7))}</span></div>`
+}
+
+function renderScenarioChips() {
+  const el = document.getElementById('scenario-chips')
+  if (!scenarios.length) { el.innerHTML = '<span class="rules-empty">None saved.</span>'; return }
+  el.innerHTML = scenarios.map(s =>
+    `<span class="chip ${s.id === activeScenarioId ? 'is-active' : ''}">
+      <button type="button" class="chip-load" data-scenario="${s.id}">${escapeHtml(s.name)}</button>
+      <button type="button" class="chip-x" data-del-scenario="${s.id}" aria-label="Delete ${escapeHtml(s.name)}" title="Delete">&times;</button>
+    </span>`).join('')
+}
+
+/* ── ESCROW ───────────────────────────────────────────────────────────────── */
+function renderEscrow() {
+  const latest = overlay.latest
+  const ytdIn = sumYtd('paid_escrow')
+  const ytdOut = overlay.escrowOut.filter(e => e.date.slice(0, 4) === (latest?.statement_date || '').slice(0, 4)).reduce((t, e) => t + e.amount, 0)
+  hub.setStrip({
+    hero: { value: f0(latest ? Number(latest.escrow_balance) : 0), label: 'escrow balance' },
+    stats: [
+      { label: 'Paid in (YTD)', value: f0(ytdIn) },
+      { label: 'Paid out (YTD)', value: f0(ytdOut) },
+      { label: 'Disbursements', value: String(overlay.escrowOut.length), context: 'on record' },
+    ],
+  })
+  setLegend([{ cls: 'projection', label: 'Escrow balance' }])
+  lineChart('esc-host', [
+    { name: 'Escrow', points: overlay.escrowBalance.map(p => ({ date: toDate(p.date), value: p.balance })), stroke: COLOR.s3, width: 2 },
+  ])
+  const tb = document.getElementById('esc-list')
+  const outs = [...overlay.escrowOut].reverse()  // newest first
+  // Group by year; the most recent year opens, the rest collapse.
+  const byYear = new Map()
+  for (const e of outs) { const y = e.date.slice(0, 4); if (!byYear.has(y)) byYear.set(y, []); byYear.get(y).push(e) }
+  const years = [...byYear.keys()].sort((a, b) => b.localeCompare(a))
+  const openYear = years[0]
+  tb.innerHTML = years.map(y => {
+    const items = byYear.get(y)
+    const total = items.reduce((t, e) => t + e.amount, 0)
+    const open = y === openYear
+    const head = `<tr class="row-parent" data-year="${y}" tabindex="0" role="button" aria-expanded="${open}">
+      <td class="label"><span class="row-chevron"></span>${y}</td>
+      <td class="muted">${items.length} payment${items.length === 1 ? '' : 's'}</td>
+      <td class="num">${f2(total)}</td></tr>`
+    const rows = items.map(e => `<tr class="esc-item" data-y="${y}"${open ? '' : ' hidden'}>
+      <td class="label">${fmtDay(e.date)}</td><td>${escapeHtml(titleCase(e.label))}</td><td class="num">${f2(e.amount)}</td></tr>`).join('')
+    return head + rows
+  }).join('')
+  document.getElementById('esc-out-meta').textContent = `${outs.length} payments out · ${years.length} years`
+  document.getElementById('esc-meta').textContent = latest ? `as of ${fmtDay(latest.statement_date)}` : ''
+}
+const titleCase = (s) => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+function sumYtd(field) {
+  const yr = (overlay.latest?.statement_date || '').slice(0, 4)
+  return statements.filter(s => s.statement_date.slice(0, 4) === yr).reduce((t, s) => t + (Number(s[field]) || 0), 0)
+}
+
+/* ── view switching ───────────────────────────────────────────────────────── */
+const RENDER = { overview: renderOverview, schedule: renderSchedule, model: renderModel, escrow: renderEscrow }
+function showView(view) {
+  currentView = view
+  for (const el of document.querySelectorAll('.view')) el.classList.toggle('is-active', el.id === `view-${view}`)
+  if (statements.length || view === 'schedule') RENDER[view]()
+}
+function onViewChange(view) { if (view !== currentView) showView(view) }
+
+/* ── loan terms reader ────────────────────────────────────────────────────── */
+function showLoanTerms() {
+  const body = document.getElementById('reader-body')
+  document.getElementById('reader-title').innerHTML = 'Loan <span class="it">terms</span>'
+  body.innerHTML = `<dl class="terms-list">
+    <dt>Servicer</dt><dd>${loan.servicer}</dd>
+    <dt>Account</dt><dd>${loan.account_number}</dd>
+    <dt>Property</dt><dd>${loan.property}</dd>
+    <dt>Original</dt><dd>${f0(terms.originalPrincipal)}</dd>
+    <dt>Rate</dt><dd>${(terms.annualRate * 100).toFixed(3)}% fixed</dd>
+    <dt>Term</dt><dd>${terms.termMonths} months</dd>
+    <dt>Scheduled P&amp;I</dt><dd>${f2(terms.scheduledPi)}</dd>
+    <dt>First payment</dt><dd>${fmtDay(terms.firstPaymentDate)}</dd>
+    <dt>Maturity</dt><dd>${fmtMonth(loan.maturity_date.slice(0, 7))}</dd>
+  </dl>`
+  document.getElementById('reader').showModal()
+}
+
+/* ── statement drawer (add / edit) ────────────────────────────────────────── */
+let editingId = null, staged = null, parsedTxns = []
+const $ = (id) => document.getElementById(id)
+
+function resetDrawer() {
+  editingId = null; staged = null; parsedTxns = []
+  drawerStep('drop')
+  $('drop-msg').hidden = true
+  $('stmt-staged').hidden = true; $('stmt-filed').hidden = true; $('stmt-prog').hidden = true; $('stmt-msg').hidden = true
+  $('form-error').hidden = true; $('dup-note').hidden = true; $('review-source').hidden = true
+  $('drawer-delete').hidden = true
+  ;['f-stmt-date','f-upb','f-escrow','f-pp','f-pi','f-pe','f-due'].forEach(i => { $(i).value = '' })
+}
+function drawerStep(step) {
+  $('drawer-step-drop').hidden = step !== 'drop'
+  $('drawer-step-reading').hidden = step !== 'reading'
+  $('drawer-step-2').hidden = step !== 'review'
+}
+function openDrawerNew() { resetDrawer(); $('drawer-eyebrow').textContent = 'A statement'; $('drawer').showModal() }
+function openDrawerEdit(s) {
+  resetDrawer(); editingId = s.id; parsedTxns = s.transactions || []
+  $('drawer-eyebrow').textContent = 'Edit statement'
+  fillForm(s); $('drawer-delete').hidden = false
+  if (s.statement_mime) { $('stmt-filed').hidden = false; $('stmt-attach').hidden = true }
+  drawerStep('review'); $('drawer').showModal()
+}
+function fillForm(s) {
+  $('f-stmt-date').value = s.statement_date || ''
+  $('f-upb').value = s.unpaid_principal ?? ''
+  $('f-escrow').value = s.escrow_balance ?? ''
+  $('f-pp').value = s.paid_principal ?? ''
+  $('f-pi').value = s.paid_interest ?? ''
+  $('f-pe').value = s.paid_escrow ?? ''
+  $('f-due').value = s.amount_due ?? ''
+  $('f-np').value = s.next_principal ?? ''
+  $('f-ni').value = s.next_interest ?? ''
+  $('f-ne').value = s.next_escrow ?? ''
+  checkDuplicate()
+}
+function flagMissing(missing) {
+  document.querySelectorAll('#drawer-step-2 .form-row[data-field]').forEach(row => {
+    const need = missing.includes(row.dataset.field)
+    row.classList.toggle('needs-check', need)
+    const flag = row.querySelector('.check-flag'); if (flag) flag.hidden = !need
+  })
+}
+function checkDuplicate() {
+  const d = $('f-stmt-date').value
+  const dup = d && statements.find(s => s.statement_date === d && s.id !== editingId)
+  const note = $('dup-note')
+  if (!dup) { note.hidden = true; return }
+  $('dup-note-text').textContent = `A statement dated ${fmtDay(d)} is already on file; saving overwrites it.`
+  note.hidden = false
+}
+
+async function onFilePicked(file, { isImport } = {}) {
+  if (!file) return
+  $('drop-msg').hidden = true
+  drawerStep('reading'); $('reading-file').textContent = file.name; $('reading-detected').hidden = true
+  try {
+    const res = await parseMortgagePdf(file)
+    if (!res.ok) throw new Error(res.error || 'Unrecognised statement')
+    const s = res.statement
+    parsedTxns = s.transactions || []
+    staged = file
+    fillForm(s)
+    flagMissing(s.missing || [])
+    $('review-source').hidden = false
+    $('review-source-text').textContent = `Read from ${file.name}`
+    $('stmt-staged').hidden = false; $('stmt-name').textContent = file.name; $('stmt-filed').hidden = true; $('stmt-attach').hidden = true
+    drawerStep('review')
+  } catch (e) {
+    drawerStep('drop'); $('drop-msg').textContent = e.message; $('drop-msg').hidden = false
+  }
+}
+
+function readForm() {
+  return {
+    id: editingId || undefined,
+    loan_id: loan.id,
+    statement_date: $('f-stmt-date').value || null,
+    unpaid_principal: toNum($('f-upb').value),
+    escrow_balance: toNum($('f-escrow').value),
+    paid_principal: toNum($('f-pp').value),
+    paid_interest: toNum($('f-pi').value),
+    paid_escrow: toNum($('f-pe').value),
+    next_principal: toNum($('f-np').value),
+    next_interest: toNum($('f-ni').value),
+    next_escrow: toNum($('f-ne').value),
+    amount_due: toNum($('f-due').value),
+    transactions: parsedTxns,
+  }
+}
+
+async function saveStatement() {
+  const row = readForm()
+  const err = firstError(
+    () => vDate(row.statement_date, { label: 'Statement date' }),
+    () => vNumber($('f-upb').value, { required: false, min: 0, label: 'Unpaid principal' }),
+    () => vNumber($('f-escrow').value, { required: false, label: 'Escrow balance' }),
+    () => vNumber($('f-due').value, { required: false, min: 0, label: 'Amount due' }),
+  )
+  if (err) { showFormError(err); return }
+  const saveBtn = $('drawer-save'); saveBtn.disabled = true
+  try {
+    const saved = await upsertStatement(row)
+    if (staged) await uploadPdf(saved.id, staged)
+    await reload(); $('drawer').close()
+  } catch (e) { showFormError(e.message) } finally { saveBtn.disabled = false }
+}
+function showFormError(msg) { const el = $('form-error'); el.textContent = msg; el.hidden = false }
+
+async function uploadPdf(statementId, file) {
+  const prog = $('stmt-prog'); prog.hidden = false
+  const fill = $('stmt-prog-fill'); const label = $('stmt-prog-label')
+  try {
+    const { url, mime, filename } = await getMortgageStatementUploadUrl(statementId, 'application/pdf')
+    label.textContent = 'Uploading…'
+    await uploadStatement(url, file, mime, p => { fill.style.transform = `scaleX(${p})`; label.textContent = `${Math.round(p * 100)}%` }, filename)
+    await setStatementMime(statementId, mime)
+    label.textContent = 'Filed'
+  } catch (e) { $('stmt-msg').textContent = `Statement saved, but the PDF didn't upload: ${e.message}`; $('stmt-msg').hidden = false }
+}
+
+/* ── bulk import ──────────────────────────────────────────────────────────── */
+let importRows = []
+async function runImport(files) {
+  $('import-step-pick').hidden = true; $('import-step-review').hidden = false
+  importRows = []; $('import-list').innerHTML = ''; $('import-confirm').disabled = true
+  const list = Array.from(files)
+  const seen = new Set(statements.map(s => s.statement_date))
+  const batchSeen = new Set()
+  for (let i = 0; i < list.length; i++) {
+    const file = list[i]
+    $('import-progress').textContent = `Reading ${i + 1} of ${list.length} — ${file.name}`
+    let row = { file, name: file.name, status: 'fail', statement: null }
+    try {
+      const res = await parseMortgagePdf(file)
+      if (res.ok && res.statement.statement_date) {
+        const d = res.statement.statement_date
+        row.statement = res.statement
+        row.status = batchSeen.has(d) ? 'reissue' : seen.has(d) ? 'dup' : 'new'
+        batchSeen.add(d)
+      }
+    } catch (_) { /* leave as fail */ }
+    importRows.push(row)
+    appendImportRow(row, importRows.length - 1)
+  }
+  $('import-ellip').style.display = 'none'
+  $('import-progress').textContent = `Read ${list.length} files.`
+  updateImportConfirm()
+}
+function irTagText(r) {
+  const d = r.statement?.statement_date
+  const base = r.status === 'fail' ? 'unreadable' : r.status === 'dup' ? 'on file' : r.status
+  return `${base}${d ? ' · ' + fmtMonth(d.slice(0, 7)) : ''}`
+}
+function appendImportRow(r, idx) {
+  const div = document.createElement('div')
+  div.className = 'import-row'; div.dataset.idx = idx
+  div.innerHTML = `<span class="ir-name">${escapeHtml(r.name)}</span>
+    <span class="num">${r.statement?.unpaid_principal != null ? f0(r.statement.unpaid_principal) : '—'}</span>
+    <span class="ir-tag ${r.status}" id="ir-tag-${idx}">${irTagText(r)}</span>
+    ${r.status === 'fail' ? '<span class="ir-skip-x" aria-hidden="true">—</span>'
+      : `<button type="button" class="ir-skip" data-idx="${idx}">skip</button>`}`
+  document.getElementById('import-list').appendChild(div)
+}
+// Confirm button + summary reflect what will actually be written (skips excluded).
+function updateImportConfirm() {
+  const todo = importRows.filter(r => r.statement && r.status !== 'fail' && !r.skip && !r.saved)
+  const overwrite = todo.filter(r => r.status !== 'new').length
+  const btn = $('import-confirm')
+  btn.disabled = !todo.length
+  btn.textContent = todo.length ? `Import ${todo.length}${overwrite ? ` · ${overwrite} overwrite` : ''}` : 'Nothing to import'
+  const c = (s) => importRows.filter(r => r.status === s).length
+  const skipped = importRows.filter(r => r.skip).length
+  $('import-summary').textContent =
+    `${c('new')} new · ${c('dup') + c('reissue')} overwrite · ${c('fail')} unreadable${skipped ? ` · ${skipped} skipped` : ''}`
+}
+async function confirmImport() {
+  const btn = $('import-confirm'); btn.disabled = true; btn.textContent = 'Importing…'
+  const todo = importRows.filter(r => r.statement && r.status !== 'fail' && !r.skip && !r.saved)
+  let done = 0, failed = 0
+  for (const r of todo) {
+    const idx = importRows.indexOf(r)
+    try {
+      const s = r.statement
+      const saved = await upsertStatement({
+        loan_id: loan.id,
+        statement_date: s.statement_date, payment_due_date: s.payment_due_date,
+        amount_due: s.amount_due, unpaid_principal: s.unpaid_principal,
+        original_principal: s.original_principal, escrow_balance: s.escrow_balance,
+        interest_rate: s.interest_rate, maturity_date: s.maturity_date,
+        next_principal: s.next_principal, next_interest: s.next_interest, next_escrow: s.next_escrow,
+        paid_principal: s.paid_principal, paid_interest: s.paid_interest, paid_escrow: s.paid_escrow,
+        ytd_principal: s.ytd_principal, ytd_interest: s.ytd_interest, ytd_escrow: s.ytd_escrow,
+        late_fee: s.late_fee, transactions: s.transactions,
+      })
+      await uploadPdf(saved.id, r.file)
+      r.saved = true; done++
+    } catch (e) {
+      failed++; r.saved = false
+      const tag = document.getElementById(`ir-tag-${idx}`)
+      if (tag) { tag.className = 'ir-tag fail'; tag.textContent = "didn't save" }
+      console.error('import row failed', r.name, e)
+    }
+    $('import-progress').textContent = `Imported ${done} of ${todo.length}${failed ? ` · ${failed} failed` : ''}…`
+  }
+  await reload()
+  if (failed) {
+    btn.disabled = false; btn.textContent = 'Retry failed'
+    notify({ tone: 'warn', message: `Imported ${done}. ${failed} didn't save; they're tagged in the list. Tap Retry failed to try again.` })
+  } else {
+    $('import-drawer').close()
+    notify({ tone: 'success', message: `Imported ${done} statement${done === 1 ? '' : 's'}.` })
+  }
+}
+
+/* ── reader (PDF) ─────────────────────────────────────────────────────────── */
+async function openPdf(statementId) {
+  const body = $('reader-body')
+  document.getElementById('reader-title').innerHTML = 'Statement'
+  body.innerHTML = '<p class="reader-status">Opening…</p>'
+  $('reader').showModal()
+  try {
+    const { url } = await getMortgageStatementUrl(statementId)
+    body.innerHTML = `<iframe class="reader-doc" src="${url}" title="Statement PDF"></iframe>`
+  } catch (e) { body.innerHTML = `<p class="reader-status">Couldn't open the statement. ${e.message}</p>` }
+}
+
+/* ── data load ────────────────────────────────────────────────────────────── */
+async function reload() {
+  statements = await listStatements(loan.id)
+  refreshFromState()
+}
+// Recompute derived state + re-render from the in-memory statements array
+// (used for optimistic delete/undo without a round-trip).
+function refreshFromState() {
+  overlay = overlayActuals(terms, statements, base)
+  document.getElementById('state-empty').hidden = statements.length > 0
+  showView(currentView)
+}
+const byDateAsc = (a, b) => (a.statement_date < b.statement_date ? -1 : 1)
+
+/* ── events ───────────────────────────────────────────────────────────────── */
+function wireEvents() {
+  document.getElementById('enter-btn').addEventListener('click', openDrawerNew)
+
+  // statement drawer
+  const drawer = $('drawer')
+  $('drawer-close-x').addEventListener('click', () => drawer.close())
+  drawer.addEventListener('click', e => { if (e.target === drawer) drawer.close() })
+  drawer.addEventListener('close', resetDrawer)
+  $('drop-choose').addEventListener('click', () => $('drop-file').click())
+  $('drop-manual').addEventListener('click', () => { staged = null; parsedTxns = []; $('f-stmt-date').value = ''; flagMissing([]); drawerStep('review') })
+  $('drop-file').addEventListener('change', e => onFilePicked(e.target.files[0]))
+  $('f-stmt-date').addEventListener('change', checkDuplicate)
+  $('drawer-save').addEventListener('click', saveStatement)
+  // Delete is reversible: remove optimistically, commit to the DB only after
+  // a 6s grace window, and offer Undo. No confirmation dialog needed.
+  $('drawer-delete').addEventListener('click', () => {
+    if (!editingId) return
+    const s = statements.find(x => x.id === editingId)
+    drawer.close()
+    if (!s) return
+    statements = statements.filter(x => x.id !== s.id)
+    refreshFromState()
+    let undone = false
+    const commit = setTimeout(async () => {
+      if (undone) return
+      try { await deleteStatement(s.id) }
+      catch (e) {
+        statements = [...statements, s].sort(byDateAsc); refreshFromState()
+        notify({ tone: 'error', message: `Couldn't delete the statement: ${e.message}` })
+      }
+    }, 6000)
+    const h = notify({
+      tone: 'info', timeout: 6000,
+      message: `Deleted the ${fmtDay(s.statement_date)} statement.`,
+      action: { label: 'Undo', onClick: () => {
+        undone = true; clearTimeout(commit); h.dismiss()
+        statements = [...statements, s].sort(byDateAsc); refreshFromState()
+      } },
+    })
+  })
+  $('stmt-attach').addEventListener('click', () => $('stmt-file').click())
+  $('stmt-replace').addEventListener('click', () => $('stmt-file').click())
+  $('stmt-clear').addEventListener('click', () => { staged = null; $('stmt-staged').hidden = true; $('stmt-attach').hidden = false })
+  $('stmt-file').addEventListener('change', e => {
+    staged = e.target.files[0]; if (!staged) return
+    $('stmt-staged').hidden = false; $('stmt-name').textContent = staged.name; $('stmt-attach').hidden = true; $('stmt-filed').hidden = true
+  })
+  $('stmt-view').addEventListener('click', () => { if (editingId) openPdf(editingId) })
+
+  // dropzone drag
+  const dz = $('dropzone'); let depth = 0
+  ;['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); depth++; dz.classList.add('is-drag') }))
+  dz.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; dz.classList.remove('is-drag') } })
+  dz.addEventListener('drop', e => { e.preventDefault(); depth = 0; dz.classList.remove('is-drag'); onFilePicked(e.dataTransfer.files[0]) })
+
+  // tables: edit / pdf
+  document.getElementById('stmt-list').addEventListener('click', e => {
+    const ed = e.target.closest('[data-edit]'); const pdf = e.target.closest('[data-pdf]')
+    if (pdf) { openPdf(pdf.dataset.pdf); return }
+    if (ed && canWrite) { const s = statements.find(x => x.id === ed.dataset.edit); if (s) openDrawerEdit(s) }
+  })
+
+  // Year-grouped tables (escrow + amortization): click or Enter/Space toggles.
+  const wireYearToggle = (listId, itemSel) => {
+    const list = document.getElementById(listId)
+    const tog = (h) => {
+      const open = h.getAttribute('aria-expanded') !== 'true'
+      h.setAttribute('aria-expanded', open ? 'true' : 'false')
+      list.querySelectorAll(`${itemSel}[data-y="${h.dataset.year}"]`).forEach(r => { r.hidden = !open })
+    }
+    list.addEventListener('click', e => { const h = e.target.closest('.row-parent[data-year]'); if (h) tog(h) })
+    list.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return
+      const h = e.target.closest('.row-parent[data-year]'); if (!h) return
+      e.preventDefault(); tog(h)
+    })
+  }
+  wireYearToggle('esc-list', '.esc-item')
+  wireYearToggle('sch-list', '.sch-item')
+  wireYearToggle('stmt-list', '.stmt-item')
+
+  // reader
+  $('reader-close').addEventListener('click', () => $('reader').close())
+  $('reader').addEventListener('click', e => { if (e.target === $('reader')) $('reader').close() })
+
+  // model
+  $('rule-kind').addEventListener('change', () => {
+    const k = $('rule-kind').value
+    $('when-annual').classList.toggle('show', k === 'annual')
+    $('when-onetime').classList.toggle('show', k === 'onetime')
+  })
+  $('rule-add').addEventListener('click', () => {
+    const amount = toNum($('rule-amt').value); const kind = $('rule-kind').value
+    if (!amount || amount <= 0) return
+    if (kind === 'monthly') rules.push({ kind, amount })
+    else if (kind === 'annual') rules.push({ kind, amount, month: parseInt($('rule-month').value, 10) })
+    else { const d = $('rule-date').value; if (!d) return; rules.push({ kind, amount, date: d + '-01' }) }
+    $('rule-amt').value = ''; activeScenarioId = null; renderScenarioChips(); renderRules(); recomputeModel()
+  })
+  $('rules').addEventListener('click', e => {
+    const rm = e.target.closest('[data-rm]'); if (!rm) return
+    rules.splice(+rm.dataset.rm, 1); activeScenarioId = null; renderScenarioChips(); renderRules(); recomputeModel()
+  })
+  $('target-year').addEventListener('input', renderSolve)
+  $('scenario-save').addEventListener('click', async () => {
+    const nameInput = $('scenario-name').value.trim()
+    const nameErr = vText(nameInput, { required: false, max: 80, label: 'Scenario name' })
+    if (nameErr) { notify({ tone: 'warn', message: nameErr }); return }
+    const name = nameInput || `Scenario ${scenarios.length + 1}`
+    const saved = await upsertScenario({ id: activeScenarioId || undefined, loan_id: loan.id, name, rules })
+    $('scenario-name').value = ''; scenarios = await listScenarios(loan.id); activeScenarioId = saved.id; renderScenarioChips()
+  })
+  $('scenario-chips').addEventListener('click', async e => {
+    const del = e.target.closest('[data-del-scenario]')
+    if (del) {
+      const id = del.dataset.delScenario
+      try { await deleteScenario(id) } catch (err) { notify({ tone: 'error', message: `Couldn't delete: ${err.message}` }); return }
+      if (activeScenarioId === id) activeScenarioId = null
+      scenarios = await listScenarios(loan.id); renderScenarioChips()
+      return
+    }
+    const c = e.target.closest('[data-scenario]'); if (!c) return
+    const s = scenarios.find(x => x.id === c.dataset.scenario); if (!s) return
+    rules = JSON.parse(JSON.stringify(s.rules || [])); activeScenarioId = s.id
+    renderScenarioChips(); renderRules(); recomputeModel()
+  })
+
+  // import drawer
+  hub.setActions(canWrite ? [
+    { id: 'add', label: 'Add a statement', onClick: openDrawerNew },
+    { id: 'import', label: 'Bulk import statements', meta: 'Backfill', onClick: openImport },
+  ] : [])
+  const idr = $('import-drawer')
+  $('import-close-x').addEventListener('click', () => idr.close())
+  $('import-cancel').addEventListener('click', () => idr.close())
+  $('import-choose').addEventListener('click', () => $('import-file').click())
+  $('import-file').addEventListener('change', e => { if (e.target.files.length) runImport(e.target.files) })
+  $('import-confirm').addEventListener('click', confirmImport)
+  $('import-list').addEventListener('click', e => {
+    const b = e.target.closest('.ir-skip'); if (!b) return
+    const r = importRows[+b.dataset.idx]; if (!r) return
+    r.skip = !r.skip
+    b.textContent = r.skip ? 'include' : 'skip'
+    b.closest('.import-row').classList.toggle('is-skipped', r.skip)
+    updateImportConfirm()
+  })
+  const idz = $('import-dropzone'); let idepth = 0
+  ;['dragenter', 'dragover'].forEach(ev => idz.addEventListener(ev, e => { e.preventDefault(); idepth++; idz.classList.add('is-drag') }))
+  idz.addEventListener('dragleave', () => { if (--idepth <= 0) { idepth = 0; idz.classList.remove('is-drag') } })
+  idz.addEventListener('drop', e => { e.preventDefault(); idepth = 0; idz.classList.remove('is-drag'); if (e.dataTransfer.files.length) runImport(e.dataTransfer.files) })
+
+  // re-render charts on resize (debounced)
+  let rt
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (statements.length) RENDER[currentView]() }, 200) })
+}
+function openImport() {
+  $('import-step-pick').hidden = false; $('import-step-review').hidden = true
+  $('import-ellip').style.display = ''; $('import-list').innerHTML = ''; $('import-summary').textContent = ''
+  $('import-confirm').disabled = true; $('import-confirm').textContent = 'Import'
+  $('import-drawer').showModal()
+}
+
+/* ── boot ─────────────────────────────────────────────────────────────────── */
+async function gate() {
+  if (!(await ensureAuth())) return false
+  role = (await getCurrentRole()) || 'child'
+  canWrite = await hasMinRole('parent')
+  return true
+}
+
+async function init() {
+  if (!(await gate())) return
+  document.getElementById('signoutBtn').hidden = false
+  document.getElementById('signoutBtn').addEventListener('click', async () => { await signOut(); location.reload() })
+  if (role === 'child') hub.setGrace('3.00% fixed · Sugar Land · view only.')
+  startIdleTimeout(() => { location.reload() })
+
+  const lbar = document.getElementById('state-loading')
+  const lt = setTimeout(() => { lbar.hidden = false }, 600)
+  try {
+    loan = await getMortgageLoan()
+    if (!loan) throw new Error('No loan configured')
+    terms = {
+      originalPrincipal: Number(loan.original_principal),
+      annualRate: Number(loan.annual_rate),
+      termMonths: loan.term_months,
+      scheduledPi: Number(loan.scheduled_pi),
+      firstPaymentDate: loan.first_payment_date,
+    }
+    base = baselineSchedule(terms)
+    ;[statements, scenarios] = await Promise.all([listStatements(loan.id), listScenarios(loan.id)])
+    overlay = overlayActuals(terms, statements, base)
+  } catch (e) {
+    console.error('Failed to load mortgage data', e)
+  }
+  clearTimeout(lt); lbar.hidden = true
+
+  if (canWrite) document.getElementById('enter-btn').hidden = false
+  document.getElementById('state-empty').hidden = (statements && statements.length > 0)
+
+  renderScenarioChips()
+  showView('overview')
+  wireEvents()
+  enhanceWithin(document)   // themed dropdowns for the extra-payment selects
+}
+
+init()
+</script>
+</body>
+</html>
