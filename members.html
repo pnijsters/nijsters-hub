@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Members · The Nijsters</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080808">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/hub.css">
+</head>
+<body>
+
+<main class="hub-main">
+  <section class="stack" id="state-loading">
+    <p class="eyebrow">Checking session…</p>
+  </section>
+
+  <section class="stack" id="state-unauthorized" hidden>
+    <p class="lede">This page is for admins. <span style="display:inline-block">The door is around the corner.</span></p>
+  </section>
+
+  <section class="stack" id="state-members" hidden>
+    <table class="data-table" id="membersList">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Last seen</th>
+          <th class="num" aria-label="Edit"></th>
+        </tr>
+      </thead>
+      <tbody id="membersBody"></tbody>
+    </table>
+    <div class="empty-state" id="membersEmpty" hidden>No members yet.</div>
+    <p class="note">Role changes take effect on the user's next sign-in or token refresh.</p>
+  </section>
+
+  <dialog class="hub-dialog" id="editDialog">
+    <article>
+      <div class="hub-dialog__head">
+        <h2 class="hub-dialog__title">Edit member</h2>
+        <button class="hub-dialog__close" type="button" id="editClose" aria-label="Close">&times;</button>
+      </div>
+      <div class="stack--md">
+        <div class="field-grid">
+          <div class="field">
+            <label for="editFirst">First name</label>
+            <input id="editFirst" type="text" maxlength="60" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="editLast">Last name</label>
+            <input id="editLast" type="text" maxlength="60" autocomplete="off">
+          </div>
+        </div>
+        <div class="field">
+          <label>Email address</label>
+          <div class="hub-dialog__readonly" id="editEmail"></div>
+        </div>
+        <div class="field">
+          <label for="editRole">Role</label>
+          <select id="editRole" aria-label="Role"></select>
+        </div>
+        <div class="form-error" id="editError" hidden></div>
+      </div>
+      <div class="hub-dialog__foot">
+        <button class="btn btn--ghost" type="button" id="editCancel">Cancel</button>
+        <button class="btn btn--accent" type="button" id="editSave">Save</button>
+      </div>
+    </article>
+  </dialog>
+</main>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import {
+  supabase, getAAL, signOut, getCurrentRole, listMembers, setUserRole, setMemberName,
+} from './js/supabase-client.js'
+import { ensureAuth } from './js/hub-auth.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+import { enhanceSelect } from './js/hub-select.js'
+import { vEnum, vText, firstError } from './js/validate.js'
+
+const hub = mountHubHeader({
+  app: 'Members',
+  eyebrow: 'Family Hub · Members',
+  grace: 'the keys.',
+  tabs: [{ id: 'members', label: 'Members' }],
+})
+
+const states = ['loading', 'unauthorized', 'members']
+function go(state) {
+  for (const s of states) document.getElementById(`state-${s}`).hidden = (s !== state)
+  document.getElementById('signoutBtn').hidden = (state !== 'members')
+}
+
+const ROLES = ['child', 'parent', 'admin']
+
+// Relative time formatter — quiet "3 days ago" / "just now" style, kept in
+// Hanken muted next to the email. Falls back to absolute date for old rows.
+const RTF = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+function relTime(iso) {
+  if (!iso) return 'never signed in'
+  const t = new Date(iso).getTime()
+  if (!Number.isFinite(t)) return ''
+  const diffSec = Math.round((t - Date.now()) / 1000)
+  const abs = Math.abs(diffSec)
+  if (abs < 60)         return RTF.format(diffSec, 'second')
+  if (abs < 3600)       return RTF.format(Math.round(diffSec / 60), 'minute')
+  if (abs < 86400)      return RTF.format(Math.round(diffSec / 3600), 'hour')
+  if (abs < 86400 * 14) return RTF.format(Math.round(diffSec / 86400), 'day')
+  if (abs < 86400 * 60) return RTF.format(Math.round(diffSec / (86400 * 7)), 'week')
+  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+async function gate() {
+  go('loading')
+  if (!(await ensureAuth())) return
+  const role = await getCurrentRole()
+  if (role !== 'admin') { go('unauthorized'); return }
+  go('members')
+  startIdleTimeout(() => location.reload())
+  await renderMembers()
+}
+
+async function renderMembers() {
+  const tableEl = document.getElementById('membersList')
+  const bodyEl = document.getElementById('membersBody')
+  const emptyEl = document.getElementById('membersEmpty')
+  bodyEl.innerHTML = ''
+  let members
+  try {
+    members = await listMembers()
+  } catch (e) {
+    console.warn('listMembers failed', e)
+    const tr = document.createElement('tr')
+    tr.className = 'row-error'
+    const td = document.createElement('td')
+    td.colSpan = 5
+    td.textContent = e?.message || String(e)
+    tr.appendChild(td)
+    bodyEl.appendChild(tr)
+    return
+  }
+  if (!members || members.length === 0) {
+    tableEl.hidden = true
+    emptyEl.hidden = false
+    return
+  }
+  tableEl.hidden = false
+  emptyEl.hidden = true
+  for (const m of members) {
+    bodyEl.appendChild(renderRow(m))
+  }
+  const byRole = { admin: 0, parent: 0, child: 0 }
+  for (const m of members) byRole[m.role || 'child']++
+  hub.setStrip({
+    hero: { value: String(members.length), label: 'Family members' },
+    stats: [
+      { label: 'Admins',   value: String(byRole.admin)  },
+      { label: 'Parents',  value: String(byRole.parent) },
+      { label: 'Children', value: String(byRole.child)  },
+    ],
+  })
+}
+
+// Combine first + last into a single display name.
+function fullName(m) {
+  return [m.first_name, m.last_name].filter(Boolean).join(' ').trim()
+}
+
+function renderRow(m) {
+  const row = document.createElement('tr')
+  row.dataset.userId = m.user_id
+
+  const nameCell = document.createElement('td')
+  const name = fullName(m)
+  nameCell.className = name ? 'label' : 'muted'
+  nameCell.textContent = name || '—'
+
+  const email = document.createElement('td')
+  email.textContent = m.email || '(no email)'
+
+  const roleCell = document.createElement('td')
+  const pill = rolePill(m.role || 'child')
+  roleCell.appendChild(pill)
+
+  const seen = document.createElement('td')
+  seen.className = 'muted'
+  seen.textContent = relTime(m.last_sign_in)
+  if (m.last_sign_in) {
+    seen.title = new Date(m.last_sign_in).toLocaleString()
+  } else if (m.created_at) {
+    seen.title = `Created ${new Date(m.created_at).toLocaleString()}`
+  }
+
+  const actions = document.createElement('td')
+  actions.className = 'num'
+  const editBtn = document.createElement('button')
+  editBtn.className = 'btn btn--ghost'
+  editBtn.type = 'button'
+  editBtn.textContent = 'Edit'
+  editBtn.addEventListener('click', () => openEdit(m, pill, nameCell))
+  actions.appendChild(editBtn)
+
+  row.append(nameCell, email, roleCell, seen, actions)
+  return row
+}
+
+// Role shown as a colour-coded pill (admin=orange, parent=green, child=blue).
+function rolePill(role) {
+  const pill = document.createElement('span')
+  pill.className = `badge badge--${role}`
+  pill.textContent = role
+  return pill
+}
+
+// ── Edit-member modal (name + role) ────────────────────────────────
+const editDialog = document.getElementById('editDialog')
+const editFirstEl = document.getElementById('editFirst')
+const editLastEl = document.getElementById('editLast')
+const editRoleSel = document.getElementById('editRole')
+const editEmailEl = document.getElementById('editEmail')
+const editErrorEl = document.getElementById('editError')
+const editSaveBtn = document.getElementById('editSave')
+let editing = null   // { m, pill, nameCell } for the row being edited
+
+for (const r of ROLES) {
+  const opt = document.createElement('option')
+  opt.value = r; opt.textContent = r
+  editRoleSel.appendChild(opt)
+}
+enhanceSelect(editRoleSel)
+
+function showEditError(msg) { editErrorEl.textContent = msg; editErrorEl.hidden = false }
+
+function openEdit(m, pill, nameCell) {
+  editing = { m, pill, nameCell }
+  editFirstEl.value = m.first_name || ''
+  editLastEl.value = m.last_name || ''
+  editEmailEl.textContent = m.email || '(no email)'
+  editRoleSel.value = m.role || 'child'
+  editRoleSel._hubSelect?.refresh()
+  editErrorEl.hidden = true
+  editDialog.showModal()
+}
+function closeEdit() { editDialog.close() }
+editDialog.addEventListener('close', () => { editing = null })
+document.getElementById('editClose').addEventListener('click', closeEdit)
+document.getElementById('editCancel').addEventListener('click', closeEdit)
+
+editSaveBtn.addEventListener('click', async () => {
+  if (!editing) return
+  const { m, pill, nameCell } = editing
+  const first = editFirstEl.value.trim()
+  const last = editLastEl.value.trim()
+  const newRole = editRoleSel.value
+
+  // Client-side validation (defence-in-depth; the RPCs re-validate + are authoritative).
+  const err = firstError(
+    () => vText(first, { required: false, max: 60, label: 'First name' }),
+    () => vText(last,  { required: false, max: 60, label: 'Last name' }),
+    () => vEnum(newRole, ROLES, { label: 'Role' }),
+  )
+  if (err) { showEditError(err); return }
+
+  const nameChanged = first !== (m.first_name || '') || last !== (m.last_name || '')
+  const roleChanged = newRole !== (m.role || 'child')
+  if (!nameChanged && !roleChanged) { closeEdit(); return }
+
+  editErrorEl.hidden = true
+  editSaveBtn.disabled = true
+  try {
+    if (nameChanged) {
+      await setMemberName(m.user_id, first, last)
+      m.first_name = first || null
+      m.last_name = last || null
+      const name = fullName(m)
+      nameCell.className = name ? 'label' : 'muted'
+      nameCell.textContent = name || '—'
+    }
+    if (roleChanged) {
+      await setUserRole(m.user_id, newRole)
+      m.role = newRole
+      pill.className = `badge badge--${newRole}`
+      pill.textContent = newRole
+    }
+    closeEdit()
+  } catch (e) {
+    console.warn('member update failed', e)
+    showEditError(e?.message || String(e))
+  } finally {
+    editSaveBtn.disabled = false
+  }
+})
+
+document.getElementById('signoutBtn').addEventListener('click', async () => {
+  await signOut()
+  location.reload()
+})
+
+gate()
+</script>
+</body>
+</html>

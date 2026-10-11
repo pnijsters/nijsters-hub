@@ -1,0 +1,3673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Medical · Family Hub</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080808">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/hub.css">
+<link rel="stylesheet" href="css/hub-forms.css">
+</head>
+<body>
+
+<main class="hub-main" id="main">
+  <div class="loading-bar" id="state-loading" hidden></div>
+  <p class="lede" id="state-denied" hidden>This page is for parents.</p>
+  <p class="empty-state error" id="state-error" hidden></p>
+
+  <p class="empty" id="state-empty" hidden>No expenses yet.</p>
+
+  <!-- TO REVIEW: the one queue. Every dropped file is a row here at once. -->
+  <section class="section" id="inbox" hidden>
+    <div class="section-head">
+      <span class="title">To review</span>
+      <span class="meta" id="inbox-meta"></span>
+      <div class="actions">
+        <button type="button" class="action" id="inbox-next" hidden>Review next</button>
+        <button type="button" class="action" id="inbox-cmd" hidden></button>
+        <button type="button" class="action" id="kept-again" hidden>Read kept again</button>
+      </div>
+    </div>
+    <p class="dup-note" id="queue-stop" role="status" hidden></p>
+    <div class="stat-line stat-line--head" id="queue-stats" hidden></div>
+    <div>
+      <div class="dropzone dropzone--compact" id="queue-drop">
+        <span class="dropzone-cue" id="queue-cue">Drop receipts or statements</span>
+        <button type="button" class="linklike" id="queue-choose">or choose files</button>
+      </div>
+      <p class="dropzone-aside" id="queue-aside" hidden>PDF, JPG, PNG or HEIC, as many as you like.</p>
+    </div>
+    <ul class="ingest-queue ingest-queue--wrap" id="inbox-list" aria-label="Documents to review"></ul>
+    <p class="form-note" id="inbox-note">Drafts aren't in the totals until you save them.</p>
+    <p class="form-note" id="empty-note" hidden>Every visit you paid for becomes a draft. Nothing is an expense until you save it.</p>
+    <input type="file" id="queue-file" multiple accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.heic,.heif" hidden>
+  </section>
+
+  <section class="section" id="expenses" hidden>
+    <div class="section-head">
+      <span class="title">Expenses</span>
+      <span class="meta" id="expenses-meta"></span>
+    </div>
+    <div class="filter-row" id="filters">
+      <div class="seg only-desktop" id="filter-status" role="group" aria-label="Status"></div>
+      <div class="picker only-mobile">
+        <label for="filter-status-pick">Status</label>
+        <select id="filter-status-pick"></select>
+      </div>
+      <div class="picker">
+        <label for="filter-patient">Patient</label>
+        <select id="filter-patient"></select>
+      </div>
+      <div class="picker">
+        <label for="filter-category">Category</label>
+        <select id="filter-category"></select>
+      </div>
+    </div>
+    <div class="filter-chips" id="filter-chips" hidden></div>
+    <p class="form-note" id="expenses-none" hidden>No expenses match these filters. <button type="button" class="linklike" id="none-clear">Clear all</button></p>
+    <div class="data-table-scroll only-desktop" id="expense-table">
+      <table class="data-table" aria-label="Medical expenses">
+        <thead>
+          <tr>
+            <th><button type="button" class="sort-btn" data-sort="date">Date</button></th>
+            <th><button type="button" class="sort-btn" data-sort="patient">Patient</button></th>
+            <th><button type="button" class="sort-btn" data-sort="provider">Provider</button></th>
+            <th><button type="button" class="sort-btn" data-sort="category">Category</button></th>
+            <th class="num"><button type="button" class="sort-btn" data-sort="paid">Paid</button></th>
+            <th><button type="button" class="sort-btn" data-sort="status">Status</button></th>
+            <th>Receipts</th>
+            <th>EOB</th>
+          </tr>
+        </thead>
+        <tbody id="expense-rows"></tbody>
+      </table>
+    </div>
+    <div class="mlist only-mobile" id="expense-mlist">
+      <div class="mlist-head">
+        <button type="button" class="sort-btn" data-sort="date">Date</button>
+        <button type="button" class="sort-btn" data-sort="provider">Provider</button>
+        <button type="button" class="sort-btn num" data-sort="paid">Paid</button>
+      </div>
+      <div id="expense-list"></div>
+    </div>
+  </section>
+
+  <details class="itemize" id="kept" hidden>
+    <summary id="kept-summary"></summary>
+    <ul class="ingest-queue ingest-queue--wrap" id="kept-list" aria-label="Documents kept without an expense"></ul>
+  </details>
+</main>
+
+<!-- UPLOAD: read a document, or wait for the next; review its drafts, save -->
+<dialog class="drawer" id="upload" aria-labelledby="up-title">
+  <div class="drawer-inner" id="up-inner">
+    <div class="drawer-head">
+      <span class="drawer-eyebrow" id="up-eyebrow">Add a receipt</span>
+      <div class="drawer-pager" id="up-pager" role="group" hidden>
+        <button type="button" id="up-prev" aria-label="Previous document to review">‹</button>
+        <span class="drawer-eyebrow" id="up-count"></span>
+        <button type="button" id="up-next" aria-label="Next document to review">›</button>
+      </div>
+      <button type="button" class="drawer-close" id="up-close">Close</button>
+    </div>
+    <p class="drawer-said" id="up-said" role="status" hidden><span id="up-said-text"></span><button type="button" class="linklike" id="up-said-act" hidden></button></p>
+    <h2 class="drawer-title" id="up-title" tabindex="-1"></h2>
+
+    <div id="up-reading" aria-live="polite" hidden>
+      <p class="reading-file" id="up-file-line"></p>
+      <div class="reading-sweep" aria-hidden="true"><span class="reading-sweep-fill"></span></div>
+      <div class="reading-steps">
+        <p id="up-store"><span id="up-store-text"></span><span id="up-store-pct" aria-hidden="true"></span></p>
+        <p><span id="up-calls"></span><span id="up-clock" aria-hidden="true"></span></p>
+        <p class="form-note" id="up-hint" hidden>About 3 seconds a visit, so a long statement takes a minute or two. You can close this; it keeps reading.</p>
+      </div>
+      <p class="reading-detected" id="up-found" hidden></p>
+    </div>
+
+    <div class="stack" id="up-review" hidden>
+      <p class="review-source">
+        <span id="up-source"></span>
+        <button type="button" class="linklike" id="up-view">View</button>
+      </p>
+      <p class="dup-note" id="up-note" hidden></p>
+      <div class="stat-line stat-line--head" id="up-stats" hidden></div>
+      <div class="stack stack--md" id="up-asks"></div>
+      <div id="up-visits"></div>
+    </div>
+
+    <div class="stack stack--md" id="up-end" hidden>
+      <p class="drawer-helper" id="up-end-text" tabindex="-1"></p>
+      <p class="form-note" id="up-end-note"></p>
+    </div>
+
+    <p class="form-error" id="up-error" role="alert" hidden></p>
+    <div class="drawer-foot drawer-foot--sticky" id="up-foot" hidden>
+      <button type="button" class="drawer-delete" id="up-discard">Discard document</button>
+      <div class="drawer-foot__status">
+        <span id="up-status" role="status"></span>
+        <button type="button" class="linklike" id="up-status-act" hidden></button>
+      </div>
+      <button type="button" class="drawer-save" id="up-save">Save expense</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- DRAWER: a saved expense, to edit or void -->
+<dialog class="drawer" id="drawer" aria-labelledby="drawer-title">
+  <form class="drawer-inner" id="drawer-form" novalidate>
+    <div class="drawer-head">
+      <span class="drawer-eyebrow" id="drawer-eyebrow">Edit expense</span>
+      <button type="button" class="drawer-close" id="drawer-close">Close</button>
+    </div>
+    <h2 class="drawer-title" id="drawer-title"></h2>
+
+    <div class="form-row">
+      <span class="form-legend">Receipts</span>
+      <ul class="ingest-queue" id="doc-list" aria-label="Receipts"></ul>
+      <div class="dropzone" id="dropzone">
+        <span class="dropzone-cue">Drop receipts here</span>
+        <button type="button" class="linklike" id="drop-choose">or choose files</button>
+      </div>
+      <input type="file" id="drop-file" accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.heic,.heif" multiple hidden>
+      <input type="file" id="retry-file" accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.heic,.heif" hidden>
+    </div>
+
+    <div class="field-grid">
+      <div class="form-row" data-field="patient_id">
+        <label for="f-patient">Patient</label>
+        <select id="f-patient"></select>
+      </div>
+      <div class="form-row" data-field="service_date">
+        <label for="f-date">Date of service</label>
+        <input type="date" id="f-date">
+      </div>
+    </div>
+    <div class="form-row" data-field="provider">
+      <label for="f-provider">Provider</label>
+      <input type="text" id="f-provider" autocomplete="off" maxlength="200">
+    </div>
+    <div class="field-grid">
+      <div class="form-row" data-field="category">
+        <label for="f-category">Category</label>
+        <select id="f-category"></select>
+      </div>
+      <div class="form-row" data-field="amount_paid">
+        <label for="f-paid">Amount paid</label>
+        <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-paid" autocomplete="off"></div>
+      </div>
+    </div>
+
+    <label class="form-check"><input type="checkbox" id="f-hsa"> Paid with the HSA card</label>
+    <p class="form-note" id="hsa-note" hidden>Paid from the HSA, so there is nothing to reimburse.</p>
+
+    <div class="form-row" data-field="reimbursement_status" id="row-status">
+      <span class="form-legend" id="status-legend">Reimbursement</span>
+      <div class="seg" id="f-status" role="group" aria-labelledby="status-legend">
+        <button type="button" data-status="not_submitted">Not submitted</button>
+        <button type="button" data-status="submitted">Submitted</button>
+        <button type="button" data-status="reimbursed">Reimbursed</button>
+      </div>
+    </div>
+    <div class="field-grid" id="reimb-fields">
+      <div class="form-row" data-field="date_submitted" id="row-submitted">
+        <label for="f-submitted">Date submitted</label>
+        <input type="date" id="f-submitted">
+      </div>
+      <div class="form-row" data-field="amount_reimbursed" id="row-reimbursed">
+        <label for="f-reimbursed">Amount reimbursed</label>
+        <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-reimbursed" autocomplete="off"></div>
+      </div>
+    </div>
+
+    <div class="form-row" data-field="notes">
+      <label for="f-notes">Notes</label>
+      <textarea id="f-notes" rows="3"></textarea>
+    </div>
+
+    <div class="form-row" data-field="void_reason" id="void-panel" hidden>
+      <label for="f-void-reason">Why void it?</label>
+      <input type="text" id="f-void-reason" autocomplete="off" maxlength="300">
+      <p class="form-note">It leaves the table and the total, but stays in the export.</p>
+      <div class="action-row">
+        <button type="button" class="btn btn--danger" id="void-confirm">Void expense</button>
+        <button type="button" class="btn btn--ghost" id="void-cancel">Keep it</button>
+      </div>
+    </div>
+
+    <p class="form-error" id="form-error" role="alert" hidden></p>
+    <div class="drawer-foot" id="drawer-foot">
+      <button type="button" class="drawer-delete" id="void-open">Void this expense</button>
+      <button type="submit" class="drawer-save" id="drawer-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- READER: the documents of one expense, or one document waiting for review -->
+<dialog class="reader" id="reader" aria-labelledby="reader-title">
+  <div class="reader-inner">
+    <div class="reader-head">
+      <span class="reader-title" id="reader-title">Receipts</span>
+      <button type="button" class="reader-close" id="reader-close">Close</button>
+    </div>
+    <div class="reader-split">
+      <ol class="reader-files" id="reader-files" aria-label="Receipts"></ol>
+      <div class="reader-body" id="reader-body"></div>
+    </div>
+  </div>
+</dialog>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import { signOut, hasMinRole } from './js/supabase-client.js'
+import { ensureAuth } from './js/hub-auth.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+import { enhanceWithin } from './js/hub-select.js'
+import { notify } from './js/hub-notify.js'
+import { fmtUSDc } from './js/format.js'
+import { runQueue } from './js/run-queue.js'
+import { droppedFiles } from './js/dropped-files.js'
+import { pauseOf } from './js/doc-extract.js'
+import {
+  CATEGORIES, expenseRow, voidRow, unreimbursedTotal, outstandingCents,
+  centsToDb, dbToCents, parseCents, sniffMime,
+  draftForm, saveBlockers, reviewTotals, saveItems, around, rowKind, batchCounts,
+  draftVisit, noPaymentVisit, expenseVisit, samePurchases, eobMatches, mergeCents, mergeFillsCard, mergeChoice, NEW_CHOICE,
+  autoSavable, autoMerge, PATIENT_UNKNOWN,
+  lifecycleOf, sortExpenses, filterExpenses,
+} from './js/medical-model.js'
+import {
+  listPatients, listExpenses, updateExpense, voidExpense,
+  addDocuments, retryUpload, voidDocument, getDocumentUrl, viewableBytes,
+  listInbox, listCards, setCard, createDocument, storeFile, readDocument, saveDocument, attachDocument,
+  readAgain,
+} from './js/medical-client.js'
+import { combinePdf } from './js/combine-pdf.js'
+
+const hub = mountHubHeader({
+  app: 'Medical',
+  eyebrow: 'Family Hub · Medical',
+  grace: 'every receipt, kept.',
+  tabs: [{ id: 'expenses', label: 'Expenses' }],
+})
+
+/* ── helpers ──────────────────────────────────────────────────────────────── */
+// Every provider, patient, note, file name, value read from a document, its
+// evidence and printed name reaches the page through textContent, never as
+// HTML.
+const $ = (id) => document.getElementById(id)
+function el(tag, className, text) {
+  const e = document.createElement(tag)
+  if (className) e.className = className
+  if (text != null) e.textContent = text
+  return e
+}
+function button(className, text, onClick) {
+  const b = el('button', className, text)
+  b.type = 'button'
+  if (onClick) b.addEventListener('click', onClick)
+  return b
+}
+const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`
+const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+// Live regions announce a change, so text that hasn't changed is left alone.
+const setText = (e, text) => { if (e.textContent !== text) e.textContent = text }
+// A message as a sentence: one full stop, never two.
+const sentence = (s) => s.replace(/[^.!?]$/, '$&.')
+// File names in the order a person counts them: 2 before 10.
+const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })
+// One figure of a .stat-line; `up` turns it accent.
+function statItem(k, v, up = false) {
+  const i = el('div', 'stat-line__item')
+  const value = el('span', 'stat-line__v', v)
+  value.classList.toggle('up', up)
+  i.append(el('span', 'stat-line__k', k), value)
+  return i
+}
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+// A patient's name as the page shows it: unknown when a card slip printed none.
+const patientName = (id) => (id == null || id === PATIENT_UNKNOWN ? 'Unknown' : patients.get(id) ?? 'Unknown')
+const fmtDay = (iso) => { const [y, m, d] = iso.split('-'); return `${MONTHS[+m - 1]} ${+d}, ${y}` }
+const fmtShort = (ts) => { const d = new Date(ts); return `${MONTHS[d.getMonth()]} ${d.getDate()}` }
+const money = (v) => fmtUSDc(dbToCents(v) / 100)
+const moneyInput = (v) => (v == null ? '' : centsToDb(dbToCents(v)))
+const fmtSize = (n) => (n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`)
+const fmtClock = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
+const TYPE = { 'application/pdf': 'PDF', 'image/jpeg': 'JPG', 'image/png': 'PNG', 'image/heic': 'HEIC', 'image/heif': 'HEIF' }
+
+const CATEGORY = {
+  dental: 'Dental', vision: 'Vision', pharmacy: 'Pharmacy', doctor: 'Doctor',
+  hospital: 'Hospital', lab: 'Lab', mental_health: 'Mental health',
+  equipment: 'Equipment', other: 'Other',
+}
+
+const DOC_ICON =
+  '<svg viewBox="0 0 14 16" width="13" height="15" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.4" aria-hidden="true"><path d="M2 1.5h6l4 4v9H2z"/><path d="M8 1.5v4h4"/>' +
+  '<path d="M4.5 8.5h5M4.5 11h5"/></svg>'
+// An EOB, the insurer's word on a visit: a shield, beside the receipts' sheet.
+const EOB_ICON =
+  '<svg viewBox="0 0 14 16" width="13" height="15" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.4" aria-hidden="true"><path d="M7 1.5l5 2v4.3c0 3-2.1 5.4-5 6.7-2.9-1.3-5-3.7-5-6.7V3.5z"/>' +
+  '<path d="M4.8 8.2l1.6 1.6 3-3.2"/></svg>'
+
+/* ── state ────────────────────────────────────────────────────────────────── */
+let patients = new Map()   // id → display name
+let patientList = []       // listPatients(), as the reader's context
+let expenses = []          // listExpenses(): newest service first, each with .documents
+let inbox = { documents: [], drafts: [] }   // listInbox(): documents waiting, and their drafts
+let cards = new Map()      // last4 → is_hsa, the cards answered once for every document
+
+const uploaded = (e) => e.documents.filter(d => d.uploaded_at)
+const incomplete = (e) => e.documents.filter(d => !d.uploaded_at)
+// An expense's documents are its receipts and its EOBs: an EOB is one read
+// in full with no payment found (document_file.no_payment_found), on the
+// expense as the insurer's word on the visit, not as proof of payment.
+const isEob = (d) => d.no_payment_found
+const receipts = (e) => uploaded(e).filter(d => !isEob(d))
+const eobs = (e) => uploaded(e).filter(isEob)
+
+// The status as the table says it, for each step of lifecycleOf() in
+// js/medical-model.js (which the status sort and filter use too).
+const LIFECYCLE_STATUS = {
+  not_submitted: { label: 'Not submitted', className: 'badge' },
+  submitted: { label: 'Submitted', className: 'badge badge--info' },
+  partly_reimbursed: { label: 'Partly reimbursed', className: 'badge badge--warn' },
+  reimbursed: { label: 'Reimbursed', className: 'badge badge--success' },
+  hsa: { label: 'Paid from HSA', className: 'tag' },
+}
+const statusOf = (e) => LIFECYCLE_STATUS[lifecycleOf(e)]
+
+/* ── strip + table ────────────────────────────────────────────────────────── */
+function renderStrip() {
+  const submitted = expenses.filter(e => !e.paid_with_hsa_card && e.reimbursement_status === 'submitted')
+  const noReceipt = expenses.filter(e => !receipts(e).length).length
+  hub.setStrip({
+    hero: { value: fmtUSDc(unreimbursedTotal(expenses)), label: 'Unreimbursed' },
+    stats: [
+      { label: 'Submitted',
+        value: fmtUSDc(submitted.reduce((sum, e) => sum + outstandingCents(e), 0) / 100),
+        context: plural(submitted.length, 'expense') },
+      { label: 'No receipt', value: String(noReceipt), context: `of ${plural(expenses.length, 'expense')}` },
+    ],
+  })
+}
+
+// The icon that opens one kind of an expense's documents in the reader.
+function docsButton(e, kind, n) {
+  const b = button('r-docs')
+  b.dataset.docs = e.id
+  b.dataset.kind = kind
+  const what = kind === 'eob' ? plural(n, 'EOB') : plural(n, 'receipt')
+  b.title = kind === 'eob' ? 'View EOBs' : 'View receipts'
+  b.setAttribute('aria-label', `View ${what}`)
+  b.innerHTML = kind === 'eob' ? EOB_ICON : DOC_ICON
+  b.append(el('span', null, String(n)))
+  return b
+}
+
+function receiptsCell(e) {
+  const td = el('td')
+  const n = receipts(e).length, open = incomplete(e).length
+  if (n) td.append(docsButton(e, 'receipts', n))
+  if (open) td.append(el('span', 'check-flag', `${open} incomplete`))
+  if (!n && !open) { td.className = 'muted'; td.textContent = 'None' }
+  return td
+}
+
+function eobCell(e) {
+  const n = eobs(e).length
+  if (!n) return el('td', 'muted', '—')
+  const td = el('td')
+  td.append(docsButton(e, 'eob', n))
+  return td
+}
+
+function tableRow(e) {
+  const tr = el('tr', cued.has(e.id) ? 'is-cued' : null)
+  tr.dataset.id = e.id
+  const date = el('td', 'label')
+  const edit = button('cell-btn', fmtDay(e.service_date))
+  edit.dataset.edit = e.id
+  date.append(edit)
+  const status = el('td')
+  const s = statusOf(e)
+  status.append(el('span', s.className, s.label))
+  tr.append(
+    date,
+    e.patient_id == null ? el('td', 'muted', 'Unknown') : el('td', null, patients.get(e.patient_id) ?? 'Unknown'),
+    el('td', null, e.provider),
+    el('td', null, CATEGORY[e.category]),
+    el('td', 'num', money(e.amount_paid)),
+    status,
+    receiptsCell(e),
+    eobCell(e),
+  )
+  return tr
+}
+
+// Below 900px: one tappable row per expense, opening the drawer.
+function listRow(e) {
+  const [y, m, d] = e.service_date.split('-')
+  const n = receipts(e).length, k = eobs(e).length
+  const row = button('mlist-row')
+  row.dataset.edit = e.id
+  const when = el('span'), what = el('span'), paid = el('span', 'num')
+  when.append(el('span', 'mlist-row__main', `${MONTHS[+m - 1]} ${+d}`), el('span', 'mlist-row__sub', y))
+  what.append(el('span', 'mlist-row__main', e.provider),
+    el('span', 'mlist-row__sub', `${patientName(e.patient_id)} · ${statusOf(e).label}`))
+  paid.append(el('span', 'mlist-row__main', money(e.amount_paid)),
+    el('span', 'mlist-row__sub', [n ? plural(n, 'receipt') : 'No receipt', k ? plural(k, 'EOB') : null].filter(Boolean).join(' · ')))
+  row.append(when, what, paid)
+  return row
+}
+
+/* ── sort + filter ────────────────────────────────────────────────────────── */
+// How the table is sorted and filtered (sortExpenses and filterExpenses in
+// js/medical-model.js). Kept here, so a repaint keeps it (the list reloads
+// often in a batch); reloading the page starts over.
+const NO_FILTERS = { status: 'all', patient: 'all', category: 'all' }
+let filters = { ...NO_FILTERS }
+let sortBy = { key: 'date', dir: 'desc' }
+// A column's first click: Date and Paid newest or largest first, the text
+// columns A to Z.
+const FIRST_DIR = { date: 'desc', paid: 'desc' }
+// What the patient and category columns show, which they sort by.
+const SHOWN = { patient: patientName, category: (c) => CATEGORY[c] }
+const FILTER_STATUS = {
+  all: 'All', not_submitted: 'Not submitted', submitted: 'Submitted', reimbursed: 'Reimbursed', hsa: 'HSA card',
+}
+
+function sortOn(key) {
+  sortBy = { key, dir: sortBy.key !== key ? FIRST_DIR[key] ?? 'asc' : sortBy.dir === 'asc' ? 'desc' : 'asc' }
+  renderExpenses()
+}
+function setFilter(key, value) {
+  filters[key] = value
+  renderExpenses()
+}
+// The first filter on screen: the cursor's place once a filter it was on
+// is gone.
+const firstFilter = () => [...$('filters').querySelectorAll('button')].find(b => b.offsetParent)
+function clearFilters() {
+  filters = { ...NO_FILTERS }
+  renderExpenses()
+  firstFilter().focus()
+}
+// The cursor moves to the chip that takes the removed one's place (or the
+// one before it), else back to the filters.
+function removeFilter(key, i) {
+  setFilter(key, 'all')
+  const left = $('filter-chips').querySelectorAll('button')
+  ;(left[Math.min(i, left.length - 1)] ?? firstFilter()).focus()
+}
+
+// The filters set, as [key, what its chip says].
+function activeFilters() {
+  const on = []
+  if (filters.status !== 'all') on.push(['status', FILTER_STATUS[filters.status]])
+  if (filters.patient !== 'all') {
+    on.push(['patient', filters.patient === PATIENT_UNKNOWN ? 'Patient unknown' : patientName(filters.patient)])
+  }
+  if (filters.category !== 'all') on.push(['category', CATEGORY[filters.category]])
+  return on
+}
+
+// A picker's options change only when its choices do, and its value only
+// when its filter does, and the chips only when the filters do: a repaint
+// leaves an open menu, and the cursor on a chip, alone.
+const showing = new Map()   // a picker or the chips → what they show, as JSON
+function differs(target, what) {
+  const json = JSON.stringify(what)
+  if (showing.get(target) === json) return false
+  showing.set(target, json)
+  return true
+}
+function setPicker(select, choices, value) {
+  if (differs(select, choices)) select.replaceChildren(...choices.map(([v, text]) => option(v, text)))
+  if (select.value !== value) { select.value = value; select._hubSelect.refresh() }
+}
+
+function paintFilters(on) {
+  for (const b of $('filter-status').children) b.setAttribute('aria-pressed', String(b.dataset.status === filters.status))
+  setPicker($('filter-status-pick'), Object.entries(FILTER_STATUS), filters.status)
+  // Everyone, the patients with expenses, then Unknown. A filter's own
+  // choice stays listed while nothing matches it (its last expense voided).
+  const ids = new Set(expenses.map(e => e.patient_id ?? PATIENT_UNKNOWN)).add(filters.patient)
+  setPicker($('filter-patient'), [['all', 'Everyone'], ...[...patients].filter(([id]) => ids.has(id)),
+    ...(ids.has(PATIENT_UNKNOWN) ? [[PATIENT_UNKNOWN, 'Unknown']] : [])], filters.patient)
+  const cats = new Set(expenses.map(e => e.category)).add(filters.category)
+  setPicker($('filter-category'), [['all', 'All categories'],
+    ...CATEGORIES.filter(c => cats.has(c)).map(c => [c, CATEGORY[c]])], filters.category)
+
+  if (!differs($('filter-chips'), on)) return
+  const chips = on.map(([key, label], i) => {
+    const chip = el('span', 'chip', label)
+    const x = button('chip__x', '×', () => removeFilter(key, i))
+    x.setAttribute('aria-label', `Remove filter: ${label}`)
+    chip.append(x)
+    return chip
+  })
+  if (on.length > 1) chips.push(button('linklike', 'Clear all', clearFilters))
+  $('filter-chips').replaceChildren(...chips)
+  $('filter-chips').hidden = !on.length
+}
+
+// The active column's button carries data-dir, which draws its mark; in
+// the table its th says aria-sort. The list's head has no th, so its
+// button says it in its name.
+function paintSort() {
+  const dir = sortBy.dir === 'asc' ? 'ascending' : 'descending'
+  for (const b of $('expenses').querySelectorAll('[data-sort]')) {
+    const on = b.dataset.sort === sortBy.key
+    if (on) b.dataset.dir = sortBy.dir
+    else delete b.dataset.dir
+    const th = b.closest('th')
+    if (th && on) th.setAttribute('aria-sort', dir)
+    else if (th) th.removeAttribute('aria-sort')
+    else if (on) b.setAttribute('aria-label', `${b.textContent}, sorted ${dir}`)
+    else b.removeAttribute('aria-label')
+  }
+}
+
+// The table and the list as sorted and filtered. The strip still counts
+// every expense.
+function renderExpenses() {
+  const on = activeFilters()
+  paintFilters(on)
+  paintSort()
+  const shown = sortExpenses(filterExpenses(expenses, filters), sortBy, SHOWN)
+  $('expenses-meta').textContent = on.length
+    ? `${shown.length} of ${plural(expenses.length, 'expense')}` : plural(expenses.length, 'expense')
+  // Nothing matches: one line in place of an empty table.
+  $('expenses-none').hidden = shown.length > 0
+  $('expense-table').hidden = $('expense-mlist').hidden = !shown.length
+  $('expense-rows').replaceChildren(...shown.map(tableRow))
+  $('expense-list').replaceChildren(...shown.map(listRow))
+}
+
+function render() {
+  const none = !expenses.length
+  $('expenses').hidden = none
+  renderStrip()
+  renderInbox()
+  if (none) return
+  renderExpenses()
+}
+
+// Many calls overlap in a batch: an older answer never overwrites a newer one.
+let asked = 0, painted = 0
+async function refresh() {
+  const n = ++asked
+  const [list, waiting] = await Promise.all([listExpenses(), listInbox()])
+  if (n > listBehind) listBehind = 0
+  if (n < painted) return
+  painted = n
+  expenses = list.filter(e => !voiding.has(e.id))
+  inbox = waiting
+  for (const job of jobs.values()) job.listed ||= inbox.documents.some(d => d.id === job.doc.id)
+  render()
+  if (upload.open && sheet.step === 'review') paintReview()
+  queueAutoAttach()
+}
+
+// Rows of the expense table, washed for a moment: what was just saved. The
+// wash is kept here, so a repaint in that moment (the list reloads often
+// in a batch) keeps it, and a row that arrives with the reload gets it.
+const cued = new Map()   // expense id → its wash's end, which marks whose timer clears it
+function cue(ids) {
+  const until = Date.now() + 2500
+  for (const id of ids) cued.set(id, until)
+  paintCued()
+  setTimeout(() => {
+    for (const id of ids) if (cued.get(id) === until) cued.delete(id)
+    paintCued()
+  }, 2500)
+}
+function paintCued() {
+  for (const tr of $('expense-rows').children) tr.classList.toggle('is-cued', cued.has(tr.dataset.id))
+}
+
+/* ── to review ────────────────────────────────────────────────────────────── */
+// The one queue. A row is a document from medical.inbox_document, or what
+// only this tab knows: a file whose document row is being made, a file not
+// added, a document saved here while its batch is open. What was dropped
+// here keeps the place it was dropped in, so rows never jump.
+const voidingDocs = new Set()   // document ids discarded on screen, not yet in the database
+const isOpenDraft = (d) => d.expense_id == null && d.discarded_at == null
+const readingHere = (id) => !!jobs.get(id)?.reading
+const adding = new Map()        // key → { file, open, later }: files waiting for their document row
+const refused = new Map()       // key → { name, type, size, message, retry, existing? }: files not added
+const savedHere = new Map()     // document id → { doc, provider, expenses, merged, unknown, cents, ids }: saved or merged in this tab
+const seat = new Map()          // key → its place in the list, for what was dropped here
+let seats = 0
+// The files dropped since the last batch settled, by key (a temp key, then
+// its document id). Settled, its figures stay until the next drop.
+let batch = new Set()
+let settled = true
+const inBatch = (key) => !settled && batch.has(key)
+const listedDoc = (id) => inbox.documents.find(d => d.id === id)
+const docOf = (id) => listedDoc(id) ?? jobs.get(id)?.doc
+
+// A document's drafts: the reading in this tab knows them first.
+function draftsOf(id) {
+  const listed = inbox.drafts.filter(d => d.document_id === id)
+  const job = jobs.get(id)
+  return job && job.drafts.length > listed.length ? job.drafts : listed
+}
+
+// One row: { key, kind, doc, file, refused, saved }, or null once it is
+// gone (discarded, dismissed, or saved or discarded in another tab).
+function rowOf(key) {
+  if (voidingDocs.has(key)) return null
+  const r = refused.get(key), s = savedHere.get(key), a = adding.get(key), job = jobs.get(key)
+  // A document made here that the list hasn't caught up with yet.
+  const doc = s?.doc ?? listedDoc(key) ?? (job && !job.listed
+    ? { ...job.doc, state: job.upload.done ? 'unread' : 'upload_incomplete' } : null)
+  if (!r && !s && !a && !doc) return null
+  // While this tab stores its original the list can only say
+  // upload_incomplete. Until it is read in full here, how far its reading
+  // got says more (Not read yet, Reading stopped, Couldn't read), and
+  // reading it needs only the dropped file.
+  const storing = !!stores.state(key)
+  const read = !!(job?.result?.ok && job.result.complete)
+  const kind = rowKind({
+    state: storing && !read ? (draftsOf(key).length ? 'stopped' : 'unread') : doc?.state ?? null,
+    refused: !!r, saved: !!s,
+    reading: !!job?.reading, queued: reads.state(key) === 'waiting', retrying: retrying.has(key),
+    storing: storing && read, readError: job?.readError ?? null,
+  })
+  return { key, kind: r?.existing !== undefined ? 'already' : kind, doc, file: a?.file, refused: r, saved: s }
+}
+
+// The rows of To review, oldest first, what was dropped here last in drop
+// order. Saved and No payment found rows stay only while their batch is open.
+function queueRows() {
+  const keys = new Set([...inbox.documents.map(d => d.id), ...jobs.keys(), ...savedHere.keys(),
+    ...adding.keys(), ...refused.keys()])
+  const place = (r) => [seat.has(r.key) ? 1 : 0, seat.get(r.key) ?? 0, r.doc?.created_at ?? '', r.key]
+  return [...keys].map(rowOf)
+    .filter(r => r && (r.kind === 'saved' || r.kind === 'nothing_found' ? inBatch(r.key) : true))
+    .sort((a, b) => {
+      const x = place(a), y = place(b)
+      const i = x.findIndex((v, j) => v !== y[j])
+      return i < 0 ? 0 : x[i] < y[i] ? -1 : 1
+    })
+}
+
+// Read in full and nothing to pay for (an EOB, an insurance-only
+// statement): kept as evidence, not work to do.
+const keptRows = () => inbox.documents.map(d => rowOf(d.id)).filter(r => r?.kind === 'nothing_found' && !inBatch(r.key))
+
+// Read in full here, with visits to save, while its original is still on
+// its way: reviewable already; Save waits for the original.
+function readHere(id) {
+  const r = jobs.get(id)?.result
+  return !!(r?.ok && r.complete) && draftsOf(id).some(isOpenDraft)
+}
+// The documents ready to review, in list order. table: the same purchases
+// over the whole list (a document in rows may match one listed before it
+// that rows leave out).
+function readyIds(rows = queueRows(), table = purchaseTable()) {
+  return rows.filter(r => (r.kind === 'ready' || (r.kind === 'storing' && readHere(r.key))) && !autoReady(r.key, table))
+    .map(r => r.key)
+}
+
+// A document on its own reads as a single upload always has: nothing else
+// in the list is being read, waiting or ready, and nothing else was
+// dropped with it.
+function solo(key) {
+  const rows = queueRows()
+  const ready = new Set(readyIds(rows))
+  return !rows.some(r => r.key !== key && (ready.has(r.key) || r.kind === 'reading' || r.kind === 'queued' ||
+    (inBatch(r.key) && r.kind !== 'not_added' && r.kind !== 'already')))
+}
+
+// How many of a document's visits need the user, as the review would count
+// them: a value to check, a card nobody has answered for, or a same
+// purchase as a saved expense to answer.
+function toCheckOf(id, table = purchaseTable()) {
+  const s = sessions.get(id)
+  if (s) return checkCount(s)
+  const open = draftsOf(id).filter(isOpenDraft)
+  const forms = open.map(d => draftForm(d, cards))
+  const openCards = new Set(forms.filter(f => f.card.last4 != null && !cards.has(f.card.last4)).map(f => f.card.last4))
+  // A same purchase as a saved expense needs an answer, unless it merges by
+  // itself into an expense no earlier visit of the document merges into.
+  const autos = open.map((d, i) => autoMerge(draftVisit(d, forms[i].input), table.get(d.id)))
+  const same = (d, i) => table.get(d.id)?.some(m => m.expense) && !autos[i]
+  return open.filter((d, i) => same(d, i) || expenseRow(forms[i].input).error).length + openCards.size + twiceInto(autos)
+}
+
+/* ── same purchase ────────────────────────────────────────────────────────── */
+// A visit is checked against the saved expenses and against the visits of
+// the documents listed before it in To review (samePurchases in
+// js/medical-model.js), with each visit as its review holds it. One pass
+// over the list, made where it is needed and never kept.
+let savedCands = { from: null, list: [] }
+function expenseCands() {
+  if (savedCands.from !== expenses) {
+    savedCands = { from: expenses, list: expenses.map(e => ({ ...expenseVisit(e), id: e.id, e })) }
+  }
+  return savedCands.list
+}
+
+// A waiting document's visits: its open drafts not discarded, with edits.
+function visitsOf(id) {
+  const s = sessions.get(id)
+  return draftsOf(id).filter(d => isOpenDraft(d) && !s?.discarded.has(d.id))
+    .map(d => ({ id: d.id, ...draftVisit(d, s?.forms.get(d.id)?.input) }))
+}
+
+// Map draft id → [{ expense } | { waiting, docId }] over To review.
+const purchaseTable = (rows = queueRows()) =>
+  samePurchases(rows.filter(r => r.doc && r.kind !== 'saved').map(r => ({ id: r.key, visits: visitsOf(r.key) })),
+    expenseCands())
+
+// A kept document's no-payment visits (an EOB's claims) that match saved
+// expenses (eobMatches: the same patient, date and amount; the provider an
+// EOB prints is its billing entity) and aren't attached yet: [{ visit,
+// cands }], cands the expenses each could be. A claim counts as attached
+// once the document is on one of them. A day matched on its claims' total
+// is one visit, in the first claim's words, with claims: how many.
+function attachMatches(doc) {
+  const visits = (doc.no_payment ?? []).map((v, i) => ({ id: `${doc.id}:${i}`, ...noPaymentVisit(v) }))
+  const on = (c) => c.e.documents.some(d => d.id === doc.id)
+  return eobMatches(visits, expenseCands()).filter(m => !m.cands.some(on))
+    .map(({ visits: vs, cents, cands }) =>
+      ({ visit: { ...vs[0], id: vs.map(v => v.id).join('+'), cents, claims: vs.length }, cands }))
+}
+// Of those, the ones Attach would act on: not set to "None of these".
+const attachable = (doc) => attachMatches(doc).filter(m => picks.get(m.visit.id) !== 'none')
+// The saved expenses a document is on.
+const attachedTo = (id) => expenses.filter(e => e.documents.some(d => d.id === id))
+
+// What a visit is the same purchase as, in one line.
+const purchaseText = (c, who = false) => [c.e?.provider ?? c.provider,
+  who ? (c.patient_id == null ? 'patient unknown' : patients.get(c.patient_id) ?? null) : null,
+  c.service_date ? fmtDay(c.service_date) : null, c.cents == null ? null : fmtUSDc(c.cents / 100)].filter(Boolean).join(' · ')
+
+// Where the live copy of a file already uploaded is, for its line:
+// { text, label, go }, label and go null when it can't be found here.
+function whereOf(existing) {
+  // A kept document first, attached or not: its row is where Attach is.
+  if (rowOf(existing)?.kind === 'nothing_found') {
+    return { text: 'Already uploaded: kept with no payment found', label: 'Open it', go: () => openFrom(() => revealRow(existing)) }
+  }
+  const saved = attachedTo(existing)
+  if (saved.length) {
+    const e = saved[0]
+    return { text: `Already uploaded: ${e.provider} · ${fmtDay(e.service_date)}` +
+      (saved.length > 1 ? ` and ${saved.length - 1} more` : ''), label: 'Open it', go: () => openFrom(() => openEdit(e.id)) }
+  }
+  const doc = docOf(existing)
+  if (doc) return { text: 'Already uploaded: waiting in To review', label: 'Open it', go: () => openFrom(() => openWaiting(existing)) }
+  return { text: 'Already uploaded.', label: null, go: null }
+}
+// The line itself: the place, then its link.
+function whereLine(existing) {
+  const w = whereOf(existing)
+  const line = el('div', 'ingest-queue__note', w.label ? `${w.text} · ` : w.text)
+  if (w.label) line.append(button('linklike', w.label, w.go))
+  return line
+}
+// From the expense drawer, the link goes on once it has closed (its close
+// handler clears the drawer first).
+function openFrom(go) {
+  if (!drawer.open) { go(); return }
+  drawer.addEventListener('close', () => { if (!drawer.open) go() }, { once: true })
+  drawer.close()
+}
+// A document's row, in To review or in the kept list (opened), brought
+// into view with the cursor on its first command.
+function revealRow(id) {
+  const kept = $('kept-list').querySelector(`[data-key="${id}"]`)
+  if (kept) $('kept').open = true
+  const li = kept ?? $('inbox-list').querySelector(`[data-key="${id}"]`)
+  li?.scrollIntoView({ block: 'nearest' })
+  li?.querySelector('button')?.focus()
+}
+// A document still in To review: its review when it is ready, else its
+// reading screen, else its row.
+function openWaiting(id) {
+  if (readyIds().includes(id)) openReview(id)
+  else if (jobs.has(id) && (readingHere(id) || reads.state(id))) showJob(id)
+  else $('inbox-list').querySelector(`[data-key="${id}"]`)?.scrollIntoView({ block: 'nearest' })
+}
+
+/* ── saving what needs no check ───────────────────────────────────────────── */
+// A document read in full here whose every visit passes every check (its
+// patient matched, every value read and valid, its card known or none
+// printed) is saved without a review, once its original is stored.
+// Anything flagged, a new card, a stopped reading, a document opened for
+// review, a visit that prints no patient, or one that is the same purchase
+// as a saved expense or a visit listed before it stays in To review, unless
+// it merges by itself (autoMerge: the same visit at the same amount, or a
+// slip and its visit within the card fee).
+const autoSaved = new Set()   // document ids saved without a review, in this tab
+let autoSaving = Promise.resolve()
+// A review's Save, from the call until the list has reloaded after it:
+// meanwhile the list doesn't hold what it saved, so nothing saves itself.
+let holding = 0
+// The list didn't reload after a save here: its new expenses aren't
+// candidates for the same purchase yet, so nothing saves itself until a
+// reload asked after that one succeeds (an older one may answer later,
+// from before the save). The number of the last reload asked then, or 0.
+let listBehind = 0
+
+function autoReady(id, table = null) {
+  const r = jobs.get(id)?.result
+  if (!r?.ok || !r.complete || voidingDocs.has(id) || sessions.has(id) || listBehind || holding) return false
+  const open = draftsOf(id).filter(isOpenDraft)
+  const known = (d) => { const p = draftForm(d, cards).input.patient_id; return p === PATIENT_UNKNOWN || patients.has(p) }
+  if (!open.length || !open.every(known)) return false
+  table ??= purchaseTable()
+  return !toCheckOf(id, table) && autoSavable(visitsOf(id), table)
+}
+
+// After a save here: a document read in this tab that waited only on that
+// one (its visit matched one still waiting) may now save itself.
+function recheckAuto() {
+  for (const [id, job] of jobs) {
+    if (!job.reading && job.result?.ok && job.result.complete && job.upload.done && autoReady(id)) queueAutoSave(id, false)
+  }
+}
+
+// One at a time, so two finishing together never race each other.
+const queueAutoSave = (id, one) => (autoSaving = autoSaving.then(() => autoSave(id, one)))
+
+async function autoSave(id, one) {
+  if (!autoReady(id) || !jobs.get(id).upload.done) return false
+  const info = docInfo(id)
+  const s = sessionFor(id)   // the values and choices exactly as the review would show them
+  syncMatches(s)
+  const { forms, discarded } = s
+  const items = saveItems(info.drafts, forms, discarded, choicesToSave(s))
+  sessions.delete(id)
+  let saved
+  try {
+    saved = await saveDocument(id, items)
+  } catch (e) {
+    // Left for a review; Save there says what is wrong.
+    docErrors.set(id, `Not saved automatically: ${sentence(e.message)}`)
+    try { await refresh() } catch {}
+    renderInbox()
+    return false
+  }
+  const made = items.filter(x => x.action === 'save')
+  const joined = items.filter(x => x.action === 'merge')
+  const into = joined.length ? expenses.find(e => e.id === joined[0].expense_id)?.provider : null
+  const first = made.length ? forms.get(made[0].draft_id)?.input.provider : into ?? info.doc.original_filename
+  const cents = made.reduce((sum, x) => sum + (parseCents(x.amount_paid) ?? 0), 0)
+  const ids = saved.map(x => x.expense_id)
+  const done = { expenses: made.length, merged: joined.length, unknown: made.filter(x => x.patient_id == null).length }
+  jobs.delete(id)
+  URL.revokeObjectURL(localUrls.get(id))
+  localUrls.delete(id)
+  savedHere.set(id, { doc: info.doc, provider: first, ...done, cents, ids })
+  autoSaved.add(id)
+  try { await refresh() } catch (e) {
+    listBehind = asked
+    notify({ tone: 'error', message: `Saved, but the list didn't reload: ${e.message}` })
+  }
+  const message = savedSentence({ first, name: info.doc.original_filename, cents, into, ...done }) + ' Nothing needed a check.'
+  recheckAuto()
+  // A drawer waiting for it moves on; one busy with another document says so.
+  if (upload.open && (sheet.step === 'wait' || sheet.docId === id)) {
+    if (showNext()) { if (sheet.step === 'review') handedOver(); say(message) }
+  } else if (upload.open) say(message)
+  if (!upload.open) {
+    if (one) {
+      const note = notify({ tone: 'success', timeout: 6000, message,
+        action: new Set(ids).size === 1 ? { label: 'Open', onClick: () => { note.dismiss(); openEdit(ids[0]) } } : undefined })
+    }
+    cue(ids)
+  }
+  return true
+}
+
+// What one save did, as a row's meta and a sentence: new expenses (those
+// with the patient unknown among them) and visits joined to saved ones.
+function savedParts({ expenses: n, merged, unknown }) {
+  return [n ? plural(n, 'expense') : null,
+    merged ? (merged === 1 ? '1 joined a saved visit' : `${merged} joined saved visits`) : null,
+    unknown ? `${unknown} patient unknown` : null].filter(Boolean)
+}
+function savedSentence({ first, name, cents, expenses: n, merged, unknown, into }) {
+  if (n === 1 && !merged) return `Saved ${first} · ${fmtUSDc(cents / 100)}${unknown ? ', patient unknown' : ''}.`
+  if (!n && merged === 1) return `Merged ${name} into ${into}.`
+  return `Saved ${name}: ${savedParts({ expenses: n, merged, unknown }).join(', ')}.`
+}
+
+const STATUS = {
+  not_added: ['Not added', 'is-failed'], queued: ['Queued'], reading: ['Reading…', 'is-working'],
+  storing: ['Storing…', 'is-working'], retrying: ['Retrying…', 'is-working'],
+  stopped: ['Reading stopped', 'is-attention'], unread: ['Not read yet'], couldnt_read: ["Couldn't read", 'is-failed'],
+  upload_incomplete: ['Upload incomplete', 'is-failed'], nothing_found: ['No payment found'], saved: ['Saved', 'is-done'],
+  already: ['Not added'],
+}
+
+function queueItem(r, table) {
+  const { key, kind, doc } = r
+  const li = el('li', 'ingest-queue__item')
+  li.dataset.key = key
+  const main = el('div', 'ingest-queue__main')
+  const line = (name, ...meta) => main.append(el('div', 'ingest-queue__name', name),
+    el('div', 'ingest-queue__meta', meta.filter(Boolean).join(' · ')))
+  const actions = el('div', 'ingest-queue__actions')
+  const act = (text, onClick) => actions.append(button('stmt-act', text, onClick))
+  let [word, tone] = STATUS[kind] ?? []
+  if (kind === 'ready') {
+    const n = toCheckOf(key, table)
+    ;[word, tone] = n ? [`${n} to check`, 'is-attention'] : ['Ready', 'is-done']
+  }
+  if (kind === 'saved' && autoSaved.has(key)) word = 'Saved automatically'
+  else if (kind === 'saved' && !r.saved.expenses) word = 'Merged'
+  actions.append(el('span', tone ? `ingest-queue__status ${tone}` : 'ingest-queue__status', word))
+  if (r.refused) {
+    const { name, type, size, retry } = r.refused
+    line(name, TYPE[type], size ? fmtSize(size) : null)
+    if (retry) act('Try again', () => addAgain(key))
+    act('Dismiss', () => { refused.delete(key); renderInbox() })
+  } else if (r.saved) {
+    const { provider, expenses: n, cents } = r.saved
+    line(provider, ...savedParts(r.saved), n ? fmtUSDc(cents / 100) : null, doc.original_filename)
+  } else if (r.file) {
+    line(r.file.name, TYPE[r.file.type], fmtSize(r.file.size))
+    // A row being made can't be taken back; one waiting for its turn can.
+    if (intake.state(key) === 'waiting') act('Discard', () => dropFile(key))
+  } else {
+    const drafts = draftsOf(key)
+    const provider = drafts[0]?.extracted.fields.provider.value
+    if (drafts.length) {
+      line(provider || doc.original_filename, plural(drafts.length, 'visit') + (kind === 'reading' ? ' so far' : ''),
+        provider ? doc.original_filename : null, fmtShort(doc.created_at))
+    } else line(doc.original_filename, TYPE[doc.mime], fmtSize(Number(doc.byte_size)))
+    const discard = () => act('Discard', () => discardDoc(key))
+    if (kind === 'queued') discard()
+    else if (kind === 'reading') act('Review', () => showJob(key))
+    else if (kind === 'storing') act('Review', () => (drafts.some(isOpenDraft) ? openReview(key) : showJob(key)))
+    else if (kind === 'ready') { act('Review', () => openReview(key)); discard() }
+    else if (kind === 'stopped') { act('Continue reading', () => queueRead(key)); discard() }
+    else if (kind === 'unread') { act('Read it', () => queueRead(key)); discard() }
+    else if (kind === 'couldnt_read') { act('Read it again', () => queueRead(key)); discard() }
+    else if (kind === 'upload_incomplete') {
+      if (needsFile.has(key)) act('Choose the file', () => chooseAndRetry(docOf(key)))
+      else act('Retry upload', () => retryDoc(docOf(key)))
+      if (drafts.some(isOpenDraft)) act('Review', () => openReview(key))
+      discard()
+    } else if (kind === 'nothing_found') {
+      act('View', () => viewDoc(key))
+      if (attachable(doc).length) act(attaching.has(key) ? 'Attaching…' : 'Attach', () => attachKept(key))
+      // Attached, it is an expense's receipt: voiding it would take it away from there.
+      if (!attachedTo(key).length) act('Void', () => discardDoc(key, 'Voided'))
+    }
+  }
+  li.append(main, actions)
+  if (r.refused?.existing !== undefined) li.append(whereLine(r.refused.existing))
+  if (kind === 'nothing_found') li.append(...attachLines(doc))
+  for (const e of [r.refused?.message, kind === 'couldnt_read' ? jobs.get(key).readError : null, docErrors.get(key)]) {
+    if (e) li.append(el('div', 'ingest-queue__error', e))
+  }
+  return li
+}
+
+// Read in full and nothing to pay for: kept as evidence, not work to do.
+// What it is attached to is said; a visit on it that matches a saved
+// expense it isn't on yet says so too, and Attach links it.
+function keptItem(doc) {
+  const li = el('li', 'ingest-queue__item')
+  li.dataset.key = doc.id
+  const main = el('div', 'ingest-queue__main')
+  main.append(el('div', 'ingest-queue__name', doc.original_filename),
+    el('div', 'ingest-queue__meta', `No payment found · ${fmtShort(doc.created_at)}`))
+  const actions = el('div', 'ingest-queue__actions')
+  const again = rereads.state(doc.id)
+  if (again) {
+    actions.append(again === 'running'
+      ? el('span', 'ingest-queue__status is-working', 'Reading again…') : el('span', 'ingest-queue__status', 'Queued'))
+  }
+  actions.append(button('stmt-act', 'View', () => viewDoc(doc.id)))
+  if (attachable(doc).length && !again) {
+    actions.append(button('stmt-act', attaching.has(doc.id) ? 'Attaching…' : 'Attach', () => attachKept(doc.id)))
+  }
+  if (!attachedTo(doc.id).length && !again) actions.append(button('stmt-act', 'Void', () => discardDoc(doc.id, 'Voided')))
+  li.append(main, actions, ...attachLines(doc))
+  const e = docErrors.get(doc.id)
+  if (e) li.append(el('div', 'ingest-queue__error', e))
+  return li
+}
+
+/* ── attach ───────────────────────────────────────────────────────────────── */
+// A kept document (an EOB) whose claims match saved expenses is attached to
+// them, whichever was uploaded first: by itself when a claim can be one
+// expense only (autoAttach), else with one click once the user has picked.
+const attaching = new Set()   // document ids being attached
+const picks = new Map()       // visit id → the expense id picked, or 'none'
+
+// Each line puts the document's own words for the visit beside the
+// expense it could be, so a same-day purchase elsewhere is easy to turn down.
+function attachLines(doc) {
+  const on = attachedTo(doc.id).map(e =>
+    el('div', 'ingest-queue__note', `Attached to ${purchaseText({ ...expenseVisit(e), e }, true)}`))
+  return [...on, ...attachMatches(doc).map(({ visit, cands }) => {
+    const line = el('div', 'ingest-queue__note')
+    const printed = `${visit.provider ? `“${visit.provider}”, ` : ''}${fmtDay(visit.service_date)}` +
+      (visit.claims > 1 ? `, ${visit.claims} claims` : '')
+    if (cands.length === 1) {
+      line.textContent = `${printed}: same visit as ${purchaseText(cands[0], true)}`
+      return line
+    }
+    const sel = el('select')
+    sel.dataset.visit = visit.id
+    sel.setAttribute('aria-label', `Which expense is the visit of ${fmtDay(visit.service_date)}?`)
+    sel.append(option('', 'Choose the expense', true),
+      ...cands.map(c => option(c.id, purchaseText(c, true))), option('none', 'None of these'))
+    for (const o of sel.options) o.defaultSelected = o.value === (picks.get(visit.id) ?? '')
+    sel.addEventListener('change', () => { picks.set(visit.id, sel.value); docErrors.delete(doc.id); renderInbox() })
+    line.append(`${printed}: same visit as `, sel)
+    return line
+  })]
+}
+
+async function attachKept(id) {
+  const doc = listedDoc(id)
+  if (!doc || attaching.has(id)) return
+  const ms = attachable(doc)
+  const open = ms.find(m => m.cands.length > 1 && !picks.has(m.visit.id))
+  if (open) {
+    docErrors.set(id, 'Choose the expense for each visit first.')
+    renderInbox()
+    const sel = document.querySelector(`select[data-visit="${CSS.escape(open.visit.id)}"]`)
+    sel?.closest('.hub-select')?.querySelector('.hub-select__btn')?.focus()
+    return
+  }
+  const ids = [...new Set(ms.map(m => (m.cands.length === 1 ? m.cands[0].id : picks.get(m.visit.id))))]
+  docErrors.delete(id)
+  if (!ids.length) { renderInbox(); return }
+  attaching.add(id)
+  renderInbox()
+  try {
+    await attachDocument(id, ids)
+  } catch (e) {
+    attaching.delete(id)
+    docErrors.set(id, `Couldn't attach it: ${sentence(e.message)}`)
+    renderInbox()
+    return
+  }
+  attaching.delete(id)
+  for (const m of ms) picks.delete(m.visit.id)
+  try { await refresh() } catch (e) { notify({ tone: 'error', message: `Attached, but the list didn't reload: ${e.message}` }) }
+  notify({ tone: 'success', timeout: 5000,
+    message: `Attached ${doc.original_filename} to ${ids.length === 1 ? expenses.find(e => e.id === ids[0])?.provider ?? 'its expense' : plural(ids.length, 'expense')}.` })
+  cue(ids)
+}
+
+// Each time the list reloads, a kept document attaches by itself to every
+// expense one of its claims can only be (the same patient, date and amount
+// to the cent), so one kept before its expense was saved gets it then. One
+// run at a time; a refusal is said on the row and not tried again here.
+const autoTried = new Set()   // a document id with the expense ids it was attached to by itself
+let autoAttaching = Promise.resolve()
+function queueAutoAttach() { autoAttaching = autoAttaching.then(autoAttach) }
+
+async function autoAttach() {
+  // A document or expense being voided (in its grace), or one being attached by hand, is left alone.
+  const free = (d) => d.state === 'nothing_found' && !voidingDocs.has(d.id) && !attaching.has(d.id)
+  const work = inbox.documents.filter(free)
+    .map(d => ({ d, ids: [...new Set(attachMatches(d).filter(m => m.cands.length === 1).map(m => m.cands[0].id))] }))
+    .filter(({ d, ids }) => ids.length && !autoTried.has(`${d.id} ${ids}`))
+  if (!work.length) return
+  const done = []
+  for (const { d, ids } of work) {
+    if (!free(d) || ids.some(id => voiding.has(id))) continue
+    autoTried.add(`${d.id} ${ids}`)
+    attaching.add(d.id)
+    try {
+      await attachDocument(d.id, ids)
+      done.push({ d, ids })
+    } catch (e) {
+      docErrors.set(d.id, `Not attached automatically: ${sentence(e.message)}`)
+    }
+    attaching.delete(d.id)
+  }
+  try { await refresh() } catch (e) { notify({ tone: 'error', message: `The list didn't reload: ${e.message}` }) }
+  renderInbox()
+  if (!done.length) return
+  const [{ d, ids }] = done
+  const message = done.length > 1 ? `Attached ${plural(done.length, 'document')} to their expenses by themselves.`
+    : `Attached ${d.original_filename} to ${ids.length > 1 ? plural(ids.length, 'expense')
+      : expenses.find(e => e.id === ids[0])?.provider ?? 'its expense'} by itself.`
+  if (upload.open) say(message)
+  else {
+    notify({ key: 'auto-attach', tone: 'success', timeout: 6000, message })
+    cue(done.flatMap(x => x.ids))
+  }
+}
+
+// Repaint a list in place: a row whose content is unchanged isn't touched,
+// so a click on it (or an open dropdown) is never lost, and when a row is
+// replaced the cursor stays on the same button of it. Rows compare as
+// built, before their dropdowns are dressed.
+function patchList(list, items) {
+  const had = list.contains(document.activeElement) ? document.activeElement : null
+  const old = new Map([...list.children].map(li => [li.dataset.key, li]))
+  const rows = items.map(li => {
+    li.dataset.built = li.outerHTML
+    const was = old.get(li.dataset.key)
+    return was?.dataset.built === li.dataset.built ? was : li
+  })
+  for (const li of [...list.children]) if (!rows.includes(li)) li.remove()
+  rows.forEach((li, i) => { if (list.children[i] !== li) list.insertBefore(li, list.children[i] ?? null) })
+  enhanceWithin(list)
+  if (had && !had.isConnected) {
+    const li = rows.find(x => x.dataset.key === had.closest('li')?.dataset.key)
+    ;[...(li?.querySelectorAll('button') ?? [])].find(b => b.textContent === had.textContent)?.focus()
+  }
+}
+
+const BUSY = new Set(['queued', 'reading', 'storing', 'retrying', 'ready'])
+
+function renderInbox() {
+  // Nothing of the batch left to make, store, read or review: it settles.
+  // Its Saved rows leave, its No payment found rows join Kept, what it
+  // saved is washed in the table, and its figures stay.
+  if (!settled && ![...batch].some(k => BUSY.has(rowOf(k)?.kind))) {
+    settled = true
+    cue([...savedHere].filter(([id]) => batch.has(id)).flatMap(([, s]) => s.ids))
+  }
+  const rows = queueRows()
+  const docs = rows.filter(r => !['not_added', 'already', 'saved'].includes(r.kind))
+  const later = rows.filter(r => ['unread', 'stopped', 'couldnt_read', 'queued'].includes(r.kind)).length
+  // With no expenses and nothing listed, the drop target is the empty page.
+  const empty = !expenses.length && !rows.length
+  $('state-empty').hidden = !empty
+  $('inbox').hidden = false
+  $('inbox-meta').textContent = docs.length
+    ? [plural(docs.length, 'document'), later ? `${later} not read yet` : null].filter(Boolean).join(' · ')
+    : 'Nothing waiting'
+  const table = purchaseTable(rows)
+  $('inbox-next').hidden = upload.open || !readyIds(rows, table).length
+  paintCommand(rows)
+  paintStats()
+  $('queue-drop').classList.toggle('dropzone--page', empty)
+  $('queue-drop').classList.toggle('dropzone--compact', !empty)
+  $('queue-aside').hidden = !empty
+  $('empty-note').hidden = !empty
+  $('inbox-note').hidden = !docs.length
+  $('inbox-list').hidden = !rows.length
+  patchList($('inbox-list'), rows.map(r => queueItem(r, table)))
+  const kept = keptRows()
+  const canAttach = kept.filter(r => attachable(r.doc).length).length
+  const before = inbox.documents.filter(toReadAgain).length
+  $('kept').hidden = !kept.length
+  $('kept-summary').textContent = `${plural(kept.length, 'document')} with no payment found` +
+    (canAttach ? ` · ${canAttach} can be attached` : '') +
+    (rereads.size ? ` · reading ${rereads.size} again` : before ? ` · ${before} to read again` : '')
+  $('kept-again').hidden = !before || !!rereads.size
+  patchList($('kept-list'), kept.map(r => keptItem(r.doc)))
+  if (upload.open && sheet.step === 'review') { paintPager(); paintStatus() }
+  else paintReading()
+}
+
+// The list's one queue command. Stop reading while a reading is still to
+// start (waiting, or due once its row is made); with only running ones
+// left, which can't be stopped, Read the rest when there is a rest (files
+// held back by a stop count before their rows are made).
+function paintCommand(rows) {
+  const making = [...adding.values()]
+  const readable = making.some(a => a.later) || rows.some(r => ['unread', 'stopped', 'couldnt_read'].includes(r.kind))
+  const due = reads.size > reads.running || making.some(a => !a.later)
+  const cmd = halted?.kind === 'session' ? 'Reload'
+    : halted ? 'Read the rest'
+    : due || (reads.running && !readable) ? 'Stop reading'
+    : readable ? 'Read the rest' : null
+  $('inbox-cmd').hidden = !cmd
+  setText($('inbox-cmd'), cmd ?? '')
+}
+
+// The batch's tally. A document read in full here while its original is
+// still storing counts as what it was read as: ready, as the pager and
+// Review next count it, or no payment found.
+function batchTally() {
+  const rows = [...batch].map(rowOf).filter(Boolean)
+  const ready = new Set(readyIds(rows))
+  return batchCounts(rows.map(r => ({
+    kind: ready.has(r.key) ? 'ready' : r.kind === 'storing' ? 'nothing_found' : r.kind,
+    expenses: r.saved?.expenses ?? 0,
+  })))
+}
+
+// The batch's figures, from its first drop until a reload.
+function paintStats() {
+  $('queue-stats').hidden = !batch.size
+  if (!batch.size) return
+  const c = batchTally()
+  $('queue-stats').replaceChildren(
+    statItem('Read', `${c.read} of ${c.of}`),
+    statItem('To review', String(c.toReview), c.toReview > 0),
+    statItem('Expenses saved', String(c.saved)),
+    ...(c.already ? [statItem('Already uploaded', String(c.already))] : []),
+    ...(c.failed ? [statItem('Failed', String(c.failed), true)] : []))
+}
+
+// Discard a waiting document: off the list now, voided after the grace.
+// The original stays in R2 and the export; its open drafts can't be saved.
+// In the drawer it moves on like Save, with Undo in the said-line.
+function discardDoc(id, verb = 'Discarded') {
+  const name = docInfo(id).doc.original_filename
+  const was = readyIds()
+  const queued = reads.drop(id)
+  const here = upload.open && sheet.docId === id
+  voidingDocs.add(id)
+  render()
+  const moved = here && showNext(id, was)
+  if (moved) handedOver()
+  const reload = () => refresh().catch(err => notify({ tone: 'error', message: `The list didn't reload: ${err.message}` }))
+  const commit = setTimeout(async () => {
+    try {
+      await voidDocument(id)
+      sessions.delete(id)
+      jobs.delete(id)
+    } catch (err) {
+      notify({ tone: 'error', message: `Couldn't discard ${name}: ${err.message}` })
+    }
+    voidingDocs.delete(id)
+    reload()
+  }, 6000)
+  // Back in its place; a document that was waiting to be read waits again, last.
+  const undo = () => {
+    clearTimeout(commit)
+    voidingDocs.delete(id)
+    if (queued && !halted) queueRead(id)
+    render()
+  }
+  const toast = (timeout) => {
+    const note = notify({
+      tone: 'info', timeout,
+      message: `${verb} ${name}. It stays in the export.`,
+      action: { label: 'Undo', onClick: () => { note.dismiss(); undo() } },
+    })
+  }
+  if (moved) say(`${verb} ${name}.`, { label: 'Undo', onClick: undo }, toast)
+  else toast(6000)
+}
+
+// A file still waiting for its document row: nothing is stored yet, so it
+// just leaves the line.
+function dropFile(key) {
+  const { file } = adding.get(key)
+  if (!intake.drop(key)) return
+  adding.delete(key)
+  renderInbox()
+  const note = notify({
+    tone: 'info', timeout: 6000,
+    message: `Discarded ${file.name}. Nothing was stored.`,
+    action: { label: 'Undo', onClick: () => { note.dismiss(); addAgain(key, file) } },
+  })
+}
+
+/* ── reading ──────────────────────────────────────────────────────────────── */
+// Three lines, in this tab: intake makes document rows one at a time, in
+// drop order (so list order is reading order); stores puts originals, two
+// at a time; reads reads three at a time. A stalled upload holds up no row
+// and no reading. Closing the drawer stops none of them.
+// jobs: document id → { doc, drafts, reading, result, readError,
+//                       upload: { p, done, error }, t0, listed }
+const READS_AT_ONCE = 3
+const jobs = new Map()
+const localUrls = new Map()   // document id → object URL of the file dropped this session
+// The last file can be refused after the last reading ends: the batch's
+// toast is still due then.
+const intake = runQueue(1, addFile, () => { if (!reads.size) batchRead() })
+const stores = runQueue(2, storeJob)
+const reads = runQueue(READS_AT_ONCE, readJob, batchRead)
+let halted = null             // { kind, error }: readings stopped for a reason that isn't a document's
+let stopNote = null           // that stop's toast
+let readNote = null           // the batch's toast once every reading finished
+let summarize = false         // a batch's readings are under way: its toast is still to come
+let leaving = false           // a reload on purpose: no leave-page prompt
+
+/* ── reading kept documents again ─────────────────────────────────────────── */
+// A kept document read before the reader read each claim's share can't
+// attach by itself; read again, it can. Paid like any reading, so only by
+// hand (Read kept again), three at a time, from the stored original. A
+// stop that isn't the document's stops these too; Read the rest goes on.
+const SHARES_SINCE = '2026-10-10.1'   // the first medical_receipt version that reads shares
+const readBefore = (d) => d.state === 'nothing_found' && !!d.uploaded_at && (d.profile_version ?? '') < SHARES_SINCE
+const rereads = runQueue(READS_AT_ONCE, rereadJob, () => renderInbox())
+const refusedAgain = new Set()   // document ids read again here whose new reading wasn't kept: not offered again until a reload
+let againAfterStop = false       // a stop ended this line: Read the rest starts it again
+const toReadAgain = (d) => readBefore(d) && !refusedAgain.has(d.id) && !voidingDocs.has(d.id)
+
+function readKeptAgain() {
+  if (halted) clearStop()
+  for (const d of inbox.documents) if (toReadAgain(d)) { docErrors.delete(d.id); rereads.add(d.id) }
+  renderInbox()
+}
+
+async function rereadJob(id) {
+  const doc = listedDoc(id)
+  if (!doc || voidingDocs.has(id)) return
+  renderInbox()
+  let r
+  try {
+    r = await readAgain(doc, { patients: patientList, since: SHARES_SINCE })
+  } catch (e) {
+    r = { ok: false, error: e.message }
+  }
+  const why = pauseOf(r)
+  if (why) { againAfterStop = true; stop(why, r.error) }
+  else if (r.refused) { refusedAgain.add(id); docErrors.set(id, r.error) }
+  else if (!r.ok) docErrors.set(id, `Couldn't read it again: ${sentence(r.error)}`)
+  try { await refresh() } catch (e) { notify({ tone: 'error', message: `The list didn't reload: ${e.message}` }) }
+}
+
+const MB = 1024 * 1024
+// What is refused before anything is stored, from the size.
+function doorCheck(file) {
+  if (file.size > 15 * MB) return 'This file is over 15 MB. Scan it smaller.'
+  if (!file.size) return 'The file is empty.'
+  return null
+}
+
+// A drop after the batch settled starts a new one.
+function joinBatch(keys) {
+  if (settled) { batch = new Set(); readNote?.dismiss() }
+  settled = false
+  for (const k of keys) batch.add(k)
+}
+
+// Files dropped anywhere on the page (folders opened) or picked: each is a
+// row at once, then made, stored and read in turn. Closed, the drawer opens
+// at the next thing to do; open, it stays and says what was added.
+function addFiles(files, unreadable = []) {
+  const keys = [], fresh = []
+  const place = (r) => {
+    const key = `f${++seats}`
+    seat.set(key, seats)
+    keys.push(key)
+    if (r) refused.set(key, r)
+    return key
+  }
+  for (const file of files) {
+    const no = doorCheck(file)
+    if (no) { place({ name: file.name, type: file.type, size: file.size, message: no, retry: null }); continue }
+    const key = place()
+    adding.set(key, { file, open: false })
+    fresh.push(key)
+  }
+  for (const path of unreadable) place({ name: path, type: '', size: null, message: "This file can't be read.", retry: null })
+  if (!keys.length) return
+  joinBatch(keys)
+  // One file on its own is a single upload: the drawer opens at its
+  // reading screen once its row exists.
+  const one = fresh.length === 1 && !upload.open && solo(fresh[0])
+  if (one) adding.get(fresh[0]).open = true
+  for (const key of fresh) intake.add(key)
+  renderInbox()
+  const waiting = adding.size + reads.size - reads.running
+  const added = [fresh.length ? `Added ${fresh.length}` : null,
+    keys.length > fresh.length ? `${keys.length - fresh.length} not added` : null].filter(Boolean).join(' · ') +
+    '.' + (waiting > fresh.length ? ` ${waiting} in the queue.` : '')
+  if (upload.open) say(added)
+  else if (!fresh.length) $('inbox-list').querySelector(`[data-key="${keys[0]}"]`)?.scrollIntoView({ block: 'nearest' })
+  else if (!one && !drawer.open && !reader.open) { showNext(); say(added) }
+}
+
+// Back in line: a file whose row couldn't be made, or one discarded before.
+function addAgain(key, file = refused.get(key).retry) {
+  refused.delete(key)
+  joinBatch([key])
+  adding.set(key, { file, open: false })
+  intake.add(key)
+  renderInbox()
+}
+
+// A file's document row (hash, add_document); then it is stored and read.
+async function addFile(key) {
+  const entry = adding.get(key)
+  if (!entry) return
+  const { file } = entry
+  try {
+    const { document, readable } = await createDocument(file)
+    const id = document.id
+    held.set(id, file)
+    // A HEIC photo is shown by its JPEG copy: only Safari shows HEIC.
+    localUrls.set(id, URL.createObjectURL(readable ? new Blob([readable], { type: 'image/jpeg' }) : file))
+    jobs.set(id, {
+      doc: { ...document, uploaded_at: null, created_at: new Date().toISOString() },
+      drafts: [], reading: false, result: null, readError: null,
+      upload: { p: 0, done: false, error: null }, listed: false,
+    })
+    // The row keeps its place, and its place in the batch, under its id.
+    seat.set(id, seat.get(key))
+    batch = new Set([...batch].map(k => (k === key ? id : k)))
+    adding.delete(key)
+    stores.add(id)
+    // Stopped by hand while it waited for its row: it waits as Not read yet.
+    if (!halted && !entry.later) queueRead(id)
+    if (entry.open && reads.state(id) && !upload.open && !drawer.open && !reader.open) showJob(id)
+  } catch (e) {
+    // An RPC or network failure carries a string code: the file is fine and
+    // can try again. Anything else is the file's own refusal; a file already
+    // uploaded says where it is instead (existing).
+    const failed = typeof e.code === 'string'
+    refused.set(key, 'existing' in e
+      ? { name: file.name, type: file.type, size: file.size, retry: null, message: null, existing: e.existing }
+      : { name: file.name, type: file.type, size: file.size, retry: failed ? file : null,
+          message: failed ? `Couldn't start: ${sentence(e.message)} Nothing was stored.` : e.message })
+  } finally {
+    adding.delete(key)
+    renderInbox()
+  }
+}
+
+// Store a dropped file's original. Its reading doesn't wait for this; Save does.
+async function storeJob(id) {
+  const job = jobs.get(id)
+  if (!job) return
+  try {
+    await storeFile(job.doc, held.get(id), {
+      onProgress: (p) => {
+        job.upload.p = p
+        paintReading()
+        if (upload.open && sheet.docId === id && sheet.step === 'review') paintStatus()
+      },
+    })
+    job.upload.done = true
+    job.doc.uploaded_at = new Date().toISOString()
+    if (autoReady(id)) queueAutoSave(id, solo(id))
+  } catch (e) {
+    job.upload.error = e.message
+    docErrors.set(id, `Couldn't store the original: ${e.message}`)
+    if (e.moved) lostFile(id)
+  }
+  paintReading()
+  if (upload.open && sheet.docId === id && sheet.step === 'review') paintReview()
+  refresh().catch(() => {})
+}
+
+// The dropped file is gone from where it was: forget it, and let the row
+// ask for it again (Choose the file) instead of offering a retry that
+// can't work.
+function lostFile(id) {
+  held.delete(id)
+  needsFile.add(id)
+  docErrors.set(id, 'The file was moved or changed after it was dropped. Choose it again to store it.')
+}
+
+// The one door to a paid reading: the document joins the line. Nothing
+// paid starts by itself, on a reload or a look. It lifts a stop first.
+function queueRead(id) {
+  if (halted) clearStop()
+  let job = jobs.get(id)
+  if (job?.reading || reads.state(id)) return
+  // A batch's reading, first or again: its toast is said once they finish.
+  // Once the batch has settled, its toast is said or moot: what is read
+  // now is read on its own.
+  if (inBatch(id)) summarize = true
+  else if (settled) summarize = false
+  if (!job) {
+    const doc = listedDoc(id)
+    if (!doc) return
+    job = {
+      doc: { ...doc }, drafts: draftsOf(id), reading: false, result: null, readError: null,
+      upload: { p: 1, done: !!doc.uploaded_at, error: null }, listed: true,
+    }
+    jobs.set(id, job)
+  }
+  job.readError = null
+  docErrors.delete(id)
+  reads.add(id)
+  renderInbox()
+}
+
+// Read, or continue: from the dropped file while this tab holds it, else
+// from the stored original. Each call's drafts are kept before the next
+// starts. A failure that isn't about the document stops the line.
+async function readJob(id) {
+  const job = jobs.get(id)
+  if (!job) return
+  job.reading = true
+  job.result = null
+  job.t0 = Date.now()
+  renderInbox()
+  let result
+  try {
+    result = await readDocument(job.doc, {
+      file: held.get(id) ?? null, patients: patientList, drafts: draftsOf(id),
+      onDrafts: (all) => { job.drafts = all; renderInbox() },
+    })
+  } catch (e) {
+    result = { ok: false, error: e.message, retryable: !e.moved, drafts: job.drafts }
+    // Moved before its original was stored: only the same file, chosen
+    // again, can store it; then it can be read. The row asks for it.
+    if (e.moved) lostFile(id)
+  }
+  job.drafts = result.drafts
+  job.result = result
+  const why = pauseOf(result)
+  if (why && !voidingDocs.has(id)) stop(why, result.error)
+  else if (!result.ok && !needsFile.has(id)) {
+    const n = job.drafts.length
+    job.readError = `Couldn't read it: ${sentence(result.error)}` +
+      (n ? ` Everything read so far is kept: ${plural(n, 'visit')}.` : '')
+  }
+  try { await refresh() } catch (e) { notify({ tone: 'error', message: `The list didn't reload: ${e.message}` }) }
+  // Whether it was read on its own is told before its end can settle its
+  // batch: the last of a batch is never a single upload.
+  const one = solo(id)
+  job.reading = false
+  renderInbox()
+  if (jobs.get(id) !== job) return
+  // Nothing to check: it saves itself, now or once its original is stored.
+  // Awaited: the batch's toast, said when the last reading ends, counts it.
+  if (autoReady(id)) { if (job.upload.done) await queueAutoSave(id, one); return }
+  afterRead(job, why, one)
+}
+
+// Where a finished reading leads. On its own it is a single upload: the
+// found line, then its review or end screen, or a toast while the drawer
+// is closed. In a batch, a ready document takes over the waiting screen;
+// one with nothing to review stays on its row and the screen moves on.
+async function afterRead(job, why, one) {
+  const id = job.doc.id
+  const r = job.result
+  const name = job.doc.original_filename
+  const n = job.drafts.filter(isOpenDraft).length
+  if (upload.open && !sheet.found && (sheet.step === 'wait' || (sheet.step === 'reading' && sheet.docId === id))) {
+    if (r.ok && n) {
+      clearInterval(clock)
+      $('up-calls').parentElement.hidden = true
+      const f = job.drafts[0].extracted.fields
+      $('up-found').textContent = n > 1
+        ? `${plural(n, 'visit')} · ${f.provider.value ?? name}`
+        : [f.provider.value, f.amount_paid.value == null ? null : fmtUSDc(f.amount_paid.value)].filter(Boolean).join(' · ') || name
+      $('up-found').hidden = false
+      sheet.found = id
+      await wait(520)   // let what was found land before the review swaps in
+      if (!(upload.open && sheet.found === id)) return
+    }
+    if (one) showOutcome(job)
+    else if (r.ok && n) { openReview(id); handedOver() }
+    else showNext()
+    return
+  }
+  if (upload.open || why || !one) return
+  // A toast's action is used once: it goes, so it can't reopen a later state.
+  let note
+  if (r.ok && n) {
+    note = notify({ tone: 'success', message: `Read ${name}: ${plural(n, 'visit')}.`,
+      action: { label: 'Review', onClick: () => { note.dismiss(); openReview(id) } } })
+  } else if (r.ok && job.drafts.length) {
+    notify({ tone: 'info', timeout: 5000, message: `${name} was saved in another tab.` })
+  } else {
+    note = notify({ tone: r.ok ? 'info' : 'warn',
+      message: r.ok ? `Read ${name}: no payment found.` : `Couldn't read ${name}.`,
+      action: { label: 'Open', onClick: () => { note.dismiss(); if (jobs.get(id) === job) showJob(id) } } })
+  }
+}
+
+// A batch's readings have all finished while the drawer is closed: one
+// toast says how it went.
+function batchRead() {
+  renderInbox()   // nothing reads now: the list's command changes
+  if (!summarize || halted || intake.size) return
+  if (upload.open) { summarize = false; return }
+  const rows = [...batch].map(rowOf).filter(Boolean)
+  const count = (kind) => rows.filter(r => r.kind === kind).length
+  if (count('unread')) return   // stopped by hand: the rest is read later
+  summarize = false
+  const docs = rows.filter(r => r.kind !== 'not_added' && r.kind !== 'already').length
+  if (docs < 2) return
+  // Ready and no payment found include one whose original is still on its
+  // way (a storing row was read in full).
+  const table = purchaseTable()
+  const ready = new Set(readyIds(rows, table)), bad = count('couldnt_read'), already = count('already')
+  const auto = rows.filter(r => autoSaved.has(r.key) || ((r.kind === 'storing' || r.kind === 'ready') && autoReady(r.key, table))).length
+  const none = rows.filter(r => r.kind === 'nothing_found' ||
+    (r.kind === 'storing' && !ready.has(r.key) && !autoReady(r.key, table))).length
+  const parts = [auto ? `${auto} saved automatically` : null, ready.size ? `${ready.size} to review` : null,
+    none ? `${none} with no payment found` : null, bad ? `${bad} couldn't be read` : null,
+    already ? `${already} already uploaded` : null].filter(Boolean)
+  readNote = notify({
+    key: 'queue-read', tone: 'info',
+    message: `Read ${plural(docs, 'document')}${parts.length ? `: ${parts.join(', ')}` : ''}.`,
+    action: ready.size ? { label: 'Review', onClick: () => { readNote.dismiss(); showNext() } } : undefined,
+  })
+}
+
+// A reason that isn't the document's: what waits to be read goes back to
+// Not read yet; readings under way finish (stopping them wouldn't stop the
+// bill). Rows are still made and originals stored, for free.
+function stop(kind, error) {
+  halted = { kind, error }
+  reads.clear()
+  if (rereads.clear().length) againAfterStop = true
+  if (!upload.open) toastStop()
+  said = said.filter(l => l.act)   // the stop says more than "Added 3."; an Undo keeps its time
+  paintStop()
+  renderInbox()
+  // A reading screen left waiting for a reading that won't come moves on.
+  if (upload.open && sheet.step === 'reading' && !readingHere(sheet.docId)) showNext()
+}
+function clearStop() {
+  halted = null
+  stopNote?.dismiss()
+  stopNote = null
+  paintStop()
+}
+function stopSentence({ kind, error }) {
+  if (kind === 'account') return `Reading stopped. ${sentence(error)} Fix it in the Anthropic Console, then read the rest.`
+  if (kind === 'rate') return "Reading paused: Anthropic's rate limit was reached. Give it a minute, then read the rest."
+  if (kind === 'session') return 'Your session needs a reload. Everything read so far is kept.'
+  if (kind === 'network') return 'Reading paused: the connection dropped. Everything read so far is kept.'
+  return `Reading stopped: what was read couldn't be kept. ${sentence(error)}`
+}
+const stopCommand = () => (halted.kind === 'session'
+  ? { label: 'Reload', onClick: reloadWhenStored }
+  : { label: 'Read the rest', onClick: readRest })
+// One sticky toast while the drawer is closed (it would sit under the drawer).
+function toastStop() {
+  const { label, onClick } = stopCommand()
+  stopNote = notify({ key: 'queue-stop', tone: 'warn', message: stopSentence(halted),
+    action: { label, onClick: () => { stopNote?.dismiss(); onClick() } } })
+}
+// On the page, and in the drawer's said-line.
+function paintStop() {
+  setText($('queue-stop'), halted ? stopSentence(halted) : '')
+  $('queue-stop').hidden = !halted
+  paintSaid()
+}
+
+// Read the rest: every row not read yet, stopped, or that couldn't be read,
+// in list order, from its file here or its original in R2.
+function readRest() {
+  for (const a of adding.values()) a.later = false   // read once its row is made
+  for (const r of queueRows()) {
+    if (!['unread', 'stopped', 'couldnt_read'].includes(r.kind)) continue
+    if (!(held.has(r.key) || r.doc.uploaded_at || jobs.get(r.key)?.upload.done)) continue
+    queueRead(r.key)
+  }
+  if (againAfterStop) { againAfterStop = false; readKeptAgain() }
+  if (halted) clearStop()
+}
+
+// Stop reading, by hand: what waits goes back to Not read yet, files still
+// waiting for their row included; what runs finishes.
+function stopReading() {
+  reads.clear()
+  for (const a of adding.values()) a.later = true
+  renderInbox()
+}
+
+/* ── the upload drawer ────────────────────────────────────────────────────── */
+const upload = $('upload')
+// What the drawer shows, for docId: reading (one document's reading
+// screen) | wait (the queue's) | review | none | fail.
+let sheet = { step: 'reading', docId: null }
+let upBusy = false
+let clock = null
+let holdUntil = 0
+
+function setTitle(text, it) {
+  const t = $('up-title')
+  t.replaceChildren(text)
+  if (it) t.append(el('span', 'it', it))
+}
+
+function setStep(step, docId = null) {
+  sheet = { step, docId }
+  const end = step === 'none' || step === 'fail'
+  const reading = step === 'reading' || step === 'wait'
+  $('up-reading').hidden = !reading
+  $('up-review').hidden = step !== 'review'
+  $('up-end').hidden = !end
+  $('up-foot').hidden = reading
+  $('up-found').hidden = true
+  upError(null)
+  clearInterval(clock)
+  if (reading) clock = setInterval(paintReading, 1000)
+  paintPager()
+  // Focus lost with the old step (or left on the title, or on Close where
+  // the dialog put it when it opened) goes to the new one: its title, or
+  // on an end screen the sentence saying what happened.
+  const a = document.activeElement
+  if (upload.open && (a === document.body || a === upload || a === $('up-title') || a === $('up-close') ||
+      a.closest('#upload [hidden]'))) {
+    (end ? $('up-end-text') : $('up-title')).focus()
+  }
+}
+
+function upError(message) {
+  const e = $('up-error')
+  for (const r of upload.querySelectorAll('.form-row[data-error]')) delete r.dataset.error
+  for (const i of upload.querySelectorAll('[aria-invalid]')) {
+    i.removeAttribute('aria-invalid'); i.removeAttribute('aria-describedby')
+  }
+  e.hidden = !message
+  e.textContent = message ?? ''
+  $('up-foot').before(e)
+}
+
+// Opening hides the pager first, so the dialog never puts the cursor on an arrow.
+function openDrawer() {
+  if (upload.open) return
+  $('up-pager').hidden = true
+  $('up-eyebrow').hidden = false
+  upload.showModal()
+}
+
+// One document's reading screen, while it is read or waits for its turn;
+// then where its reading led.
+function showJob(id) {
+  const job = jobs.get(id)
+  if (!job) return
+  openDrawer()
+  if (!job.reading && !reads.state(id)) { showOutcome(job); return }
+  setStep('reading', id)
+  readingTitle('Add a receipt')
+  paintReading()
+}
+
+// The queue's waiting screen: how many are read and wait, and the first.
+function showWait() {
+  openDrawer()
+  setStep('wait')
+  readingTitle('Next up')
+  paintReading()
+}
+
+function readingTitle(eyebrow) {
+  $('up-calls').parentElement.hidden = false
+  $('up-eyebrow').textContent = eyebrow
+  setTitle('Reading')
+  $('up-title').append(el('span', 'ellip'))
+  $('up-title').lastChild.setAttribute('aria-hidden', 'true')
+}
+
+// The next thing to do: the first ready document after afterId in list
+// order (from `was`, the ready ones when Save or Discard was pressed),
+// wrapping; else what is being read; else the drawer closes (false).
+function showNext(afterId = null, was = readyIds()) {
+  const rows = queueRows()
+  const now = readyIds(rows)
+  const at = was.indexOf(afterId)
+  const next = [...was.slice(at + 1), ...was.slice(0, Math.max(at, 0))].find(x => now.includes(x)) ?? now[0]
+  if (next) { openReview(next); return true }
+  const busy = rows.filter(r => r.kind === 'reading' || r.kind === 'queued')
+  if (!busy.length) { upload.close(); return false }
+  if (busy.length === 1 && jobs.has(busy[0].key) && solo(busy[0].key)) showJob(busy[0].key)
+  else showWait()
+  return true
+}
+
+function paintReading() {
+  if (!(upload.open && (sheet.step === 'reading' || sheet.step === 'wait'))) return
+  let job = jobs.get(sheet.docId)
+  if (sheet.step === 'wait') {
+    const busy = queueRows().filter(r => r.kind === 'reading' || r.kind === 'queued')
+    const now = busy.filter(r => r.kind === 'reading')
+    const first = now[0] ?? busy[0]
+    job = first && jobs.get(first.key)
+    $('up-file-line').textContent = !first ? ''
+      : first.doc ? `${first.doc.original_filename} · ${TYPE[first.doc.mime]} · ${fmtSize(Number(first.doc.byte_size))}`
+      : [first.file.name, TYPE[first.file.type], fmtSize(first.file.size)].filter(Boolean).join(' · ')
+    $('up-store').hidden = true
+    setText($('up-calls'), `${now.length} being read · ${busy.length - now.length} waiting`)
+  } else {
+    if (!job) return
+    const { doc, upload: up, drafts } = job
+    $('up-file-line').textContent = `${doc.original_filename} · ${TYPE[doc.mime]} · ${fmtSize(Number(doc.byte_size))}`
+    $('up-store').hidden = !held.has(doc.id)
+    setText($('up-store-text'), up.error ? `Couldn't store the original: ${up.error}`
+      : up.done ? 'Original stored.' : 'Storing the original')
+    setText($('up-store-pct'), up.error || up.done ? '' : ` · ${Math.round(up.p * 100)}%`)
+    const n = drafts.length, ahead = reads.ahead(doc.id)
+    setText($('up-calls'), job.reading ? (n ? `${plural(n, 'visit')} so far. Reading the rest` : 'Reading')
+      : ahead > 0 ? `${plural(ahead, 'document')} ahead of it` : 'Next in line')
+  }
+  const elapsed = job?.reading ? Date.now() - job.t0 : 0
+  $('up-clock').textContent = job?.reading ? ` · ${fmtClock(elapsed)}` : ''
+  $('up-hint').hidden = elapsed < 15000
+}
+
+// Previous and next among the documents ready to review, when there are
+// two or more and this is one; the count moves as readings finish.
+function paintPager() {
+  const { at, of, prev, next } = around(readyIds(), sheet.docId)
+  const on = sheet.step === 'review' && at > 0 && of > 1
+  $('up-pager').hidden = !on
+  $('up-eyebrow').hidden = on
+  if (!on) return
+  setText($('up-count'), `${at} of ${of}`)
+  $('up-pager').setAttribute('aria-label', `Documents to review, ${at} of ${of}`)
+  $('up-prev').disabled = !prev
+  $('up-next').disabled = !next
+}
+
+function page(dir) {
+  const { prev, next } = around(readyIds(), sheet.docId)
+  const to = dir < 0 ? prev : next
+  if (!to || upBusy) return
+  openReview(to)
+  stepIn()
+  hold()
+  // The cursor stays on the arrow pressed; at the end of the list, on the other.
+  const [pressed, other] = dir < 0 ? [$('up-prev'), $('up-next')] : [$('up-next'), $('up-prev')]
+  if (pressed.disabled) other.focus()
+}
+
+// The drawer moved on to the next document: what is new rises in, the
+// cursor lands on its title, and Save holds a moment.
+function handedOver() {
+  stepIn()
+  $('up-title').focus()
+  hold()
+}
+
+function stepIn() {
+  const shown = upload.querySelector('#up-reading:not([hidden]), #up-review:not([hidden]), #up-end:not([hidden])')
+  for (const e of [$('up-title'), shown]) {
+    if (!e) continue
+    e.classList.remove('drawer-step-in')
+    void e.offsetWidth   // restarts the animation
+    e.classList.add('drawer-step-in')
+  }
+}
+
+// For 600 ms after a hand-over Save is disabled: a double click or a second
+// Enter meant for the last document never saves the next one unseen.
+function hold() {
+  holdUntil = Date.now() + 600
+  $('up-save').disabled = true
+  setTimeout(() => { if (!upBusy && Date.now() >= holdUntil) $('up-save').disabled = false }, 600)
+}
+
+// What just happened, said inside the drawer for 6 s each (a toast would
+// sit under it), or while the readings are stopped, the stop and its
+// command. A newer line never takes an Undo's time: the newest Undo is
+// said after it until its time is up. Every Undo still in its time when
+// the drawer closes goes to a toast.
+let said = []      // newest first: { text, act, toast, until }
+let saidAct = null
+let saidTimer = null
+function say(text, act = null, toast = null) {
+  const now = Date.now()
+  said = [{ text, act, toast, until: now + 6000 }, ...said.filter(l => l.act && l.until > now)]
+  paintSaid()
+}
+function clearSaid() {
+  said = []
+  paintSaid()
+}
+function paintSaid() {
+  clearTimeout(saidTimer)
+  const now = Date.now()
+  said = said.filter(l => l.until > now)
+  if (said.length) saidTimer = setTimeout(paintSaid, Math.min(...said.map(l => l.until)) - now)
+  const undo = said.find(l => l.act)
+  const lines = said.length ? [...new Set([said[0], undo])].filter(Boolean) : []
+  const text = lines.length ? lines.map(l => l.text).join(' ') : halted ? stopSentence(halted) : ''
+  saidAct = lines.length ? undo?.act ?? null : halted ? stopCommand() : null
+  setText($('up-said-text'), text)
+  $('up-said').classList.toggle('is-attention', !lines.length && !!halted)
+  $('up-said').hidden = !text
+  // A command that goes while it has the cursor (used, or its time up)
+  // leaves it on the title, not the page.
+  const had = document.activeElement === $('up-said-act')
+  $('up-said-act').hidden = !saidAct
+  setText($('up-said-act'), saidAct?.label ?? '')
+  if (had && !saidAct && upload.open) $('up-title').focus()
+}
+
+// Where a finished reading leads.
+function showOutcome(job) {
+  const r = job.result
+  if (r?.ok && job.drafts.some(isOpenDraft)) { openReview(job.doc.id); return }
+  // Read in full and every visit already saved: another tab got there first.
+  if (r?.ok && job.drafts.length) {
+    upload.close()
+    notify({ tone: 'info', timeout: 5000, message: `${job.doc.original_filename} was saved in another tab.` })
+    return
+  }
+  if (r?.ok) { showEnd('none', job.doc.id); return }
+  showEnd('fail', job.doc.id)
+}
+
+function showEnd(kind, id) {
+  const info = docInfo(id)
+  setStep(kind, id)
+  const job = jobs.get(id)
+  const r = job?.result ?? null
+  const text = $('up-end-text'), note = $('up-end-note')
+  $('up-discard').hidden = false
+  if (kind === 'none') {
+    $('up-eyebrow').textContent = 'Read from your document'
+    setTitle('No payment ', 'found.')
+    text.textContent = `Nothing on ${info.doc.original_filename} shows the patient paying. ` +
+      'EOBs and insurance-only statements read like this. ' + (attachable(info.doc).length
+        ? "It's kept, and a visit on it is saved already: Attach it from its line in the list."
+        : "It's kept: once a visit on it is saved, Attach links it there.")
+    note.hidden = true
+    $('up-save').textContent = 'Done'
+  } else {
+    $('up-eyebrow').textContent = 'Add a receipt'
+    setTitle("Couldn't ", 'read it.')
+    const kept = info.drafts.length ? ` Everything read so far is kept: ${plural(info.drafts.length, 'visit')}.` : ''
+    if (r?.retryable && r.status === 401) {
+      text.textContent = `Your session needs a reload.${kept || ' Nothing read is lost.'}`
+      $('up-save').textContent = 'Reload'
+    } else if (r?.retryable || r?.stage === 'record') {
+      text.textContent = `The reader stopped before it finished: ${sentence(r.error)}${kept}`
+      $('up-save').textContent = 'Try again'
+    } else {
+      text.textContent = r?.error ? sentence(r.error) : "It wasn't read."
+      $('up-save').textContent = 'Keep it'
+    }
+    note.hidden = false
+    note.textContent = info.uploaded ? 'The original is stored.'
+      : job?.upload.error ? `The original isn't stored: ${job.upload.error}`
+      : 'The original is still being stored.'
+  }
+  $('up-status').textContent = ''
+  $('up-status-act').hidden = true
+  $('up-status').parentElement.hidden = true
+}
+
+/* ── review ───────────────────────────────────────────────────────────────── */
+// Edits live here, in memory, until Save: per document, the forms from
+// draftForm(), the visits discarded (Restore until Save), the visits whose
+// HSA box the user set by hand, and the cards whose question is shown.
+const sessions = new Map()   // document id → { forms, discarded, overridden, asked, reopen, reopenChoice, open }
+let ui = new Map()           // draft id → { head, item, panel, rows, flags, card } on screen now
+const CHANGED = 'This document changed in another tab. Here it is as it is now.'
+
+// One waiting document, from the list or from the reading in this tab;
+// null once it has left both (saved or discarded in another tab).
+function docInfo(id) {
+  const row = inbox.documents.find(d => d.id === id)
+  const job = jobs.get(id) ?? null
+  if (!row && !job) return null
+  const doc = row ?? job.doc
+  return {
+    doc,
+    drafts: draftsOf(id),
+    complete: ['review', 'nothing_found'].includes(row?.state) || !!(job?.result?.ok && job.result.complete),
+    uploaded: !!(row?.uploaded_at || job?.upload.done),
+  }
+}
+
+function sessionFor(id) {
+  let s = sessions.get(id)
+  if (!s) {
+    s = { forms: new Map(), discarded: new Set(), overridden: new Set(), asked: [], reopen: new Set(),
+      reopenChoice: new Set(), open: null }
+    sessions.set(id, s)
+  }
+  // A reading continued since the last look adds its visits at the end.
+  for (const d of docInfo(id).drafts.filter(isOpenDraft)) {
+    if (s.forms.has(d.id)) continue
+    const form = draftForm(d, cards)
+    if (form.input.patient_id !== PATIENT_UNKNOWN && !patients.has(form.input.patient_id)) {
+      form.input.patient_id = ''
+      form.flags.patient_id = 'choose'
+    }
+    form.draft = d
+    s.forms.set(d.id, form)
+  }
+  return s
+}
+
+const liveIds = (s) => [...s.forms.keys()].filter(id => !s.discarded.has(id))
+const cardOpen = (form) => form.card.last4 != null && !cards.has(form.card.last4)
+
+// A field passes when expenseRow() has nothing to say about it.
+const SAMPLE = { patient_id: 'x', provider: 'x', service_date: '2000-01-01', category: 'other', amount_paid: '1',
+  paid_with_hsa_card: false, reimbursement_status: 'not_submitted', date_submitted: '', amount_reimbursed: '', notes: '' }
+const fieldOk = (input, field) => expenseRow({ ...SAMPLE, [field]: input[field] }).error?.field !== field
+
+const FLAG = { not_found: 'Not found', check: 'Check', choose: 'Choose', answer: 'Answer above' }
+function flagOf(form, field) {
+  if (field === 'card') return cardOpen(form) ? 'answer' : null
+  if (fieldOk(form.input, field)) { delete form.flags[field]; return null }
+  return form.flags[field] ?? 'check'
+}
+// A visit needs a check when a value it would save fails, or when it is
+// the same purchase as a saved expense and isn't answered yet; a new card
+// is one question for the whole document, so it counts once.
+const needsCheck = (form) => form.choice === null || (form.choice?.action !== 'merge' && !!expenseRow(form.input).error)
+// Merges into an expense an earlier visit of the same document merges into
+// (save_document refuses the second): each one needs another answer.
+function twiceInto(choices) {
+  const seen = new Set()
+  return choices.filter(c => c?.action === 'merge' && (seen.has(c.expense_id) || !seen.add(c.expense_id))).length
+}
+function checkCount(s) {
+  const forms = liveIds(s).map(id => s.forms.get(id))
+  const openCards = new Set(forms.filter(cardOpen).map(f => f.card.last4))
+  return forms.filter(needsCheck).length + openCards.size + twiceInto(forms.map(f => f.choice))
+}
+
+// The review left open on a document another tab saved or discarded.
+function closeGone(id) {
+  sessions.delete(id)
+  upload.close()
+  notify({ tone: 'info', timeout: 5000, message: `${$('up-source').textContent} was saved or discarded in another tab.` })
+}
+
+function openReview(id, note = null) {
+  if (voidingDocs.has(id) || !docInfo(id)) return
+  if (readingHere(id) || reads.state(id)) { showJob(id); return }
+  openDrawer()
+  const s = sessionFor(id)
+  syncMatches(s)
+  const { doc } = docInfo(id)
+  setStep('review', id)
+  ui = new Map()
+  const many = s.forms.size > 1
+  $('up-eyebrow').textContent = 'Read from your document'
+  if (!docInfo(id).complete) setTitle(`${plural(s.forms.size, 'visit')} `, 'so far.')
+  else if (many) setTitle(`${s.forms.size} `, 'visits.')
+  else setTitle([...s.forms.values()][0]?.input.provider || 'A receipt')
+  $('up-source').textContent = doc.original_filename
+  $('up-note').hidden = !note
+  $('up-note').textContent = note ?? ''
+  $('up-stats').hidden = !many
+  $('up-discard').hidden = false
+
+  // The cards nobody has answered for, in the order they first appear.
+  for (const id2 of liveIds(s)) {
+    const { card } = s.forms.get(id2)
+    if (cardOpen(s.forms.get(id2)) && !s.asked.includes(card.last4)) s.asked.push(card.last4)
+  }
+
+  const visits = $('up-visits')
+  if (many) {
+    const head = el('div', 'review-list__head')
+    head.append(el('span', 'form-legend', 'Visits'), el('span', 'review-list__meta'),
+      button('linklike', 'Next to check', () => nextToCheck(s)))
+    const list = el('ul', 'review-list')
+    for (const did of s.forms.keys()) list.append(visitItem(s, did))
+    visits.replaceChildren(head, list)
+    const first = s.open ?? liveIds(s).find(did => needsCheck(s.forms.get(did)))
+    s.open = null
+    if (first) toggleVisit(s, first, true)
+  } else {
+    const [did] = s.forms.keys()
+    const f = visitFields(s, did)
+    visits.replaceChildren(f)
+    enhanceWithin(f)
+  }
+  paintReview()
+}
+
+// Everything that depends on the values: asks, heads, flags, totals, foot.
+// A save in progress keeps the screen as it was when Save was pressed.
+function paintReview() {
+  const s = sessions.get(sheet.docId)
+  if (!s || upBusy) return
+  if (!docInfo(sheet.docId)) { closeGone(sheet.docId); return }
+  syncMatches(s)
+  paintAsks(s)
+  for (const id of s.forms.keys()) paintVisit(s, id)
+
+  const t = reviewTotals(s.forms, s.discarded)
+  const toCheck = checkCount(s)
+  const visitsToCheck = liveIds(s).filter(id => needsCheck(s.forms.get(id))).length
+  if (s.forms.size > 1) {
+    $('up-stats').replaceChildren(
+      statItem('Visits', String(t.visits)),
+      statItem('Paid in all', fmtUSDc(t.paidCents / 100) + (t.unread ? ` + ${t.unread} unread` : '')),
+      statItem('To check', String(toCheck), toCheck > 0))
+    const meta = upload.querySelector('.review-list__meta')
+    if (meta) meta.textContent = [`${t.visits - visitsToCheck} ready`, visitsToCheck ? `${visitsToCheck} to check` : null].filter(Boolean).join(' · ')
+    const next = upload.querySelector('.review-list__head .linklike')
+    if (next) next.hidden = !visitsToCheck
+  }
+  const merging = liveIds(s).filter(id => s.forms.get(id).choice?.action === 'merge').length
+  const making = t.visits - merging
+  $('up-save').textContent = merging ? (making ? 'Save and merge' : 'Merge')
+    : making === 1 ? 'Save expense' : making ? `Save ${making} expenses` : 'Save'
+  paintStatus()
+}
+
+// The foot's status line: what stands between the user and Save.
+function paintStatus() {
+  const s = sessions.get(sheet.docId)
+  const info = docInfo(sheet.docId)
+  if (!s || !info || upBusy) return
+  const visitsToCheck = liveIds(s).filter(id => needsCheck(s.forms.get(id))).length
+  const b = saveBlockers({ forms: s.forms, discarded: s.discarded, cardsAnswered: cards, uploaded: info.uploaded,
+    complete: info.complete, choices: choicesOf(s) })
+  const act = $('up-status-act')
+  act.hidden = true
+  let text
+  // A reading that stopped can be continued whatever else is left to do.
+  if (!info.complete) {
+    act.textContent = 'Continue reading'
+    act.hidden = readingHere(sheet.docId) || !!reads.state(sheet.docId)
+  }
+  if (b?.reason === 'card') text = 'Answer the card question.'
+  else if (b?.reason === 'choice') text = b.message
+  else if (b?.reason === 'field') text = `${visitsToCheck} to check.`
+  else if (b?.reason === 'reading') text = "The reading isn't finished."
+  else if (b?.reason === 'upload') {
+    const job = jobs.get(sheet.docId)
+    const st = stores.state(sheet.docId)
+    if (st) text = st === 'running' && job ? `Storing the original · ${Math.round(job.upload.p * 100)}%` : 'Storing the original'
+    else {
+      text = "The original isn't stored yet."
+      act.textContent = needsFile.has(sheet.docId) ? 'Choose the file' : 'Retry upload'
+      act.hidden = retrying.has(sheet.docId)
+    }
+  } else if (b) text = b.message
+  else {
+    // Nothing in the way: what comes after this one.
+    const more = readyIds().filter(x => x !== sheet.docId).length
+    text = more ? `Ready. ${more} more after this.`
+      : queueRows().some(r => r.kind === 'reading' || r.kind === 'queued') ? 'Ready. More are being read.' : 'Ready.'
+  }
+  $('up-status').parentElement.hidden = false
+  setText($('up-status'), text)
+  $('up-status').classList.toggle('is-attention', !!b)
+}
+
+/* The card questions: one per new card, answered once for every document. */
+function paintAsks(s) {
+  const forms = liveIds(s).map(id => s.forms.get(id))
+  const many = s.forms.size > 1
+  const asks = s.asked.filter(last4 => forms.some(f => f.card.last4 === last4)).map(last4 => {
+    const using = forms.filter(f => f.card.last4 === last4)
+    const box = el('div', 'ask')
+    box.dataset.last4 = last4
+    if (cards.has(last4) && !s.reopen.has(last4)) {
+      box.classList.add('is-answered')
+      box.append(el('span', null, `Card ··${last4}: ${cards.get(last4) ? 'HSA card' : 'not an HSA card'}`),
+        button('linklike', 'Change', () => { s.reopen.add(last4); paintAsks(s); focusAsk(last4) }))
+      return box
+    }
+    box.append(el('span', 'ask__eyebrow', cards.has(last4) ? `Card ··${last4}` : 'New card'),
+      el('p', 'ask__q', `Card ending ${last4} paid ${many ? plural(using.length, 'of these visits', 'of these visits') : 'this'}. Is it an HSA card?`))
+    const hint = using.find(f => f.card.hint)?.card.hint
+    if (hint) {
+      box.append(el('p', 'ask__hint', hint.value
+        ? (hint.evidence ? `The document calls it “${hint.evidence}”.` : 'The document calls it an HSA card.')
+        : "The document says it isn't an HSA card."))
+    }
+    const seg = el('div', 'seg')
+    seg.setAttribute('role', 'group')
+    seg.setAttribute('aria-label', `Is card ending ${last4} an HSA card?`)
+    for (const [label, value] of [['HSA card', true], ['Not an HSA card', false]]) {
+      const b = button(null, label, () => answerCard(s, last4, value, box))
+      b.setAttribute('aria-pressed', cards.get(last4) === value ? 'true' : 'false')
+      seg.append(b)
+    }
+    box.append(seg, el('p', 'ask__note', 'Asked once. Every document after this uses your answer.'))
+    return box
+  })
+  // A repaint keeps the cursor on the same button of the same card.
+  const had = $('up-asks').contains(document.activeElement) ? document.activeElement : null
+  const last4 = had?.closest('.ask')?.dataset.last4
+  $('up-asks').replaceChildren(...asks)
+  $('up-asks').hidden = !asks.length
+  if (had) {
+    [...$('up-asks').querySelectorAll('.ask button')]
+      .find(b => b.closest('.ask').dataset.last4 === last4 && b.textContent === had.textContent)?.focus()
+  }
+}
+
+function focusAsk(last4) {
+  const box = $('up-asks').querySelector(`.ask[data-last4="${last4}"]`)
+  box?.querySelector('button')?.focus()
+}
+
+// One click stores the card at once, so it is never asked again. Every
+// form with that card follows, except one the user set by hand.
+async function answerCard(s, last4, isHsa, box) {
+  for (const b of box.querySelectorAll('button')) b.disabled = true
+  box.querySelector('.ask__err')?.remove()
+  try {
+    await setCard(last4, isHsa)
+  } catch (e) {
+    for (const b of box.querySelectorAll('button')) b.disabled = false
+    box.append(el('p', 'ask__err form-error', e.message))
+    return
+  }
+  cards.set(last4, isHsa)
+  for (const ses of sessions.values()) {
+    for (const [id, form] of ses.forms) {
+      if (form.card.last4 === last4 && !ses.overridden.has(id)) form.input.paid_with_hsa_card = isHsa
+    }
+  }
+  s.reopen.delete(last4)
+  paintReview()
+  renderInbox()
+  const next = $('up-asks').querySelector('.ask:not(.is-answered) button')
+  ;(next ?? $('up-asks').querySelector(`.ask[data-last4="${last4}"] button`))?.focus()
+}
+
+/* The same purchase. A visit that is a saved expense already gets Merge,
+   Save as new or Discard; Save waits for the answer like it waits for a
+   card. A merge that would happen by itself is chosen already, with Change.
+   One that matches only a visit still waiting in To review is said, with
+   nothing to answer. */
+// Each form's matches as the list stands now (form.saved: the saved
+// expenses it could be; form.waiting: the waiting visits), and its answer:
+// form.choice is null until given, and is asked again when the expense it
+// named no longer matches. A discarded visit keeps what it had.
+function syncMatches(s, table = purchaseTable()) {
+  for (const [did, form] of s.forms) {
+    if (s.discarded.has(did)) continue
+    const found = table.get(did) ?? []
+    form.saved = found.filter(m => m.expense).map(m => m.expense)
+    form.waiting = found.filter(m => m.waiting)
+    // A merge that would happen by itself is chosen already for a visit as
+    // read; the user can change it. An edited one is asked, so a half-typed
+    // amount that equals a saved expense's never picks it.
+    if (!form.saved.length) delete form.choice
+    else if (form.choice === undefined ||
+      (form.choice?.action === 'merge' && !form.saved.some(c => c.id === form.choice.expense_id))) {
+      const v = draftVisit(form.draft, form.input)
+      form.choice = asRead(form.draft, v) ? autoMerge(v, found) : null
+    }
+  }
+}
+// Whether a visit's values that decide a same purchase are as the reader read them.
+function asRead(draft, v) {
+  const r = draftVisit(draft)
+  return ['patient_id', 'provider', 'service_date', 'cents', 'pharmacy'].every(k => r[k] === v[k])
+}
+const choicesOf = (s) => new Map([...s.forms].filter(([, f]) => f.choice !== undefined).map(([id, f]) => [id, f.choice]))
+// Whether a visit's merge makes its expense paid with the HSA card, from the
+// card answers as they are now (the card question can come after Merge).
+function fillsCard(form) {
+  const into = form.choice?.action === 'merge' && form.saved?.find(x => x.id === form.choice.expense_id)
+  return !!into && mergeFillsCard(into.e, form.card, cards)
+}
+// The patient a visit's merge fills in: the visit's own, when the expense
+// it joins has the patient unknown and the visit names one.
+function fillsPatient(form) {
+  const into = form.choice?.action === 'merge' && form.saved?.find(x => x.id === form.choice.expense_id)
+  const p = form.input.patient_id
+  return into && into.patient_id == null && p && p !== PATIENT_UNKNOWN ? p : null
+}
+// The choices as Save sends them: each merge with its card and patient worked out now.
+const choicesToSave = (s) => new Map([...choicesOf(s)].map(([id, c]) =>
+  [id, c?.action === 'merge' ? { ...c, card: fillsCard(s.forms.get(id)), patient_id: fillsPatient(s.forms.get(id)) } : c]))
+
+function paintSame(s, id) {
+  const u = ui.get(id)
+  if (!u?.same) return
+  const form = s.forms.get(id)
+  const nodes = []
+  const many = (form.saved?.length ?? 0) > 1
+  if (form.saved?.length && form.choice && !s.reopenChoice.has(id)) {
+    const c = form.choice
+    const into = c.action === 'merge' && form.saved.find(x => x.id === c.expense_id)
+    const box = el('div', 'ask is-answered')
+    const adds = [fillsCard(form) ? 'paid with the HSA card' : null,
+      fillsPatient(form) ? `naming ${patientName(fillsPatient(form))} as the patient` : null].filter(Boolean)
+    box.append(el('span', null, into
+      ? `Merges into ${purchaseText({ ...into, cents: c.cents ?? into.cents }, many || into.patient_id == null)}` +
+        (adds.length ? `, ${adds.join(', ')}` : '')
+      : 'Saves as a new expense'),
+    button('linklike', 'Change', () => { s.reopenChoice.add(id); paintSame(s, id); u.same.querySelector('.ask .seg button')?.focus() }))
+    nodes.push(box)
+  } else if (form.saved?.length) {
+    const v = draftVisit(form.draft, form.input)
+    const box = el('div', 'ask')
+    box.append(el('span', 'ask__eyebrow', 'Same purchase?'))
+    // An expense another visit of this document merges into is taken.
+    const taken = new Set(liveIds(s).filter(x => x !== id).map(x => s.forms.get(x).choice)
+      .filter(c => c?.action === 'merge').map(c => c.expense_id))
+    for (const cand of form.saved.filter(c => !taken.has(c.id))) {
+      const q = el('p', 'ask__q', `Same purchase as ${purchaseText(cand, many)}? `)
+      q.append(button('linklike', 'Open it', () => openExpenseReader(cand.e)))
+      const seg = el('div', 'seg')
+      seg.setAttribute('role', 'group')
+      seg.setAttribute('aria-label', `Merge into ${purchaseText(cand, many)}`)
+      // A merge keeps the expense's amount, except a slip's with its card fee.
+      const cents = mergeCents(v, cand)
+      const b = button(null, cents === cand.cents ? 'Merge' : `Merge at ${fmtUSDc(cents / 100)}`,
+        () => choose(s, id, mergeChoice(cand, cents)))
+      b.dataset.key = cand.id
+      b.setAttribute('aria-pressed', String(form.choice?.action === 'merge' && form.choice.expense_id === cand.id))
+      seg.append(b)
+      box.append(q, seg)
+    }
+    const other = el('div', 'seg')
+    other.setAttribute('role', 'group')
+    other.setAttribute('aria-label', 'Or')
+    const fresh = button(null, 'Save as new', () => choose(s, id, NEW_CHOICE))
+    fresh.setAttribute('aria-pressed', String(form.choice?.action === 'new'))
+    // One visit is the whole document: discarding it discards the document.
+    const drop = s.forms.size > 1
+      ? button(null, 'Discard the visit', () => discardVisit(s, id))
+      : button(null, 'Discard the document', () => discardDoc(sheet.docId))
+    other.append(fresh, drop)
+    box.append(other, el('p', 'ask__note', 'Merge attaches this document to it; nothing new is saved.'))
+    nodes.push(box)
+  }
+  for (const m of form.waiting ?? []) {
+    const note = el('p', 'dup-note', `Same purchase as ${purchaseText(m.waiting)}? It's waiting in To review.`)
+    note.append(button('linklike', 'Open it', () => viewDoc(m.docId)))
+    nodes.push(note)
+  }
+  // A repaint keeps the cursor on the same button: a Merge by its expense,
+  // since every candidate's reads Merge; any other by its text.
+  const a = u.same.contains(document.activeElement) ? document.activeElement : null
+  const had = a && { key: a.dataset.key, text: a.textContent }
+  u.same.replaceChildren(...nodes)
+  u.same.hidden = !nodes.length
+  if (had) [...u.same.querySelectorAll('button')].find(b => had.key ? b.dataset.key === had.key : b.textContent === had.text)?.focus()
+}
+
+function choose(s, id, pick) {
+  s.forms.get(id).choice = pick
+  s.reopenChoice.delete(id)
+  paintReview()
+  ui.get(id)?.same?.querySelector('.ask .linklike')?.focus()
+}
+
+function discardVisit(s, id) {
+  s.discarded.add(id)
+  toggleVisit(s, id, false)
+  paintReview()
+  ui.get(id)?.item.querySelector('.review-item__restore')?.focus()
+}
+
+/* One visit: its fields, each with the document's own words under it. */
+let fieldSeq = 0
+
+function evidence(text, prefix) {
+  const p = el('p', 'form-evidence')
+  if (!text) { p.hidden = true; return p }
+  text.split(' | ').forEach((seg, i) => {
+    const line = el('span')
+    if (i === 0 && prefix) line.append(prefix)
+    line.append(el('q', null, seg))
+    p.append(line)
+  })
+  return p
+}
+
+function option(value, text, disabled = false) {
+  const o = el('option', null, text)
+  o.value = value
+  o.disabled = disabled
+  return o
+}
+
+function visitFields(s, id) {
+  const form = s.forms.get(id)
+  const f = form.draft.extracted.fields
+  const n = ++fieldSeq
+  const box = el('div', 'review-fields')
+  const parts = { rows: {}, flags: {} }
+
+  const row = (field, label, control, ev) => {
+    const r = el('div', 'form-row')
+    r.dataset.field = field
+    const flag = el('span', 'check-flag')
+    const l = el(control ? 'label' : 'span', control ? null : 'form-legend', label)
+    if (control) l.htmlFor = control.id
+    l.append(' ', flag)
+    r.append(l)
+    if (control) r.append(control.closest('.num-with-prefix') ?? control)
+    if (ev !== undefined) r.append(ev)
+    parts.rows[field] = r
+    parts.flags[field] = flag
+    return r
+  }
+  const read = (name) => (f[name].value == null && f[name].evidence
+    ? evidence(f[name].evidence, 'Read as ')
+    : evidence(f[name].evidence))
+  const changed = (field) => {
+    if (fieldOk(form.input, field)) delete parts.rows[field].dataset.error
+    paintReview()
+  }
+  const input = (field, type, attrs = {}) => {
+    const i = el(type === 'textarea' ? 'textarea' : 'input')
+    if (type !== 'textarea') i.type = type
+    i.id = `v${n}-${field}`
+    Object.assign(i, attrs)
+    i.value = form.input[field]
+    i.addEventListener(type === 'date' ? 'change' : 'input', () => { form.input[field] = i.value; changed(field) })
+    return i
+  }
+  const select = (field, label, options) => {
+    const sel = el('select')
+    sel.id = `v${n}-${field}`
+    sel.setAttribute('aria-label', label)
+    sel.append(option('', 'Choose', true), ...options)
+    sel.value = form.input[field]
+    sel.addEventListener('change', () => { form.input[field] = sel.value; changed(field) })
+    return sel
+  }
+
+  // The same purchase comes first: a merge saves none of the values below.
+  parts.same = el('div', 'stack stack--md')
+  parts.same.hidden = true
+  box.append(parts.same)
+
+  const printed = f.patient_name_printed.value || f.patient_name_printed.evidence
+  box.append(row('patient_id', 'Patient',
+    select('patient_id', 'Patient', [...[...patients].map(([pid, name]) => option(pid, name)),
+      option(PATIENT_UNKNOWN, 'Patient unknown')]),
+    evidence(printed, 'Printed as ')))
+  box.append(row('service_date', 'Date of service', input('service_date', 'date'), read('service_date')))
+  box.append(row('provider', 'Provider', input('provider', 'text', { maxLength: 200, autocomplete: 'off' }), read('provider')))
+  const grid = el('div', 'field-grid')
+  grid.append(row('category', 'Category', select('category', 'Category', CATEGORIES.map(c => option(c, CATEGORY[c]))), read('category')))
+  const paid = input('amount_paid', 'text', { inputMode: 'decimal', autocomplete: 'off' })
+  const prefixed = el('div', 'num-with-prefix')
+  prefixed.append(el('span', 'prefix', '$'), paid)
+  grid.append(row('amount_paid', 'Amount paid', paid, read('amount_paid')))
+  box.append(grid)
+
+  // Card: what it is, how to change the answer, and the per-visit fix.
+  const cardRow = row('card', 'Card', null)
+  const line = el('p', 'review-card')
+  const check = el('input')
+  check.type = 'checkbox'
+  check.addEventListener('change', () => {
+    form.input.paid_with_hsa_card = check.checked
+    s.overridden.add(id)
+    paintReview()
+  })
+  const checkLabel = el('label', 'form-check')
+  checkLabel.append(check, ' Paid with the HSA card')
+  const savesAs = el('p', 'form-note')
+  cardRow.append(line, evidence(f.payment_card_last4.evidence), checkLabel, savesAs)
+  box.append(cardRow)
+  parts.card = { line, check, savesAs }
+
+  box.append(row('notes', 'Notes', input('notes', 'textarea', { rows: 2 }), evidence(f.service_description.evidence)))
+  if (s.forms.size > 1) {
+    box.append(button('linklike muted review-fields__discard', 'Discard this visit', () => discardVisit(s, id)))
+  }
+  ui.set(id, { ...(ui.get(id) ?? {}), ...parts })
+  return box
+}
+
+function paintFields(s, id) {
+  const u = ui.get(id)
+  if (!u?.rows) return
+  const form = s.forms.get(id)
+  paintSame(s, id)
+  // A merged visit saves none of its own values: they step aside.
+  for (const r of Object.values(u.rows)) r.hidden = form.choice?.action === 'merge'
+  for (const [field, r] of Object.entries(u.rows)) {
+    const flag = flagOf(form, field)
+    r.classList.toggle('needs-check', !!flag)
+    u.flags[field].textContent = flag ? FLAG[flag] : ''
+    u.flags[field].hidden = !flag
+    // A dropdown's button is named by its select alone, so the flag joins
+    // the name; a label names the other fields with the flag inside it.
+    const name = r.querySelector('select')?.getAttribute('aria-label')
+    r.querySelector('.hub-select__btn')?.setAttribute('aria-label', flag ? `${name}, ${FLAG[flag]}` : name)
+  }
+  const { last4 } = form.card
+  const { line, check, savesAs } = u.card
+  const onChange = line.contains(document.activeElement)
+  line.replaceChildren()
+  if (last4 == null) line.append('No card shown')
+  else if (cardOpen(form)) line.append(`··${last4} · Answer the question above`)
+  else {
+    line.append(`··${last4} · ${cards.get(last4) ? 'HSA card' : 'Not an HSA card'} · `,
+      button('linklike', 'Change', () => {
+        if (!s.asked.includes(last4)) s.asked.push(last4)
+        s.reopen.add(last4)
+        paintAsks(s)
+        focusAsk(last4)
+      }))
+  }
+  if (onChange) line.querySelector('button')?.focus()
+  check.checked = form.input.paid_with_hsa_card
+  savesAs.textContent = form.input.paid_with_hsa_card ? 'Saves as Paid from HSA.' : 'Saves as Not submitted.'
+}
+
+/* A statement: one line per visit, in document order, one open at a time. */
+function visitItem(s, id) {
+  const item = el('li', 'review-item')
+  const head = button('review-item__head', null, () => toggleVisit(s, id))
+  const panel = el('div', 'review-item__panel')
+  panel.id = `panel-${id}`
+  panel.inert = true
+  panel.append(el('div', 'review-item__body'))
+  head.setAttribute('aria-expanded', 'false')
+  head.setAttribute('aria-controls', panel.id)
+  item.append(head, panel)
+  ui.set(id, { item, head, panel })
+  return item
+}
+
+function paintVisit(s, id) {
+  paintFields(s, id)
+  const u = ui.get(id)
+  if (!u?.item) return
+  const form = s.forms.get(id)
+  const inp = form.input
+  const gone = s.discarded.has(id)
+  const flagged = !gone && needsCheck(form)
+  u.item.classList.toggle('is-discarded', gone)
+  u.item.classList.toggle('needs-check', flagged)
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(inp.service_date) ? inp.service_date.split('-') : null
+  const cents = parseCents(inp.amount_paid)
+  const cell = (main, sub, cls) => {
+    const c = el('span', cls)
+    c.append(el('span', 'mlist-row__main', main), sub instanceof Node ? sub : el('span', 'mlist-row__sub', sub))
+    return c
+  }
+  const merging = form.choice?.action === 'merge'
+  const who = merging ? `Merges into ${form.saved.find(x => x.id === form.choice.expense_id)?.e.provider ?? 'a saved expense'}`
+    : [inp.patient_id === PATIENT_UNKNOWN ? 'Patient unknown' : patients.get(inp.patient_id) ?? '—', CATEGORY[inp.category] ?? '—',
+      form.card.last4 == null ? null : `··${form.card.last4}${inp.paid_with_hsa_card ? ' HSA' : ''}`].filter(Boolean).join(' · ')
+  const amount = cents == null ? '—' : fmtUSDc(cents / 100)
+  const flag = el('span', 'mlist-row__sub')
+  if (flagged) flag.append(el('span', 'check-flag', form.choice === null ? 'Same?' : 'Check'))
+  if (gone) {
+    const restore = button('linklike review-item__restore', 'Restore', () => {
+      s.discarded.delete(id)
+      paintReview()
+      ui.get(id)?.head.focus()   // the line it was is a button again
+    })
+    restore.setAttribute('aria-label', `Restore ${inp.provider || 'this visit'}`)
+    flag.replaceChildren(restore)
+  }
+  const cells = [
+    cell(date ? `${MONTHS[+date[1] - 1]} ${+date[2]}` : '—', date ? date[0] : ''),
+    cell(inp.provider || '—', gone ? 'Discarded' : who),
+    cell(amount, flag, 'num'),
+  ]
+  // A discarded visit is a struck line; its only action is Restore.
+  if (gone) {
+    const line = el('div', 'review-item__head')
+    line.append(...cells)
+    u.head.replaceWith(line)
+    u.head = line
+    return
+  }
+  if (u.head.tagName !== 'BUTTON') {
+    const b = button('review-item__head', null, () => toggleVisit(s, id))
+    b.setAttribute('aria-expanded', 'false')
+    b.setAttribute('aria-controls', u.panel.id)
+    u.head.replaceWith(b)
+    u.head = b
+  }
+  u.head.replaceChildren(...cells)
+  u.head.setAttribute('aria-label', [date ? fmtDay(inp.service_date) : 'No date', inp.provider || 'no provider',
+    amount, merging ? who : null, form.choice === null ? 'maybe a purchase already saved' : flagged ? 'needs a check' : null]
+    .filter(Boolean).join(', '))
+}
+
+function toggleVisit(s, id, open = s.open !== id) {
+  if (open && s.open && s.open !== id) toggleVisit(s, s.open, false)
+  const u = ui.get(id)
+  if (!u?.item) return
+  if (open && !u.rows) {
+    const f = visitFields(s, id)
+    u.panel.firstChild.replaceChildren(f)
+    enhanceWithin(f)
+    paintFields(s, id)
+  }
+  u.item.classList.toggle('is-open', open)
+  u.item.classList.remove('is-settled')
+  u.panel.inert = !open
+  if (u.head.tagName === 'BUTTON') u.head.setAttribute('aria-expanded', String(open))
+  s.open = open ? id : (s.open === id ? null : s.open)
+  // The open panel lets its dropdowns spill out once it has finished opening.
+  if (open) {
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+    setTimeout(() => { if (s.open === id) u.item.classList.add('is-settled') }, reduced ? 0 : 260)
+  }
+}
+
+// Open the next visit that needs a check and put the cursor on its first flag.
+function nextToCheck(s) {
+  const ids = liveIds(s)
+  const from = Math.max(0, ids.indexOf(s.open))
+  const order = [...ids.slice(from + 1), ...ids.slice(0, from + 1)]
+  const id = order.find(x => needsCheck(s.forms.get(x)))
+  if (!id) return
+  openVisit(s, id)
+  const u = ui.get(id)
+  const row = u.panel.querySelector('.form-row.needs-check') ?? u.panel.querySelector('.form-row')
+  focusRow(row)
+}
+
+function openVisit(s, id) {
+  if (s.forms.size > 1 && s.open !== id) toggleVisit(s, id, true)
+  ui.get(id)?.item?.scrollIntoView({ block: 'nearest' })
+}
+
+function focusRow(row) {
+  const c = row?.querySelector('input, textarea, .hub-select__btn, button')
+  c?.focus()
+  return c
+}
+
+// Save: every visit not discarded becomes an expense, in one transaction.
+// With something left to do, the first of it is opened and named instead.
+async function saveReview() {
+  if (upBusy) return
+  const id = sheet.docId
+  const info = docInfo(id)
+  if (!info) { closeGone(id); return }
+  // Visits read since the review was built (another tab continued the
+  // reading) are shown before anything is saved.
+  const shown = sessions.get(id).forms.size
+  const s = sessionFor(id)
+  if (s.forms.size !== shown) { openReview(id, CHANGED); return }
+  upError(null)
+  syncMatches(s)
+  const choices = choicesToSave(s)
+  const b = saveBlockers({ forms: s.forms, discarded: s.discarded, cardsAnswered: cards, uploaded: info.uploaded,
+    complete: info.complete, choices })
+  if (b) {
+    // The status line already says what an upload is doing.
+    if (b.reason !== 'upload') {
+      $('up-status').textContent = b.reason === 'field'
+        ? `${liveIds(s).filter(x => needsCheck(s.forms.get(x))).length} to check.` : b.message
+    }
+    if (b.reason === 'card') { focusAsk(b.last4); $('up-asks').scrollIntoView({ block: 'nearest' }) }
+    else if (b.reason === 'choice') {
+      openVisit(s, b.id)
+      const first = ui.get(b.id)?.same?.querySelector('.ask .seg button')
+      first?.scrollIntoView({ block: 'nearest' })
+      first?.focus()
+    } else if (b.reason === 'field') {
+      openVisit(s, b.id)
+      const row = ui.get(b.id).rows[b.field] ?? ui.get(b.id).rows.card
+      const e = $('up-error')
+      e.textContent = b.message
+      e.hidden = false
+      ;(row.closest('.field-grid') ?? row).after(e)
+      row.dataset.error = ''
+      const c = focusRow(row)
+      c?.setAttribute('aria-invalid', 'true')
+      c?.setAttribute('aria-describedby', 'up-error')
+    } else if (!$('up-status-act').hidden) $('up-status-act').focus()
+    // Only the blocker that names it leads to Discard; otherwise the cursor
+    // stays on Save (an upload still running needs nothing from the user).
+    else if (b.reason === 'nothing') $('up-discard').focus()
+    return
+  }
+  const items = saveItems(info.drafts, s.forms, s.discarded, choices)
+  const mine = items.filter(x => x.action !== 'discard').map(x => x.draft_id)
+  const made = items.filter(x => x.action === 'save').map(x => x.draft_id)
+  const joined = items.filter(x => x.action === 'merge')
+  const into = joined.length ? expenses.find(e => e.id === joined[0].expense_id)?.provider : null
+  const was = readyIds()   // where Save hands over to
+  // Nothing saves itself until the list holds what this saves.
+  holding++
+  let held = true
+  const release = () => { if (held) { held = false; holding-- } }
+  try {
+    setUpBusy(true)
+    let saved = null, err = null
+    try {
+      saved = await saveDocument(id, items)
+    } catch (e) {
+      err = e
+    }
+    // Refused with a reason: nothing was saved, and the review stays.
+    if (err?.code && err.code !== 'MD001') {
+      setUpBusy(false)
+      $('up-discard').hidden = false
+      upError(`Couldn't save: ${sentence(err.message)} Nothing was saved.`)
+      upload.scrollTop = upload.scrollHeight
+      return
+    }
+    const ours = saved?.length === mine.length && saved.every(x => mine.includes(x.draft_id))
+    let first = ours ? (made.length ? s.forms.get(made[0])?.input.provider : into) : null
+    let cents = ours ? made.reduce((sum, x) => sum + (parseCents(s.forms.get(x)?.input.amount_paid) ?? 0), 0) : 0
+    let count = made.length
+    let listed = false
+    if (!ours) {
+      // The list says what happened: another tab saved or changed the drafts
+      // first (MD001, or an answer that isn't this screen's visits), or the
+      // answer was lost on the way and this save may have gone through.
+      try { await refresh(); listed = true } catch {}
+      if (!err || err.code === 'MD001') {
+        sessions.delete(id)
+        setUpBusy(false)
+        if (inbox.documents.some(d => d.id === id && d.state === 'review')) openReview(id, CHANGED)
+        else {
+          upload.close()
+          notify({ tone: 'info', timeout: 5000, message: `${info.doc.original_filename} was already saved. Its expenses are in the list.` })
+        }
+        return
+      }
+      if (!listed || inbox.documents.some(d => d.id === id && d.open_drafts > 0)) {
+        setUpBusy(false)
+        // While it may have saved, discarding could void the receipt behind
+        // expenses that now exist.
+        $('up-discard').hidden = !listed
+        upError(listed
+          ? `Couldn't save: ${sentence(err.message)} It didn't go through; your changes are still here.`
+          : `Couldn't save: ${sentence(err.message)} Save again to check whether it went through.`)
+        upload.scrollTop = upload.scrollHeight
+        return
+      }
+      // No visit left open: it was saved. Say what is stored.
+      const stored = expenses.filter(e => e.documents.some(d => d.id === id))
+      if (!stored.length) { sessions.delete(id); setUpBusy(false); closeGone(id); return }
+      saved = stored.map(e => ({ expense_id: e.id }))
+      first = stored[0]?.provider
+      cents = stored.reduce((sum, e) => sum + dbToCents(e.amount_paid), 0)
+      count = saved.length
+    }
+    sessions.delete(id)
+    jobs.delete(id)
+    URL.revokeObjectURL(localUrls.get(id))
+    localUrls.delete(id)
+    const ids = saved.map(x => x.expense_id)
+    const done = { expenses: count, merged: ours ? joined.length : 0,
+      unknown: ours ? items.filter(x => x.action === 'save' && x.patient_id == null).length : 0 }
+    savedHere.set(id, { doc: info.doc, provider: first, ...done, cents, ids })
+    const name = info.doc.original_filename
+    const message = savedSentence({ first, name, cents, into, ...done })
+    // The list holds what was saved before anything is judged against it:
+    // what is ready next, and what may now save itself.
+    if (!listed) {
+      try { await refresh() } catch (e) {
+        listBehind = asked
+        notify({ tone: 'error', message: `Saved, but the list didn't reload: ${e.message}` })
+      }
+    }
+    release()
+    setUpBusy(false)
+    // On to the next document, saying what was saved; the last one closes.
+    if (showNext(id, was)) {
+      handedOver()
+      say(message)
+    } else {
+      const { failed, of } = batchTally()
+      const many = inBatch(id) && of > 1
+      // After a stop, what wasn't read is still the batch's: never "the last one".
+      const unread = queueRows().filter(r => inBatch(r.key) && (r.kind === 'unread' || r.kind === 'stopped')).length
+      const left = [
+        failed ? (failed === 1 ? "1 couldn't be read" : `${failed} couldn't be read`) : null,
+        unread ? (unread === 1 ? "1 isn't read yet" : `${unread} aren't read yet`) : null,
+      ].filter(Boolean)
+      notify({ tone: 'success', timeout: many ? 5000 : 4000, message: !many ? message
+        : left.length ? `${message} ${left.join(' and ')}; ${failed + unread === 1 ? "it's" : "they're"} in the list.`
+        : `${message} That was the last one.` })
+    }
+    recheckAuto()
+    if (!upload.open) cue(ids)
+  } finally {
+    release()
+  }
+}
+
+// While a save runs the drawer is inert and can't close: what it saves is
+// what was on screen when Save was pressed.
+function setUpBusy(on) {
+  upBusy = on
+  $('up-save').disabled = on || Date.now() < holdUntil
+  if (on) $('up-save').textContent = 'Saving…'
+  $('up-inner').inert = on
+  if (!on) paintReview()
+}
+
+// A reload would abort rows being made and originals being stored: it
+// waits for them, but never longer than 15 s (an upload can stall).
+async function reloadWhenStored() {
+  if (intake.size || stores.size) {
+    $('up-save').disabled = true
+    $('up-end-note').textContent = 'Reloading once the original is stored.'
+    setText($('queue-stop'), 'Reloading once the original is stored.')
+    await Promise.race([Promise.all([intake.idle(), stores.idle()]), wait(15000)])
+  }
+  leaving = true
+  location.reload()
+}
+
+function viewDoc(id) {
+  const { doc } = docInfo(id)
+  openReader(doc.original_filename, [{ ...doc, url: localUrls.get(id) }])
+}
+
+/* ── drawer ───────────────────────────────────────────────────────────────── */
+const drawer = $('drawer')
+const errEl = $('form-error')
+let editing = null           // the expense in the drawer
+let status = 'not_submitted'
+let staged = []              // [{ file, mime, invalid, error, progress }] not stored yet
+const held = new Map()       // document id → File, to retry an upload this session
+const docErrors = new Map()  // document id → message
+const retrying = new Set()   // document ids being stored again
+const needsFile = new Set()  // document ids whose original R2 doesn't hold yet
+const pendingVoid = new Map() // document id → timer, during the Undo grace
+const committing = new Set() // document ids whose void is being written
+const voiding = new Set()    // expense ids voided on screen, not yet in the database
+let busy = false
+let inflight = 0             // this drawer's uploads and retries running; guards leaving the page
+
+// Leaving would abort what is being made, stored or read.
+window.addEventListener('beforeunload', (e) => {
+  if (!leaving && (reads.running || rereads.running || intake.size || stores.size || inflight)) { e.preventDefault(); e.returnValue = '' }
+})
+
+// While a save runs the form is inert: what it saves is what was on screen
+// when Save was pressed, and nothing in the drawer can void or close it.
+function setBusy(on) {
+  busy = on
+  $('drawer-save').disabled = on
+  $('drawer-save').textContent = on ? 'Saving…' : 'Save'
+  $('drawer-form').inert = on
+}
+
+function clearError() {
+  errEl.hidden = true
+  for (const r of drawer.querySelectorAll('.form-row[data-error]')) delete r.dataset.error
+  for (const i of drawer.querySelectorAll('[aria-invalid]')) {
+    i.removeAttribute('aria-invalid'); i.removeAttribute('aria-describedby')
+  }
+}
+// Say what is wrong next to the field it is about, and take the cursor there.
+function fieldError({ field, message }) {
+  clearError()
+  const row = drawer.querySelector(`.form-row[data-field="${field}"]`)
+  errEl.textContent = message
+  errEl.hidden = false
+  if (!row) { $('drawer-foot').before(errEl); return }
+  row.dataset.error = ''
+  ;(row.closest('.field-grid') ?? row).after(errEl)
+  const input = row.querySelector('input, textarea, .hub-select__btn, .seg button')
+  if (input) {
+    input.setAttribute('aria-invalid', 'true')
+    input.setAttribute('aria-describedby', 'form-error')
+    input.focus()
+  }
+}
+function formError(message) {
+  clearError()
+  errEl.textContent = message
+  errEl.hidden = false
+  $('drawer-foot').before(errEl)
+}
+
+function setStatus(s) {
+  status = s
+  const hsa = $('f-hsa').checked
+  for (const b of $('f-status').querySelectorAll('button')) {
+    b.setAttribute('aria-pressed', b.dataset.status === status ? 'true' : 'false')
+  }
+  $('row-status').hidden = hsa
+  $('hsa-note').hidden = !hsa
+  $('row-submitted').hidden = hsa || status === 'not_submitted'
+  $('row-reimbursed').hidden = hsa || status !== 'reimbursed'
+  $('reimb-fields').hidden = $('row-submitted').hidden && $('row-reimbursed').hidden
+}
+
+function fill(e) {
+  const set = (id, v) => { $(id).value = v ?? '' }
+  set('f-patient', e.patient_id ?? PATIENT_UNKNOWN); $('f-patient')._hubSelect?.refresh()
+  set('f-date', e.service_date)
+  set('f-provider', e.provider)
+  set('f-category', e.category); $('f-category')._hubSelect?.refresh()
+  set('f-paid', moneyInput(e.amount_paid))
+  $('f-hsa').checked = !!e.paid_with_hsa_card
+  set('f-submitted', e.date_submitted)
+  set('f-reimbursed', moneyInput(e.amount_reimbursed))
+  set('f-notes', e.notes)
+  setStatus(e.reimbursement_status ?? 'not_submitted')
+}
+
+function readForm() {
+  return {
+    patient_id: $('f-patient').value,
+    provider: $('f-provider').value,
+    service_date: $('f-date').value,
+    category: $('f-category').value,
+    amount_paid: $('f-paid').value,
+    paid_with_hsa_card: $('f-hsa').checked,
+    reimbursement_status: status,
+    date_submitted: $('f-submitted').value,
+    amount_reimbursed: $('f-reimbursed').value,
+    notes: $('f-notes').value,
+  }
+}
+
+// Head of the drawer: the expense being edited.
+function paintHead() {
+  $('drawer-title').textContent = editing.provider
+  $('void-open').hidden = !$('void-panel').hidden
+  // While a void is being decided, it is the only action on offer.
+  $('drawer-foot').hidden = !$('void-panel').hidden
+}
+
+function openEdit(id) {
+  const e = expenses.find(x => x.id === id)
+  if (!e) return
+  editing = e
+  clearError()
+  fill(e)
+  paintHead()
+  renderDocs()
+  drawer.showModal()
+}
+
+// Keep the drawer's expense in step with a fresh list.
+function syncEditing() {
+  if (!editing) return
+  editing = expenses.find(x => x.id === editing.id) ?? editing
+  if (drawer.open) renderDocs()
+}
+
+/* Receipts in the drawer: the expense's documents, then files not stored yet. */
+function docItem(doc) {
+  const li = el('li', 'ingest-queue__item')
+  const main = el('div', 'ingest-queue__main')
+  const name = el('div', 'ingest-queue__name', doc.original_filename)
+  if (doc.file_name) name.title = doc.file_name
+  main.append(name, el('div', 'ingest-queue__meta',
+    [String(doc.seq).padStart(2, '0'), isEob(doc) ? 'EOB' : null, TYPE[doc.mime], fmtSize(Number(doc.byte_size))]
+      .filter(Boolean).join(' · ')))
+  // A statement read into several expenses: voiding it would take its
+  // receipt away from all of them, so it can't be voided from one.
+  if (doc.shared) main.append(el('div', 'ingest-queue__meta', `Also on ${plural(doc.shared, 'other expense')}`))
+  const voidable = !doc.shared
+  const actions = el('div', 'ingest-queue__actions')
+  if (committing.has(doc.id)) {
+    li.classList.add('is-voided')
+    actions.append(el('span', 'ingest-queue__status', 'Voiding…'))
+  } else if (pendingVoid.has(doc.id)) {
+    li.classList.add('is-voided')
+    actions.append(el('span', 'ingest-queue__status', 'Voided'),
+      button('stmt-act', 'Undo', () => undoVoidDoc(doc.id)))
+  } else if (retrying.has(doc.id)) {
+    actions.append(el('span', 'ingest-queue__status is-working', 'Retrying…'))
+  } else if (doc.uploaded_at) {
+    actions.append(button('stmt-act', 'View', () => openExpenseReader(editing, doc.id)))
+    if (voidable) actions.append(button('stmt-act', 'Void', () => voidDoc(doc.id)))
+  } else {
+    // Without its original it can't be completed, only voided.
+    actions.append(el('span', 'ingest-queue__status is-failed', 'Upload incomplete'),
+      needsFile.has(doc.id)
+        ? button('stmt-act', 'Choose the file', () => chooseAndRetry(doc))
+        : button('stmt-act', 'Retry', () => retryDoc(doc)))
+    if (voidable) actions.append(button('stmt-act', 'Void', () => voidDoc(doc.id)))
+  }
+  li.append(main, actions)
+  if (docErrors.has(doc.id)) li.append(el('div', 'ingest-queue__error', docErrors.get(doc.id)))
+  return li
+}
+
+function stagedItem(s) {
+  const li = el('li', 'ingest-queue__item')
+  const main = el('div', 'ingest-queue__main')
+  main.append(el('div', 'ingest-queue__name', s.file.name),
+    el('div', 'ingest-queue__meta', s.mime ? `${TYPE[s.mime]} · ${fmtSize(s.file.size)}` : s.file.size ? fmtSize(s.file.size) : ''))
+  const actions = el('div', 'ingest-queue__actions')
+  if (busy && !s.invalid) {
+    const prog = el('div', 'stmt-prog')
+    const track = el('span', 'stmt-prog-track')
+    track.setAttribute('aria-hidden', 'true')
+    const fill = el('span', 'stmt-prog-fill')
+    fill.style.transform = `scaleX(${s.progress})`
+    track.append(fill)
+    const label = el('span', 'stmt-prog-label', s.progress ? `${Math.round(s.progress * 100)}%` : 'Waiting')
+    prog.append(track, label)
+    s.paint = (p) => { fill.style.transform = `scaleX(${p})`; label.textContent = `${Math.round(p * 100)}%` }
+    actions.append(prog)
+  } else {
+    actions.append(button('stmt-act', 'Remove', () => { staged = staged.filter(x => x !== s); renderDocs() }))
+  }
+  li.append(main, actions)
+  if (s.existing !== undefined) li.append(whereLine(s.existing))
+  const message = s.invalid || s.error
+  if (message) li.append(el('div', 'ingest-queue__error', message))
+  return li
+}
+
+function renderDocs() {
+  const docs = editing ? editing.documents : []
+  const items = [...docs.map(docItem), ...staged.map(stagedItem)]
+  $('doc-list').replaceChildren(...items)
+  $('doc-list').hidden = !items.length
+  $('dropzone').classList.toggle('dropzone--compact', items.length > 0)
+  $('dropzone').querySelector('.dropzone-cue').textContent = items.length ? 'Add more' : 'Drop receipts here'
+}
+
+// Check each file by its first bytes as it arrives, so a file that can't be
+// stored is named now, not after Save. A file in a dropped folder that
+// couldn't be opened comes as its path.
+async function stage(files, unreadable = []) {
+  for (const file of files) {
+    let mime = null, invalid = null
+    try {
+      if (!file.size) invalid = 'The file is empty.'
+      else {
+        mime = sniffMime(new Uint8Array(await file.slice(0, 1024).arrayBuffer()))
+        if (!mime) invalid = "This isn't a PDF, JPEG, PNG or HEIC."
+      }
+    } catch {
+      invalid = "This file can't be read."
+    }
+    staged.push({ file, mime, invalid, error: null, progress: 0 })
+  }
+  for (const path of unreadable) {
+    staged.push({ file: new File([], path), mime: null, invalid: "This file can't be read.", error: null, progress: 0 })
+  }
+  renderDocs()
+}
+
+async function save() {
+  if (busy) return
+  clearError()
+  const { row, error } = expenseRow(readForm())
+  if (error) { fieldError(error); return }
+  // A file already uploaded stays listed, saying where; it isn't sent again.
+  const files = staged.filter(s => !s.invalid && s.existing === undefined)
+  setBusy(true)
+  for (const s of files) { s.error = null; s.progress = 0 }
+  renderDocs()
+
+  let saved
+  try {
+    saved = await updateExpense(editing.id, row)
+  } catch (e) {
+    setBusy(false); renderDocs()
+    formError(`Couldn't save: ${e.message}`)
+    return
+  }
+  editing = { ...saved, documents: editing.documents }
+  paintHead()
+
+  let incompleteN = 0, refusedN = 0, alreadyN = 0
+  if (files.length) {
+    inflight++
+    const results = await addDocuments(saved.id, files.map(s => s.file), {
+      onProgress: (file, p) => { const s = files.find(x => x.file === file); if (s) { s.progress = p; s.paint?.(p) } },
+    })
+    inflight--
+    for (const r of results) {
+      const s = files.find(x => x.file === r.file)
+      if (r.error && !r.document && r.existing !== undefined) { s.existing = r.existing; alreadyN++; continue }
+      if (r.error && !r.document) { s.error = r.error; refusedN++; continue }
+      // The row exists: it is one of the expense's documents now, stored
+      // or an incomplete upload with Retry and Void. It is listed at once,
+      // so a failure stays in view even if the re-list below fails.
+      held.set(r.document.id, r.file)
+      if (r.error) { docErrors.set(r.document.id, r.error); incompleteN++ }
+      editing.documents = [...editing.documents,
+        { ...r.document, uploaded_at: r.error ? null : new Date().toISOString(), shared: 0 }]
+      staged = staged.filter(x => x !== s)
+    }
+  }
+
+  try { await refresh() } catch (e) { notify({ tone: 'error', message: `Saved, but the list didn't reload: ${e.message}` }) }
+  syncEditing()
+  setBusy(false)
+  renderDocs()
+
+  if (incompleteN || refusedN || alreadyN) {
+    const said = ['The expense is saved.']
+    if (incompleteN) said.push(`${plural(incompleteN, "file didn't", "files didn't")} finish uploading: Retry or Void ${incompleteN === 1 ? 'it' : 'them'} above.`)
+    if (refusedN) said.push(`${plural(refusedN, "file wasn't", "files weren't")} added: Save again to retry, or Remove ${refusedN === 1 ? 'it' : 'them'}.`)
+    if (alreadyN) said.push(`${plural(alreadyN, 'file was', 'files were')} already uploaded, so nothing was stored: ${alreadyN === 1 ? 'its line says' : 'their lines say'} where.`)
+    formError(said.join(' '))
+    return
+  }
+  if (staged.some(s => !s.invalid && s.existing === undefined)) {
+    formError('The expense is saved. Save again to upload the files added while it saved.')
+    return
+  }
+  if (staged.length) {
+    formError(staged.every(s => s.existing !== undefined) ? 'The expense is saved. Remove the files already uploaded.'
+      : "The expense is saved. Remove the files it can't store.")
+    return
+  }
+  const name = editing.provider
+  drawer.close()
+  notify({ tone: 'success', timeout: 4000, message: `Saved ${name}.` })
+}
+
+// A document that never finished uploading. R2 may already hold it (the PUT
+// landed but marking the row didn't), so try without the file first unless
+// this session still has it. If R2 doesn't hold it, the item asks for the
+// same file with its own button: a file picker needs a fresh click.
+async function retryDoc(doc, file = held.get(doc.id) ?? null) {
+  docErrors.delete(doc.id)
+  needsFile.delete(doc.id)
+  retrying.add(doc.id)
+  renderDocs(); renderInbox()
+  if (upload.open && sheet.docId === doc.id) paintReview()
+  inflight++
+  try {
+    if (!(await retryUpload(doc, file))) needsFile.add(doc.id)
+    else if (jobs.has(doc.id)) {
+      const job = jobs.get(doc.id)
+      job.upload = { p: 1, done: true, error: null }
+      job.doc.uploaded_at = new Date().toISOString()
+      if (autoReady(doc.id)) queueAutoSave(doc.id, false)
+    }
+  } catch (e) {
+    docErrors.set(doc.id, e.message)
+    held.delete(doc.id)
+    if (file) needsFile.add(doc.id)   // next time, ask for the file
+  } finally {
+    inflight--
+    retrying.delete(doc.id)
+  }
+  try { await refresh() } catch (e) { docErrors.set(doc.id, `The list didn't reload: ${e.message}`) }
+  syncEditing()
+  renderInbox()
+}
+async function chooseAndRetry(doc) {
+  const file = await pickFile()
+  if (file) retryDoc(doc, file)
+}
+
+function pickFile() {
+  const input = $('retry-file')
+  input.value = ''
+  return new Promise((resolve) => {
+    const done = (file) => {
+      input.removeEventListener('change', onChange); input.removeEventListener('cancel', onCancel)
+      resolve(file)
+    }
+    const onChange = () => done(input.files[0] ?? null)
+    const onCancel = () => done(null)
+    input.addEventListener('change', onChange)
+    input.addEventListener('cancel', onCancel)
+    input.click()
+  })
+}
+
+// Void a document after a short grace, with Undo in its place in the list.
+function voidDoc(id) {
+  pendingVoid.set(id, setTimeout(async () => {
+    pendingVoid.delete(id)
+    committing.add(id)
+    if (drawer.open) renderDocs()
+    try { await voidDocument(id) } catch (e) { docErrors.set(id, `Couldn't void it: ${e.message}`) }
+    committing.delete(id)
+    try { await refresh() } catch (e) { notify({ tone: 'error', message: `The list didn't reload: ${e.message}` }) }
+    syncEditing()
+  }, 6000))
+  renderDocs()
+}
+function undoVoidDoc(id) {
+  clearTimeout(pendingVoid.get(id))
+  pendingVoid.delete(id)
+  renderDocs()
+}
+
+// Void the expense: it leaves the list now, the database after the grace.
+function voidExpenseNow() {
+  const { row, error } = voidRow($('f-void-reason').value, new Date().toISOString())
+  if (error) { fieldError(error); return }
+  const e = editing
+  drawer.close()
+  voiding.add(e.id)
+  expenses = expenses.filter(x => x.id !== e.id)
+  render()
+  const reload = () => refresh().catch(err => notify({ tone: 'error', message: `The list didn't reload: ${err.message}` }))
+  const commit = setTimeout(async () => {
+    try {
+      await voidExpense(e.id, row)
+    } catch (err) {
+      notify({ tone: 'error', message: `Couldn't void ${e.provider}: ${err.message}` })
+    }
+    voiding.delete(e.id)
+    reload()
+  }, 6000)
+  const note = notify({
+    tone: 'info', timeout: 6000,
+    message: `Voided ${e.provider}. It stays in the export.`,
+    action: { label: 'Undo', onClick: () => {
+      clearTimeout(commit); note.dismiss()
+      voiding.delete(e.id)
+      reload()
+    } },
+  })
+}
+
+/* ── reader ───────────────────────────────────────────────────────────────── */
+// A title and a list of documents. A document carries `url` when this tab
+// still has the dropped file; otherwise the broker signs a GET. A HEIC
+// photo is shown by its JPEG copy (only Safari shows HEIC) and downloaded
+// as the original it is.
+// Opened from the table with `all`, an expense with two or more stored
+// documents opens on all of them as one PDF, made here and never stored,
+// with each document listed below it.
+const reader = $('reader')
+let shown = null      // what is on screen: a document id, or `together`; a late answer for another is dropped
+let together = null   // the combined entry: { docs, pdf: a promise of { blob, pages, skipped }, url }
+const NONE_COMBINE = 'None of these files can be combined. Open each on its own.'
+
+function readerStatus(text) {
+  $('reader-body').replaceChildren(el('p', 'reader-status', text))
+}
+
+// kind: 'receipts' or 'eob' opens only those of its documents (the table's
+// two icons); none opens them all (the drawer).
+function openExpenseReader(e, docId, all = false, kind = null) {
+  const docs = kind ? e.documents.filter(d => isEob(d) === (kind === 'eob')) : e.documents
+  openReader(`${e.provider} · ${fmtDay(e.service_date)}${kind === 'eob' ? ' · EOBs' : ''}`, docs, docId, all, kind === 'eob')
+}
+
+function openReader(title, docs, docId, all = false, eob = false) {
+  dropCombinedUrl()
+  const stored = docs.filter(d => d.uploaded_at)
+  together = all && stored.length > 1 ? { docs: stored, pdf: null, url: null, eob } : null
+  $('reader-title').textContent = title
+  $('reader-files').replaceChildren(...(together ? [combinedItem(together)] : []), ...docs.map(d => {
+    const li = el('li', 'reader-file')
+    li.dataset.id = d.id
+    const open = button('reader-file__open', null, () => show(d))
+    open.append(el('span', 'reader-file__name', d.original_filename),
+      el('span', 'reader-file__meta', d.uploaded_at || d.url
+        ? [d.seq ? String(d.seq).padStart(2, '0') : null, TYPE[d.mime], fmtSize(Number(d.byte_size))].filter(Boolean).join(' · ')
+        : 'Upload incomplete'))
+    li.append(open)
+    if (d.uploaded_at && d.file_name) {
+      const dl = button('stmt-act', 'Download', () => download(d, li, dl))
+      dl.title = `Save as ${d.file_name}`
+      li.append(dl)
+    }
+    return li
+  }))
+  const first = docs.find(d => d.id === docId) ?? docs.find(d => d.uploaded_at || d.url) ?? docs[0]
+  if (!reader.open) reader.showModal()
+  if (together) showCombined(together)
+  else if (first) show(first)
+  else readerStatus('No receipts.')
+}
+
+// The combined entry, first in the list.
+function combinedItem(t) {
+  const li = el('li', 'reader-file')
+  li.dataset.id = 'all'
+  const open = button('reader-file__open', null, () => showCombined(t))
+  open.append(el('span', 'reader-file__name', t.eob ? 'All EOBs' : 'All receipts'),
+    el('span', 'reader-file__meta', `One PDF · ${plural(t.docs.length, 'file')}`))
+  // Every document of one expense is named for it alike, up to its _NN.
+  const name = t.docs[0].file_name.replace(/_\d{2}\.[a-z]+$/, t.eob ? '_eob.pdf' : '.pdf')
+  const dl = button('stmt-act', 'Download', () => saveAs(name, async () => {
+    const { blob, pages } = await combined(t)
+    if (!pages) throw new Error(NONE_COMBINE)
+    return blob
+  }, li, dl))
+  dl.title = `Save as ${name}`
+  li.append(open, dl)
+  return li
+}
+
+// The combined PDF, made once per opening from each document as a browser
+// shows it (a HEIC photo's JPEG copy), in upload order. Each goes in named
+// by its id, so a PDF left out finds its entry. A failure is tried again
+// on the next click.
+function combined(t) {
+  if (!t.pdf) {
+    t.pdf = (async () => {
+      const files = await Promise.all(t.docs.map(async d => ({ ...await viewableBytes(d), name: d.id })))
+      const { bytes, pages, skipped } = await combinePdf(files)
+      if (together === t) paintCombined(t, pages, skipped)
+      return { blob: new Blob([bytes], { type: 'application/pdf' }), pages, skipped }
+    })()
+    t.pdf.catch(() => { t.pdf = null })
+  }
+  return t.pdf
+}
+
+// Once made: the page count, and a PDF that couldn't go in (encrypted, or
+// unreadable) says so on its own entry, which still opens it.
+function paintCombined(t, pages, skipped) {
+  const n = t.docs.length
+  const files = skipped.length ? `${n - skipped.length} of ${n} files` : plural(n, 'file')
+  const list = $('reader-files')
+  list.querySelector('[data-id="all"] .reader-file__meta').textContent = `One PDF · ${files} · ${plural(pages, 'page')}`
+  for (const id of skipped) {
+    list.querySelector(`[data-id="${id}"] .reader-file__meta`).textContent = "Can't combine, open it on its own"
+  }
+}
+
+async function showCombined(t) {
+  shown = t
+  markShown('all')
+  dropCombinedUrl()
+  readerStatus(`Combining ${plural(t.docs.length, 'file')}…`)
+  try {
+    const { blob, pages } = await combined(t)
+    if (shown !== t) return
+    if (!pages) { readerStatus(NONE_COMBINE); return }
+    t.url = URL.createObjectURL(blob)
+    showUrl(t.url, 'application/pdf', 'All receipts')
+  } catch (e) {
+    if (shown === t) readerStatus(`Couldn't combine them: ${sentence(e.message)}`)
+  }
+}
+
+// Leaving the combined PDF lets go of its URL; the PDF stays made until
+// the reader closes or opens another expense.
+function dropCombinedUrl() {
+  if (together?.url) { URL.revokeObjectURL(together.url); together.url = null }
+}
+
+function markShown(id) {
+  for (const li of $('reader-files').children) {
+    const open = li.dataset.id === id
+    li.classList.toggle('is-current', open)
+    li.querySelector('.reader-file__open').setAttribute('aria-current', open ? 'true' : 'false')
+  }
+}
+
+function showUrl(url, mime, name) {
+  if (mime === 'application/pdf') {
+    const obj = el('object', 'reader-doc')
+    obj.type = 'application/pdf'
+    obj.data = url
+    const a = el('a', null, 'Open the PDF')
+    a.href = url; a.target = '_blank'; a.rel = 'noopener'
+    obj.append(a)
+    $('reader-body').replaceChildren(obj)
+  } else {
+    const img = el('img', 'reader-img')
+    img.alt = name
+    img.src = url
+    img.addEventListener('click', () => img.classList.toggle('zoomed'))
+    $('reader-body').replaceChildren(img)
+  }
+}
+
+async function show(doc) {
+  shown = doc.id
+  markShown(doc.id)
+  dropCombinedUrl()
+  if (doc.url) { showUrl(doc.url, doc.mime, doc.original_filename); return }
+  if (!doc.uploaded_at) { readerStatus("This upload didn't finish. Retry it first."); return }
+  readerStatus('Opening…')
+  try {
+    const { url, mime } = await getDocumentUrl(doc.id, doc.readable_sha256 ? 'readable' : 'original')
+    if (shown !== doc.id) return
+    showUrl(url, mime, doc.original_filename)
+  } catch (e) {
+    if (shown === doc.id) readerStatus(e.message)
+  }
+}
+
+// Save the original under its descriptive name.
+function download(doc, li, btn) {
+  return saveAs(doc.file_name, async () => {
+    const { url } = await getDocumentUrl(doc.id)
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Download failed (${res.status})`)
+    return res.blob()
+  }, li, btn)
+}
+
+// Save a file as `name`. A signed URL can't carry a name, so the bytes
+// come through the page and leave as a named file.
+async function saveAs(name, blobOf, li, btn) {
+  li.querySelector('.stmt-msg')?.remove()
+  btn.disabled = true
+  btn.textContent = 'Saving…'
+  try {
+    const href = URL.createObjectURL(await blobOf())
+    const a = el('a')
+    a.href = href
+    a.download = name
+    document.body.append(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(href), 10000)
+  } catch (e) {
+    li.append(el('p', 'stmt-msg', e.message))
+  } finally {
+    btn.disabled = false
+    btn.textContent = 'Download'
+  }
+}
+
+/* ── wiring ───────────────────────────────────────────────────────────────── */
+// A drop target: the files dropped on it (folders opened), or picked with
+// its button. A drop it takes isn't the page's too.
+function wireDrop(zone, choose, input, onFiles) {
+  let depth = 0
+  for (const t of ['dragenter', 'dragover']) {
+    zone.addEventListener(t, (ev) => { ev.preventDefault(); if (t === 'dragenter') depth++; zone.classList.add('is-drag') })
+  }
+  zone.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; zone.classList.remove('is-drag') } })
+  zone.addEventListener('drop', async (ev) => {
+    ev.preventDefault(); ev.stopPropagation(); depth = 0; zone.classList.remove('is-drag')
+    const { files, unreadable } = await droppedFiles(ev.dataTransfer)
+    if (files.length || unreadable.length) onFiles(files, unreadable)
+  })
+  choose.addEventListener('click', () => input.click())
+  input.addEventListener('change', (ev) => {
+    const files = [...ev.target.files]
+    ev.target.value = ''
+    if (files.length) onFiles(files)
+  })
+}
+
+const hasFiles = (ev) => [...ev.dataTransfer.types].includes('Files')
+
+// Files dropped anywhere on the page join the queue. While the expense
+// drawer or the reader is open a drop is theirs or nobody's. The queue's
+// target lights up while files are over the page.
+function wirePageDrop() {
+  const zone = $('queue-drop')
+  const takes = () => !drawer.open && !reader.open
+  let depth = 0
+  document.addEventListener('dragenter', (ev) => {
+    if (!hasFiles(ev)) return
+    depth++
+    zone.classList.toggle('is-drag', takes())
+  })
+  document.addEventListener('dragleave', (ev) => {
+    if (hasFiles(ev) && --depth <= 0) { depth = 0; zone.classList.remove('is-drag') }
+  })
+  document.addEventListener('dragover', (ev) => {
+    if (hasFiles(ev) && !takes() && !ev.target.closest?.('.dropzone')) ev.dataTransfer.dropEffect = 'none'
+  })
+  // Whoever takes the drop, the drag is over.
+  document.addEventListener('drop', () => { depth = 0; zone.classList.remove('is-drag') }, true)
+  document.addEventListener('drop', async (ev) => {
+    if (!hasFiles(ev) || !takes()) return
+    const { files, unreadable } = await droppedFiles(ev.dataTransfer)
+    if (files.length || unreadable.length) addFiles(files, unreadable)
+  })
+}
+
+function wire() {
+  const pick = () => $('queue-file').click()
+  hub.setActions([{ id: 'add', label: 'Add receipts', meta: 'Or statements, as many as you like. Each is read for you.', onClick: pick }])
+
+  // Table: the receipts icon opens the reader; anywhere else on a row edits.
+  $('expense-rows').addEventListener('click', (ev) => {
+    const docs = ev.target.closest('[data-docs]')
+    if (docs) { const e = expenses.find(x => x.id === docs.dataset.docs); if (e) openExpenseReader(e, null, true, docs.dataset.kind); return }
+    const tr = ev.target.closest('tr[data-id]')
+    if (tr) openEdit(tr.dataset.id)
+  })
+  $('expense-list').addEventListener('click', (ev) => {
+    const row = ev.target.closest('[data-edit]')
+    if (row) openEdit(row.dataset.edit)
+  })
+  // A column head sorts by its column, in the table and the list alike.
+  $('expenses').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-sort]')
+    if (b) sortOn(b.dataset.sort)
+  })
+  // Status is one row of buttons on a wide screen, a picker on a narrow one.
+  $('filter-status').append(...Object.entries(FILTER_STATUS).map(([status, text]) => {
+    const b = button(null, text, () => setFilter('status', status))
+    b.dataset.status = status
+    return b
+  }))
+  for (const [key, id] of [['status', 'filter-status-pick'], ['patient', 'filter-patient'], ['category', 'filter-category']]) {
+    $(id).addEventListener('change', () => setFilter(key, $(id).value))
+  }
+  $('none-clear').addEventListener('click', clearFilters)
+  enhanceWithin($('filters'))
+
+  // To review: files dropped anywhere, on its target, or picked.
+  wirePageDrop()
+  if (matchMedia('(pointer: coarse)').matches) {
+    $('queue-cue').textContent = 'Choose receipts'
+    // On a touch screen the whole target opens the picker.
+    $('queue-drop').addEventListener('click', (ev) => { if (ev.target === ev.currentTarget) pick() })
+  }
+  $('queue-choose').addEventListener('click', pick)
+  $('queue-file').addEventListener('change', (ev) => {
+    const files = [...ev.target.files].sort(byName)
+    ev.target.value = ''
+    if (files.length) addFiles(files)
+  })
+  $('inbox-next').addEventListener('click', () => showNext())
+  $('kept-again').addEventListener('click', readKeptAgain)
+  $('inbox-cmd').addEventListener('click', () => {
+    const cmd = $('inbox-cmd').textContent
+    if (cmd === 'Reload') reloadWhenStored()
+    else if (cmd === 'Stop reading') stopReading()
+    else readRest()
+  })
+
+  // Upload drawer
+  $('up-close').addEventListener('click', () => upload.close())
+  upload.addEventListener('click', (ev) => { if (ev.target === upload && !upBusy) upload.close() })
+  upload.addEventListener('cancel', (ev) => { if (upBusy) ev.preventDefault() })
+  upload.addEventListener('close', () => {
+    if (upBusy) { upload.showModal(); return }
+    clearInterval(clock)
+    upError(null)
+    // Undos still in their time go on in toasts, oldest first; a stop
+    // shows as one.
+    for (const l of [...said].reverse()) if (l.toast && l.until > Date.now()) l.toast(l.until - Date.now())
+    clearSaid()
+    if (halted && !stopNote) toastStop()
+    renderInbox()
+  })
+  $('up-prev').addEventListener('click', () => page(-1))
+  $('up-next').addEventListener('click', () => page(1))
+  $('up-said-act').addEventListener('click', () => {
+    const act = saidAct
+    said = said.filter(l => l.act !== act)   // its line has done its job
+    paintSaid()
+    act?.onClick()
+  })
+  $('up-view').addEventListener('click', () => viewDoc(sheet.docId))
+  $('up-discard').addEventListener('click', () => discardDoc(sheet.docId))
+  $('up-save').addEventListener('click', () => {
+    if (Date.now() < holdUntil) return
+    if (sheet.step === 'review') { saveReview(); return }
+    const label = $('up-save').textContent
+    if (label === 'Try again' && jobs.has(sheet.docId)) { queueRead(sheet.docId); showJob(sheet.docId) }
+    else if (label === 'Reload') reloadWhenStored()
+    else if (showNext()) handedOver()   // Done / Keep it: a second press can't save the next one unseen
+  })
+  $('up-status-act').addEventListener('click', () => {
+    const id = sheet.docId
+    if ($('up-status-act').textContent === 'Continue reading') { queueRead(id); showJob(id) }
+    else if (needsFile.has(id)) chooseAndRetry(docOf(id))
+    else retryDoc(docOf(id))
+  })
+
+  // Drawer
+  $('drawer-form').addEventListener('submit', (ev) => { ev.preventDefault(); save() })
+  $('drawer-close').addEventListener('click', () => drawer.close())
+  drawer.addEventListener('click', (ev) => { if (ev.target === drawer && !busy) drawer.close() })
+  drawer.addEventListener('cancel', (ev) => { if (busy) ev.preventDefault() })
+  drawer.addEventListener('close', () => {
+    // A save in progress keeps its drawer (a second Esc can't be refused).
+    if (busy) { drawer.showModal(); return }
+    editing = null
+    staged = []
+    clearError()
+    $('void-panel').hidden = true
+    $('f-void-reason').value = ''
+  })
+  $('f-hsa').addEventListener('change', () => setStatus(status))
+  $('f-status').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-status]')
+    if (b) setStatus(b.dataset.status)
+  })
+  $('void-open').addEventListener('click', () => {
+    $('void-panel').hidden = false
+    paintHead()
+    $('f-void-reason').focus()
+  })
+  $('void-cancel').addEventListener('click', () => {
+    $('void-panel').hidden = true
+    $('f-void-reason').value = ''
+    clearError()
+    paintHead()
+  })
+  $('void-confirm').addEventListener('click', voidExpenseNow)
+
+  // Dropzone: files added to a saved expense are stored, not read.
+  wireDrop($('dropzone'), $('drop-choose'), $('drop-file'), stage)
+
+  // Reader
+  $('reader-close').addEventListener('click', () => reader.close())
+  reader.addEventListener('click', (ev) => { if (ev.target === reader) reader.close() })
+  reader.addEventListener('close', () => { shown = null; $('reader-body').replaceChildren(); dropCombinedUrl(); together = null })
+}
+
+function fillOptions(list) {
+  const counts = new Map()
+  for (const p of list) counts.set(p.first_name, (counts.get(p.first_name) ?? 0) + 1)
+  patients = new Map(list.map(p => [p.id,
+    counts.get(p.first_name) > 1 && p.last_name ? `${p.first_name} ${p.last_name}` : p.first_name]))
+
+  $('f-patient').replaceChildren(option('', 'Choose', true), ...[...patients].map(([id, name]) => option(id, name)),
+    option(PATIENT_UNKNOWN, 'Patient unknown'))
+  $('f-category').replaceChildren(option('', 'Choose', true), ...CATEGORIES.map(c => option(c, CATEGORY[c])))
+  enhanceWithin(drawer)
+}
+
+/* ── boot ─────────────────────────────────────────────────────────────────── */
+async function init() {
+  if (!(await ensureAuth())) return
+  $('signoutBtn').hidden = false
+  $('signoutBtn').addEventListener('click', async () => { await signOut(); location.reload() })
+  // The idle re-lock comes first: it drops the leave-page guard before reloading.
+  startIdleTimeout(() => { leaving = true; location.reload() })
+
+  // Parents and admins only, reads included; RLS says the same.
+  if (!(await hasMinRole('parent'))) { $('state-denied').hidden = false; return }
+
+  const bar = $('state-loading')
+  const slow = setTimeout(() => { bar.hidden = false }, 600)
+  try {
+    ;[patientList, expenses, inbox, cards] = await Promise.all([listPatients(), listExpenses(), listInbox(), listCards()])
+  } catch (e) {
+    $('state-error').textContent = `Couldn't load the expenses. ${e.message}`
+    $('state-error').hidden = false
+    return
+  } finally {
+    clearTimeout(slow)
+    bar.hidden = true
+  }
+  fillOptions(patientList)
+  wire()
+  render()
+  queueAutoAttach()
+}
+
+// A stray drop never opens a file (or a link) in place of the page, even
+// while it loads; text dragged into a field still lands there.
+for (const t of ['dragover', 'drop']) {
+  document.addEventListener(t, (ev) => {
+    if (hasFiles(ev) || !ev.target.closest?.('input, textarea')) ev.preventDefault()
+  })
+}
+
+init()
+</script>
+</body>
+</html>
