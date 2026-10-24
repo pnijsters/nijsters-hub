@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FX · Family Hub</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080808">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/hub.css">
+</head>
+<body>
+
+<main class="hub-main">
+  <!-- Single-currency absolute view (PHP / EUR / SGD tabs). The honest
+       rate on its own real axis; the converter is the glance answer. -->
+  <div id="view-pair" class="view">
+    <section id="sec-convert">
+      <div class="section-head"><span class="title">Convert</span></div>
+      <div class="form-inline">
+        <div class="field amount">
+          <label for="convAmount">Amount (USD)</label>
+          <input id="convAmount" type="number" inputmode="decimal"
+                 min="0" step="any" value="1000" autocomplete="off">
+        </div>
+        <div class="field date">
+          <label for="convDate">On date</label>
+          <input id="convDate" type="date" autocomplete="off">
+        </div>
+      </div>
+      <p class="conv-result" id="convResult">&mdash;</p>
+      <p class="note" id="convNote" hidden></p>
+    </section>
+
+    <section id="sec-chart">
+      <div class="section-head">
+        <span class="title" id="pairTitle">USD &rarr; PHP</span>
+        <div class="actions">
+          <div class="seg" id="pairRange" role="group" aria-label="Range">
+            <button type="button" data-r="1m">1M</button>
+            <button type="button" data-r="1y">1Y</button>
+            <button type="button" data-r="5y">5Y</button>
+            <button type="button" data-r="max">Max</button>
+          </div>
+        </div>
+      </div>
+      <div class="block-head" style="margin-top:var(--rhythm-tight)">
+        <span class="bh-value" id="pairBig">&mdash;</span>
+        <span class="bh-cap" id="pairCap">peso per US dollar</span>
+      </div>
+      <div class="time-nav" style="margin-top:var(--space-lg)">
+        <button type="button" class="nav-arrow nav-prev" id="pairPrev" aria-label="Earlier" hidden>&larr;</button>
+        <div class="chart-frame">
+          <div class="chart-host" id="pairHost"></div>
+        </div>
+        <button type="button" class="nav-arrow nav-next" id="pairNext" aria-label="Later" hidden>&rarr;</button>
+      </div>
+      <div class="nav-caption" id="pairNav" hidden>
+        <span class="nav-range" id="pairNavRange" aria-live="polite">&nbsp;</span>
+        <button type="button" class="nav-now" id="pairNow" hidden>Now</button>
+      </div>
+      <div class="stat-line" id="pairStats" hidden></div>
+      <p class="chart-state" id="pairState" hidden>Loading rates&hellip;</p>
+    </section>
+  </div>
+
+  <!-- Relative-strength view (Compare tab). Each currency rebased to
+       100 at the visible range's start, so all three share one axis. -->
+  <div id="view-compare" class="view" hidden>
+    <section id="sec-compare">
+      <div class="section-head">
+        <span class="title">Relative strength</span>
+        <div class="actions">
+          <div class="seg" id="cmpRange" role="group" aria-label="Range">
+            <button type="button" data-r="1m">1M</button>
+            <button type="button" data-r="1y">1Y</button>
+            <button type="button" data-r="5y">5Y</button>
+            <button type="button" data-r="max">Max</button>
+          </div>
+        </div>
+      </div>
+      <div class="block-head" style="margin-top:var(--rhythm-tight)">
+        <span class="bh-value">100</span>
+        <span class="bh-cap">USD strength, indexed to the range start</span>
+      </div>
+      <div class="chart-legend" id="cmpLegend"></div>
+      <div class="time-nav" style="margin-top:var(--space-lg)">
+        <button type="button" class="nav-arrow nav-prev" id="cmpPrev" aria-label="Earlier" hidden>&larr;</button>
+        <div class="chart-frame">
+          <div class="chart-host" id="cmpHost"></div>
+        </div>
+        <button type="button" class="nav-arrow nav-next" id="cmpNext" aria-label="Later" hidden>&rarr;</button>
+      </div>
+      <div class="nav-caption" id="cmpNav" hidden>
+        <span class="nav-range" id="cmpNavRange" aria-live="polite">&nbsp;</span>
+        <button type="button" class="nav-now" id="cmpNow" hidden>Now</button>
+      </div>
+      <p class="chart-state" id="cmpState" hidden>Loading rates&hellip;</p>
+    </section>
+  </div>
+</main>
+
+<script src="js/supabase-config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script type="module">
+import { supabase, getAAL, signOut } from './js/supabase-client.js'
+import { ensureAuth } from './js/hub-auth.js'
+import { todayISO, fmtUSD } from './js/format.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+import { mountChartSync, cssVar as css, chartTokens } from './js/chart-sync.js'
+import { notify } from './js/hub-notify.js'
+import { listFxSeries } from './js/fx-client.js'
+import * as Plot from 'https://esm.sh/@observablehq/plot@0.6'
+
+/* ── Currencies ───────────────────────────────────────────────────── */
+const BASE = 'USD'
+const CUR = {
+  PHP: { glyph: '₱',  name: 'Philippine peso',  series: 'var(--series-3)' },
+  EUR: { glyph: '€',  name: 'euro',             series: 'var(--series-2)' },
+  SGD: { glyph: 'S$', name: 'Singapore dollar', series: 'var(--series-1)' },
+}
+const QUOTES = ['PHP', 'EUR', 'SGD']
+
+/* ── State ────────────────────────────────────────────────────────── */
+const cache = {}           // quote -> [{date, rate, source}], oldest first
+const dateSet = {}          // quote -> Set(date) for O(1) trading-day test
+let activeCur = 'PHP'       // current single-currency tab
+let mode = 'pair'           // 'pair' | 'compare'
+let _didIntro = false
+
+// Window model (the utilities sliding-window pattern). The range
+// buttons set the window SIZE in trading days; the prev/next arrows
+// scroll that window through the full ~26y history. offset 0 = window
+// anchored to the latest trading day; negative = further back. MAX is
+// the whole history (no scroll). Each view keeps its own range+offset
+// so toggling tabs doesn't lose your place.
+const WIN  = { '1m': 22, '1y': 261, '5y': 1305, max: Infinity }
+const STEP = key => key === 'max' ? 0 : Math.max(1, Math.round(WIN[key] / 2))
+const winState = {
+  pair:    { range: '1y', offset: 0 },
+  compare: { range: '1y', offset: 0 },
+}
+// The exact slice each view last drew, so the chart-sync readout uses
+// the same window the chart shows (its base = window start).
+let pairWinRows = []
+let cmpWinSeries = []
+
+/* ── Shared header ────────────────────────────────────────────────── */
+const hub = mountHubHeader({
+  app: 'Exchange Rates',
+  eyebrow: 'Family Hub · Exchange Rates',
+  grace: 'what the dollar buys, by the day.',
+  tabs: [
+    { id: 'PHP',     label: 'PHP' },
+    { id: 'EUR',     label: 'EUR' },
+    { id: 'SGD',     label: 'SGD' },
+    { id: 'compare', label: 'Compare' },
+  ],
+  onTab: (id) => switchTab(id),
+})
+
+/* ── Formatters ───────────────────────────────────────────────────── */
+const MONTH = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DOW   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+const parts = s => s.split('-').map(Number)              // 'YYYY-MM-DD'
+const dObj  = s => new Date(`${s}T00:00:00Z`)
+const fmtFull = s => { const [y,m,d] = parts(s); return `${d} ${MONTH[m-1]} ${y}` }
+const fmtDow  = s => { const [y,m,d] = parts(s); return `${DOW[dObj(s).getUTCDay()]} ${d} ${MONTH[m-1]} ${y}` }
+// Rate display: pesos read fine at 4dp; the sub-unit currencies need
+// more places to move. Always tabular.
+const fmtRate = (v, q) => v == null ? '—'
+  : (q === 'PHP' ? v.toFixed(4) : v.toFixed(6))
+const fmtPct = p => (p > 0 ? '+' : '') + p.toFixed(2) + '%'
+const fmtAmt = (n, q) => {
+  const dp = q === 'PHP' ? 0 : 2
+  return CUR[q].glyph + n.toLocaleString('en-US',
+    { minimumFractionDigits: dp, maximumFractionDigits: dp })
+}
+
+/* ── As-of carry-forward, client side (the cache holds full history) ─
+   Mirrors fx.rate_asof: the most recent stored rate on or before the
+   date. Returns the resolved trading day + a human note for the edge
+   cases (markets closed that day, before history, after the latest). */
+function resolveAsOf(quote, dateStr) {
+  const s = cache[quote]
+  if (!s || !s.length) return { rate: null, asOf: null, note: 'No rates for this currency.', warn: true }
+  const first = s[0].date, last = s[s.length - 1].date
+  if (dateStr < first) {
+    return { rate: s[0].rate, asOf: first, warn: true,
+      note: `Earliest rate on record is ${fmtFull(first)}. Showing that.` }
+  }
+  // Binary search for the last row with date <= dateStr.
+  let lo = 0, hi = s.length - 1, idx = 0
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (s[mid].date <= dateStr) { idx = mid; lo = mid + 1 } else { hi = mid - 1 }
+  }
+  const row = s[idx]
+  if (dateStr > last) {
+    return { rate: row.rate, asOf: row.date, warn: true,
+      note: `No rate published after ${fmtFull(last)} yet. Showing the latest.` }
+  }
+  if (dateSet[quote].has(dateStr)) return { rate: row.rate, asOf: row.date, note: '' }
+  return { rate: row.rate, asOf: row.date,
+    note: `Markets closed ${fmtFull(dateStr)}. Rate as of ${fmtDow(row.date)}.` }
+}
+
+/* ── Sliding window over the full trading-day history ─────────────────
+   domain = the currency's full series (oldest first). size = WIN[range]
+   trading days; offset shifts the window (0 = latest). Index-based and
+   clamped exactly like utilities' getWindow. */
+function getWindow(domain, rangeKey, offset) {
+  const n = domain.length
+  if (!n) return { slice: [], atStart: true, atEnd: true, canScroll: false }
+  const size = WIN[rangeKey] === Infinity ? n : Math.min(WIN[rangeKey], n)
+  const canScroll = size < n
+  const endIdx = Math.max(size, Math.min(n, n + offset))
+  const startIdx = Math.max(0, endIdx - size)
+  return {
+    slice: domain.slice(startIdx, endIdx),
+    atStart: startIdx === 0, atEnd: endIdx === n, canScroll,
+  }
+}
+// Clamp an offset to the legal range for this domain + window size.
+function clampOffset(domain, rangeKey, offset) {
+  const n = domain.length
+  const size = WIN[rangeKey] === Infinity ? n : Math.min(WIN[rangeKey], n)
+  const minOffset = -(n - size)
+  return Math.max(minOffset, Math.min(0, offset))
+}
+
+// The x band domain is a UNIFORM calendar-day grid (every day between
+// the window ends), NOT trading-days-only. Every band is one day, so
+// equal time is equal pixels: a year is always the same width whether
+// the data was sparse (early backfill) or dense. Weekends/holidays are
+// empty bands the line simply crosses (no interpolation, same as
+// before). It stays a categorical band scale, so chart-sync works
+// unchanged. Ticks are real calendar boundaries on that uniform grid,
+// so they are evenly spaced by construction.
+const spanDays = rows => rows.length < 2 ? 0
+  : Math.round((dObj(rows[rows.length - 1].date) - dObj(rows[0].date)) / 86400000)
+const tickUnit = span => span > 760 ? 'year' : span > 95 ? 'month' : 'week'
+
+// Every calendar day from the first to the last row, inclusive.
+function dayDomain(rows) {
+  if (!rows.length) return []
+  const out = []
+  let t = dObj(rows[0].date).getTime()
+  const end = dObj(rows[rows.length - 1].date).getTime()
+  for (; t <= end; t += 86400000) out.push(new Date(t).toISOString().slice(0, 10))
+  return out
+}
+// Ticks on calendar boundaries within the uniform grid: a year/month
+// boundary is a fixed number of days, so on a one-day-per-band scale
+// the ticks are evenly spaced. Week unit = a fixed 7-day stride.
+function pickTicks(days, unit) {
+  if (!days.length) return []
+  if (unit === 'week') {
+    const out = []
+    for (let i = 0; i < days.length; i += 7) out.push(days[i])
+    return out
+  }
+  const keyOf = unit === 'year' ? d => d.slice(0, 4) : d => d.slice(0, 7)
+  const seen = new Set(), out = []
+  for (const d of days) {
+    const k = keyOf(d)
+    if (!seen.has(k)) { seen.add(k); out.push(d) }
+  }
+  return out
+}
+function tickLabel(dateStr, unit) {
+  const [y, m, d] = parts(dateStr)
+  if (unit === 'year')  return String(y)
+  if (unit === 'month') return m === 1 ? `${MONTH[0]} ${y}` : MONTH[m - 1]
+  return `${d} ${MONTH[m - 1]}`
+}
+// Last data row on or before a (possibly empty) calendar-day key, so
+// the chart-sync readout still shows a real trading day when the guide
+// lands on a weekend band.
+function asOfRow(rows, key) {
+  let lo = 0, hi = rows.length - 1, idx = -1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (rows[mid].date <= key) { idx = mid; lo = mid + 1 } else { hi = mid - 1 }
+  }
+  return idx < 0 ? null : rows[idx]
+}
+
+// Paint the prev/next arrows + range caption + Now for a view.
+function paintNav(view, win) {
+  const P = view === 'pair' ? 'pair' : 'cmp'
+  const prev = document.getElementById(P + 'Prev')
+  const next = document.getElementById(P + 'Next')
+  const nav  = document.getElementById(P + 'Nav')
+  const rng  = document.getElementById(P + 'NavRange')
+  const now  = document.getElementById(P + 'Now')
+  const show = win.canScroll
+  prev.hidden = next.hidden = nav.hidden = !show
+  if (!show) return
+  prev.disabled = win.atStart
+  next.disabled = win.atEnd
+  now.hidden = win.atEnd
+  const s = win.slice
+  const label = s.length ? `${fmtFull(s[0].date)} to ${fmtFull(s[s.length - 1].date)}` : ''
+  if (rng.textContent.trim() !== label) {
+    rng.classList.add('swapping')
+    setTimeout(() => { rng.textContent = label; rng.classList.remove('swapping') }, 120)
+  }
+}
+
+/* ── Chart-sync: ONE instrument, drives whichever host is visible ─── */
+const sync = mountChartSync({
+  svgs: () => {
+    const host = mode === 'pair'
+      ? document.getElementById('pairHost')
+      : document.getElementById('cmpHost')
+    const svg = host && host.querySelector('svg')
+    return svg ? [svg] : []
+  },
+  readout: (key) => {
+    // `key` is a calendar-day band; carry forward to the last real
+    // trading day on or before it so a weekend hover still reads true.
+    if (mode === 'pair') {
+      const r = asOfRow(pairWinRows, key)
+      if (!r) return null
+      const base = pairWinRows[0].rate
+      const chg = ((r.rate - base) / base) * 100
+      const row = (k, v) => `<span class="cr-row">${k}<span class="cr-v">${v}</span></span>`
+      return `<span class="cr-key">${fmtFull(r.date)}</span>`
+        + row(`USD &rarr; ${activeCur}`, fmtRate(r.rate, activeCur))
+        + row('Since window start', fmtPct(chg))
+        + row('Source', r.source)
+    }
+    // compare: every currency's indexed value + raw rate at this date
+    let head = null, body = ''
+    for (const s of cmpWinSeries) {
+      const r = asOfRow(s.rows, key)
+      if (!r) continue
+      if (!head) head = r.date
+      body += `<span class="cr-row">${s.q}`
+        + `<span class="cr-v">${r.idx.toFixed(1)} · ${fmtRate(r.rate, s.q)}</span></span>`
+    }
+    if (!head) return null
+    return `<span class="cr-key">${fmtFull(head)}</span>` + body
+  },
+})
+const scheduleSync = () =>
+  requestAnimationFrame(() => requestAnimationFrame(() => sync.refresh()))
+
+/* ── Plot helpers (the §9 chart standard, shared visual language) ─── */
+function basePlot(rows, width) {
+  const days = dayDomain(rows)
+  const unit = tickUnit(spanDays(rows))
+  const ticks = pickTicks(days, unit)
+  return {
+    style: { background: 'transparent', color: chartTokens().ink,
+             fontFamily: 'var(--font-body)', fontSize: '11px' },
+    width, height: 300,
+    marginLeft: 56, marginRight: 18, marginTop: 14, marginBottom: 30,
+    x: { type: 'band', domain: days, ticks, tickSize: 0, label: null,
+         grid: true, tickFormat: d => tickLabel(d, unit) },
+    y: { tickSize: 0, grid: true, label: null, line: false },
+  }
+}
+const hostWidth = id => Math.max(280, document.getElementById(id).clientWidth || 720)
+
+/* ── Single-currency absolute view ────────────────────────────────── */
+function renderPair() {
+  const host = document.getElementById('pairHost')
+  const stateEl = document.getElementById('pairState')
+  const statsEl = document.getElementById('pairStats')
+  document.getElementById('pairTitle').innerHTML = `USD &rarr; ${activeCur}`
+  document.getElementById('pairCap').textContent =
+    `${CUR[activeCur].name} per US dollar`
+  const ws = winState.pair
+  for (const b of document.querySelectorAll('#pairRange button'))
+    b.setAttribute('aria-current', b.dataset.r === ws.range ? 'true' : 'false')
+
+  const domain = cache[activeCur] || []
+  ws.offset = clampOffset(domain, ws.range, ws.offset)
+  const win = getWindow(domain, ws.range, ws.offset)
+  const rows = win.slice
+  pairWinRows = rows
+  paintNav('pair', win)
+  host.replaceChildren()
+  if (!rows.length) {
+    statsEl.hidden = true
+    stateEl.hidden = false
+    stateEl.textContent = 'No rates in this range.'
+    document.getElementById('pairBig').innerHTML = '&mdash;'
+    return
+  }
+  stateEl.hidden = true
+  const def = basePlot(rows, hostWidth('pairHost'))
+  host.appendChild(Plot.plot({
+    ...def,
+    y: { ...def.y, tickFormat: v => v >= 10 ? v.toFixed(1) : v.toFixed(4) },
+    marks: [
+      Plot.lineY(rows, { x: 'date', y: 'rate',
+        stroke: CUR[activeCur].series, strokeWidth: 1.5, curve: 'linear' }),
+    ],
+  }))
+
+  const last = rows[rows.length - 1], firstR = rows[0]
+  const lo = Math.min(...rows.map(r => r.rate))
+  const hi = Math.max(...rows.map(r => r.rate))
+  const mean = rows.reduce((s, r) => s + r.rate, 0) / rows.length
+  const chg = ((last.rate - firstR.rate) / firstR.rate) * 100
+  // The headline figure is always the latest rate (matches the strip
+  // hero), independent of how far the window is scrolled back; the
+  // Low/High/Mean/Change below describe the visible window.
+  document.getElementById('pairBig').textContent =
+    fmtRate(domain[domain.length - 1].rate, activeCur)
+  statsEl.hidden = false
+  statsEl.innerHTML = [
+    ['Low',  fmtRate(lo, activeCur)],
+    ['High', fmtRate(hi, activeCur)],
+    ['Mean', fmtRate(mean, activeCur)],
+    ['Change', `${fmtPct(chg)} ${chg >= 0 ? '▲' : '▼'}`],
+  ].map(([k, v]) => `<div class="stat-line__item"><span class="stat-line__k">${k}</span><span class="stat-line__v">${v}</span></div>`).join('')
+  scheduleSync()
+}
+
+/* ── Compare (relative strength, indexed to range start) ──────────── */
+function renderCompare() {
+  const host = document.getElementById('cmpHost')
+  const stateEl = document.getElementById('cmpState')
+  const ws = winState.compare
+  for (const b of document.querySelectorAll('#cmpRange button'))
+    b.setAttribute('aria-current', b.dataset.r === ws.range ? 'true' : 'false')
+
+  // All three pairs share the same trading days, so clamp/scroll off
+  // PHP's domain and apply the same window to each.
+  const phpDom = cache.PHP || []
+  ws.offset = clampOffset(phpDom, ws.range, ws.offset)
+  const navWin = getWindow(phpDom, ws.range, ws.offset)
+  paintNav('compare', navWin)
+
+  const series = QUOTES.map(q => {
+    const rows = getWindow(cache[q] || [], ws.range, ws.offset).slice
+    const base = rows.length ? rows[0].rate : null
+    return { q, rows: rows.map(r => ({ date: r.date, rate: r.rate,
+      idx: base ? (r.rate / base) * 100 : 100 })) }
+  }).filter(s => s.rows.length)
+  cmpWinSeries = series
+
+  document.getElementById('cmpLegend').innerHTML = QUOTES.map(q =>
+    `<span class="chart-legend__item"><span class="chart-legend__sw" style="background:${CUR[q].series}"></span>USD &rarr; ${q}</span>`).join('')
+
+  host.replaceChildren()
+  if (!series.length) {
+    stateEl.hidden = false
+    stateEl.textContent = 'No rates in this range.'
+    return
+  }
+  stateEl.hidden = true
+  const longest = series.reduce((a, b) => b.rows.length > a.rows.length ? b : a).rows
+  const def = basePlot(longest, hostWidth('cmpHost'))
+  host.appendChild(Plot.plot({
+    ...def,
+    y: { ...def.y, tickFormat: v => Math.round(v) },
+    marks: [
+      Plot.ruleY([100], { stroke: chartTokens().rule, strokeDasharray: '2,3' }),
+      ...series.map(s => Plot.lineY(s.rows, { x: 'date', y: 'idx',
+        stroke: CUR[s.q].series, strokeWidth: 1.5, curve: 'linear' })),
+    ],
+  }))
+  scheduleSync()
+}
+
+/* ── Strip (Zone 3): app-wide, the three current rates always; the
+   hero follows the active currency so its tab gets the prominence. ─ */
+function renderStrip() {
+  const heroCur = mode === 'pair' ? activeCur : 'PHP'
+  const cur = q => {
+    const s = cache[q]; if (!s || s.length < 2) return null
+    const last = s[s.length - 1], prev = s[s.length - 2]
+    return { rate: last.rate, date: last.date, source: last.source,
+             pct: ((last.rate - prev.rate) / prev.rate) * 100 }
+  }
+  const deltaHtml = p => p == null ? '' :
+    `<span>${p >= 0 ? '▲' : '▼'} ${fmtPct(p)} vs prev trading day</span>`
+  const h = cur(heroCur)
+  const others = QUOTES.filter(q => q !== heroCur)
+  const stats = others.map(q => {
+    const c = cur(q)
+    return { label: `USD → ${q}`, value: c ? fmtRate(c.rate, q) : '—',
+             context: c ? `${c.pct >= 0 ? '▲' : '▼'} ${fmtPct(c.pct)}` : '' }
+  })
+  const asOf = h ? h.date : (cur('PHP')?.date)
+  if (asOf) stats.push({ label: 'As of', value: fmtFull(asOf),
+    context: h ? h.source : '' })
+  hub.setStrip({
+    hero: h
+      ? { value: fmtRate(h.rate, heroCur), label: `USD → ${heroCur}`, delta: deltaHtml(h.pct) }
+      : { value: '—', label: `USD → ${heroCur}` },
+    stats,
+  })
+  // Zone-4 left: the honest as-of / source / carry-forward line.
+  const src = h ? h.source : 'ECB reference'
+  hub.crLeft.textContent = asOf
+    ? `${src} · carry-forward on non-trading days · as of ${fmtFull(asOf)}`
+    : ''
+}
+
+/* ── Converter wiring ─────────────────────────────────────────────── */
+function recompute() {
+  const amtEl = document.getElementById('convAmount')
+  const dateEl = document.getElementById('convDate')
+  const resEl = document.getElementById('convResult')
+  const noteEl = document.getElementById('convNote')
+  const amt = parseFloat(amtEl.value)
+  const dstr = dateEl.value
+  if (!Number.isFinite(amt) || amt < 0 || !dstr) {
+    resEl.innerHTML = '&mdash;'; noteEl.hidden = true; return
+  }
+  const { rate, asOf, note, warn } = resolveAsOf(activeCur, dstr)
+  if (rate == null) {
+    resEl.innerHTML = '&mdash;'
+    noteEl.hidden = false; noteEl.className = 'fx-note warn'; noteEl.textContent = note
+    return
+  }
+  resEl.innerHTML =
+    `${fmtUSD(amt)}<span class="conv-eq">=</span>${fmtAmt(amt * rate, activeCur)}`
+  noteEl.hidden = false
+  noteEl.className = 'fx-note' + (warn ? ' warn' : '')
+  noteEl.textContent = note ||
+    `Rate ${fmtRate(rate, activeCur)} as of ${fmtDow(asOf)}.`
+}
+
+/* ── Tab / range switching ────────────────────────────────────────── */
+function switchTab(id) {
+  if (id === 'compare') {
+    mode = 'compare'
+    document.getElementById('view-pair').hidden = true
+    document.getElementById('view-compare').hidden = false
+    renderCompare()
+  } else {
+    mode = 'pair'
+    activeCur = id
+    document.getElementById('view-compare').hidden = true
+    document.getElementById('view-pair').hidden = false
+    renderPair()
+    recompute()
+  }
+  renderStrip()
+}
+const renderView = v => v === 'pair' ? renderPair() : renderCompare()
+const wsFor = () => mode === 'pair' ? winState.pair : winState.compare
+
+// Range button: sets the window SIZE and snaps back to the latest
+// window (offset 0), so changing range always shows the present first.
+function wireRange(btnId, view) {
+  document.getElementById(btnId).addEventListener('click', e => {
+    const b = e.target.closest('button[data-r]'); if (!b) return
+    const ws = winState[view]
+    if (ws.range === b.dataset.r) return
+    ws.range = b.dataset.r
+    ws.offset = 0
+    renderView(view)
+  })
+}
+wireRange('pairRange', 'pair')
+wireRange('cmpRange', 'compare')
+
+// Scroll the window. delta in trading days: negative = earlier.
+function shiftWindow(deltaDays) {
+  const view = mode === 'pair' ? 'pair' : 'compare'
+  const ws = winState[view]
+  const dom = cache[mode === 'pair' ? activeCur : 'PHP'] || []
+  const next = clampOffset(dom, ws.range, ws.offset + deltaDays)
+  if (next === ws.offset) return
+  ws.offset = next
+  renderView(view)
+}
+function wireNav(P, view) {
+  document.getElementById(P + 'Prev').addEventListener('click', () => shiftWindow(-STEP(winState[view].range)))
+  document.getElementById(P + 'Next').addEventListener('click', () => shiftWindow( STEP(winState[view].range)))
+  document.getElementById(P + 'Now').addEventListener('click', () => {
+    const ws = winState[view]
+    if (ws.offset === 0) return
+    ws.offset = 0
+    renderView(view)
+  })
+}
+wireNav('pair', 'pair')
+wireNav('cmp', 'compare')
+
+// Left/Right arrow keys scroll the visible chart's window.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  const tag = (e.target.tagName || '').toLowerCase()
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return
+  const P = mode === 'pair' ? 'pair' : 'cmp'
+  const prev = document.getElementById(P + 'Prev')
+  if (!prev || prev.hidden) return
+  e.preventDefault()
+  shiftWindow(e.key === 'ArrowLeft' ? -STEP(wsFor().range) : STEP(wsFor().range))
+})
+document.getElementById('convAmount').addEventListener('input', recompute)
+document.getElementById('convDate').addEventListener('input', recompute)
+let _rT = 0
+addEventListener('resize', () => {
+  clearTimeout(_rT)
+  _rT = setTimeout(() => mode === 'pair' ? renderPair() : renderCompare(), 160)
+})
+
+/* ── Intro (sparse, confident: ribbon + first block) ──────────────── */
+function runIntro() {
+  if (_didIntro || typeof gsap === 'undefined') return
+  _didIntro = true
+  const els = [...document.querySelectorAll('#view-pair .section-head, #view-pair .fx-conv, #view-pair .block-head')]
+  if (!els.length) return
+  gsap.set(els, { opacity: 0, y: 8 })
+  gsap.timeline({ defaults: { ease: 'power2.out' } })
+    .to(els, { opacity: 1, y: 0, duration: 0.4, stagger: 0.06 })
+}
+
+/* ── Auth gate (matches the rest of the Hub) ──────────────────────── */
+async function gate() {
+  if (!(await ensureAuth())) return false
+  return true
+}
+
+async function init() {
+  if (!(await gate())) return
+
+  const signoutBtn = document.getElementById('signoutBtn')
+  signoutBtn.hidden = false
+  signoutBtn.addEventListener('click', async () => {
+    await signOut(); location.reload()
+  })
+  startIdleTimeout(() => { location.reload() })
+
+  document.getElementById('pairState').hidden = false
+  try {
+    const got = await Promise.all(QUOTES.map(q =>
+      listFxSeries({ base: BASE, quote: q })))
+    QUOTES.forEach((q, i) => {
+      cache[q] = got[i]
+      dateSet[q] = new Set(got[i].map(r => r.date))
+    })
+  } catch (e) {
+    document.getElementById('pairState').className = 'state-line error'
+    document.getElementById('pairState').textContent =
+      `Couldn't reach the FX data: ${e.message || e}`
+    notify({ tone: 'error', message: 'FX rates failed to load. Check the connection and reload.' })
+    return
+  }
+  if (!(cache.PHP && cache.PHP.length)) {
+    document.getElementById('pairState').textContent = 'No FX rates on record yet.'
+    return
+  }
+
+  // Converter defaults to the latest trading day, capped at today.
+  const dEl = document.getElementById('convDate')
+  dEl.max = todayISO()
+  dEl.value = cache[activeCur][cache[activeCur].length - 1].date
+
+  renderPair()
+  recompute()
+  renderStrip()
+  runIntro()
+}
+
+init()
+</script>
+</body>
+</html>

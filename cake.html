@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cake Boutique · Family Hub</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080808">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/hub.css">
+<link rel="stylesheet" href="css/hub-forms.css">
+</head>
+<body>
+
+<main class="hub-main" id="main">
+  <div class="loading-bar" id="state-loading" hidden></div>
+  <p class="lede" id="state-denied" hidden>This page is for parents.</p>
+  <p class="empty-state error" id="state-error" hidden></p>
+
+  <!-- INQUIRIES: what the quote form sent, newest first -->
+  <div id="view-inquiries" hidden>
+    <section class="section">
+      <div class="section-head">
+        <span class="title">Inquiries</span>
+        <span class="meta" id="inquiries-meta"></span>
+      </div>
+      <p class="form-note">Reply to each one by email or phone, then mark it replied here.</p>
+      <ul class="ingest-queue ingest-queue--wrap" id="inquiry-list" aria-label="Inquiries"></ul>
+      <p class="empty-state" id="inquiries-empty" hidden>When someone sends the quote form on your site, their inquiry appears here.</p>
+    </section>
+  </div>
+
+  <!-- PHOTOS: the single photos on the pages, then every photo -->
+  <div id="view-photos" hidden>
+    <section class="section">
+      <div class="section-head">
+        <span class="title">On the pages</span>
+        <span class="meta" id="spots-meta"></span>
+      </div>
+      <p class="form-note">One photo in each place. Tap one to change it.</p>
+      <div class="card-grid" id="spot-grid" role="group" aria-label="Photos on the pages"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="title">Your photos</span>
+        <span class="meta" id="photos-meta"></span>
+      </div>
+      <div>
+        <div class="dropzone dropzone--compact" id="photo-drop">
+          <span class="dropzone-cue">Drop photos</span>
+          <button type="button" class="linklike" id="photo-choose">or choose photos</button>
+        </div>
+        <p class="form-note">JPG, PNG or iPhone photos. Each is resized and stored without its location data.</p>
+      </div>
+      <input type="file" id="photo-file" accept="image/*,.heic,.heif" multiple hidden>
+      <ul class="ingest-queue" id="upload-list" aria-label="Photos being added" hidden></ul>
+      <div class="card-grid" id="photo-grid" role="group" aria-label="Your photos"></div>
+      <p class="empty-state" id="photos-empty" hidden>No photos yet. Drop some above.</p>
+    </section>
+  </div>
+
+  <!-- PRICES AND DETAILS: saved as they are typed -->
+  <form id="view-details" novalidate hidden>
+    <section class="section">
+      <div class="section-head">
+        <span class="title">Starting prices</span>
+        <span class="meta" data-said role="status"></span>
+      </div>
+      <p class="form-note">Leave a box empty until you know. The site shows $[X] there instead, and can't go live with one.</p>
+      <div class="field-grid">
+        <div class="form-row" data-field="celebration_from">
+          <label for="f-celebration_from">Celebration cakes from</label>
+          <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-celebration_from" autocomplete="off"></div>
+          <p class="form-note" data-msg hidden></p>
+        </div>
+        <div class="form-row" data-field="wedding_serving_from">
+          <label for="f-wedding_serving_from">Wedding cakes from, a serving</label>
+          <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-wedding_serving_from" autocomplete="off"></div>
+          <p class="form-note" data-msg hidden></p>
+        </div>
+        <div class="form-row" data-field="minimum_order">
+          <label for="f-minimum_order">Minimum order</label>
+          <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-minimum_order" autocomplete="off"></div>
+          <p class="form-note" data-msg hidden></p>
+        </div>
+      </div>
+      <div class="form-row">
+        <span class="form-legend" id="dessert-legend">Dessert tables</span>
+        <div class="seg" id="f-dessert" role="group" aria-labelledby="dessert-legend">
+          <button type="button" data-dessert="unknown">Not decided</button>
+          <button type="button" data-dessert="from">From a price</button>
+          <button type="button" data-dessert="quoted">Quoted per event</button>
+        </div>
+      </div>
+      <div class="form-row" data-field="dessert_from" id="row-dessert-from" hidden>
+        <label for="f-dessert_from">Dessert tables from</label>
+        <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-dessert_from" autocomplete="off"></div>
+        <p class="form-note" data-msg hidden></p>
+      </div>
+      <div class="form-row" data-field="wedding_typical">
+        <span class="form-legend">What couples usually spend on a wedding cake</span>
+        <div class="period-pair">
+          <div class="num-with-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="f-wedding_typical_low" autocomplete="off" aria-label="From"></div>
+          <div class="num-with-prefix"><span class="prefix">to $</span><input type="text" inputmode="decimal" id="f-wedding_typical_high" autocomplete="off" aria-label="To"></div>
+        </div>
+        <p class="form-note" data-msg hidden></p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="title">Booking</span>
+        <span class="meta" data-said role="status"></span>
+      </div>
+      <div class="field-grid">
+        <div class="form-row" data-field="wedding_notice_weeks">
+          <label for="f-wedding_notice_weeks">Book a wedding cake</label>
+          <div class="num-with-suffix"><input type="text" inputmode="numeric" id="f-wedding_notice_weeks" autocomplete="off"><span class="suffix">weeks ahead</span></div>
+          <p class="form-note" data-msg hidden></p>
+        </div>
+        <div class="form-row" data-field="celebration_notice_weeks">
+          <label for="f-celebration_notice_weeks">Order a celebration cake</label>
+          <div class="num-with-suffix"><input type="text" inputmode="numeric" id="f-celebration_notice_weeks" autocomplete="off"><span class="suffix">weeks ahead</span></div>
+          <p class="form-note" data-msg hidden></p>
+        </div>
+        <div class="form-row" data-field="deposit_percent">
+          <label for="f-deposit_percent">Deposit that holds a date</label>
+          <div class="num-with-suffix"><input type="text" inputmode="numeric" id="f-deposit_percent" autocomplete="off"><span class="suffix">%</span></div>
+          <p class="form-note" data-msg hidden></p>
+        </div>
+        <div class="form-row" data-field="reply_business_days">
+          <label for="f-reply_business_days">I reply within</label>
+          <div class="num-with-suffix"><input type="text" inputmode="numeric" id="f-reply_business_days" autocomplete="off"><span class="suffix">business days</span></div>
+          <p class="form-note" data-msg hidden></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="title">Delivery</span>
+        <span class="meta" data-said role="status"></span>
+      </div>
+      <div class="form-row" data-field="delivery_area">
+        <label for="f-delivery_area">I deliver in</label>
+        <input type="text" id="f-delivery_area" maxlength="120" autocomplete="off">
+        <p class="form-note" data-msg hidden></p>
+      </div>
+      <p class="form-note">The site says "Delivery in … is for a fee", so write the places as they would read in that sentence.</p>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="title">Quote form</span>
+        <span class="meta" data-said role="status"></span>
+      </div>
+      <div class="form-row" data-field="budget_steps">
+        <label for="f-budget_steps">Budget steps, in dollars</label>
+        <input type="text" id="f-budget_steps" inputmode="numeric" autocomplete="off" placeholder="150, 300, 600">
+        <p class="form-note" data-msg hidden></p>
+      </div>
+      <p class="form-note" id="budget-said"></p>
+    </section>
+  </form>
+
+  <!-- TESTIMONIALS -->
+  <div id="view-testimonials" hidden>
+    <section class="section">
+      <div class="section-head">
+        <span class="title">Testimonials</span>
+        <span class="meta" id="quotes-meta"></span>
+        <div class="actions"><button type="button" class="action" id="quote-add">Add a testimonial</button></div>
+      </div>
+      <p class="form-note">Only quotes the writer agreed to share go on the site: the first three, on Home.</p>
+      <ul class="ingest-queue" id="quote-list" aria-label="Testimonials"></ul>
+      <p class="empty-state" id="quotes-empty" hidden>No testimonials yet. Add one a customer agreed to share.</p>
+    </section>
+  </div>
+
+  <!-- PREVIEW: a page of the site, filled with what is saved -->
+  <div id="view-preview" hidden>
+    <section class="section">
+      <div class="section-head">
+        <span class="title">Preview</span>
+      </div>
+      <p class="form-note" id="preview-meta"></p>
+      <div class="filter-row">
+        <div class="picker">
+          <label for="preview-page">Page</label>
+          <select id="preview-page"></select>
+        </div>
+        <div class="seg only-desktop" id="preview-width" role="group" aria-label="Width">
+          <button type="button" data-width="full" aria-pressed="true">Computer</button>
+          <button type="button" data-width="phone" aria-pressed="false">Phone</button>
+        </div>
+      </div>
+      <p class="empty-state error" id="preview-error" hidden></p>
+      <iframe class="preview-frame" id="preview-frame" title="Preview of the page" sandbox="allow-scripts"></iframe>
+    </section>
+  </div>
+</main>
+
+<!-- INQUIRY: what was sent; mark replied; delete -->
+<dialog class="drawer" id="inquiry-drawer" aria-labelledby="iq-title">
+  <div class="drawer-inner">
+    <div class="drawer-head">
+      <span class="drawer-eyebrow">Inquiry</span>
+      <button type="button" class="drawer-close" id="iq-close">Close</button>
+    </div>
+    <h2 class="drawer-title" id="iq-title" tabindex="-1"></h2>
+    <p class="form-note" id="iq-sent"></p>
+    <div class="stat-line">
+      <div class="stat-line__item"><span class="stat-line__k">Event date</span><span class="stat-line__v" id="iq-date"></span></div>
+      <div class="stat-line__item"><span class="stat-line__k">Occasion</span><span class="stat-line__v" id="iq-occasion"></span></div>
+      <div class="stat-line__item"><span class="stat-line__k">Guests</span><span class="stat-line__v" id="iq-guests"></span></div>
+      <div class="stat-line__item"><span class="stat-line__k">Budget</span><span class="stat-line__v" id="iq-budget"></span></div>
+    </div>
+    <div class="form-row">
+      <span class="form-legend">Venue or city</span>
+      <p class="drawer-text" id="iq-venue"></p>
+    </div>
+    <div class="form-row">
+      <span class="form-legend">About the cake</span>
+      <p class="drawer-text" id="iq-details"></p>
+    </div>
+    <div class="form-row" id="iq-photos-row">
+      <span class="form-legend" id="iq-photos-legend">Inspiration photos</span>
+      <div class="card-grid" id="iq-photos" role="group" aria-labelledby="iq-photos-legend"></div>
+    </div>
+    <div class="field-grid">
+      <div class="form-row">
+        <span class="form-legend">Email</span>
+        <p class="drawer-text"><a class="linklike" id="iq-email"></a></p>
+      </div>
+      <div class="form-row" id="iq-phone-row">
+        <span class="form-legend">Phone</span>
+        <p class="drawer-text"><a class="linklike" id="iq-phone"></a><span id="iq-text-sep"> or </span><a class="linklike" id="iq-text">text</a></p>
+      </div>
+    </div>
+    <div class="form-row" id="iq-delete-panel" hidden>
+      <p class="form-note">Deleted for good, with its photos.</p>
+      <div class="action-row">
+        <button type="button" class="btn btn--danger" id="iq-delete-confirm">Delete inquiry</button>
+        <button type="button" class="btn btn--ghost" id="iq-delete-cancel">Keep it</button>
+      </div>
+    </div>
+    <p class="form-error" id="iq-error" role="alert" hidden></p>
+    <div class="drawer-foot" id="iq-foot">
+      <button type="button" class="drawer-delete" id="iq-delete">Delete this inquiry</button>
+      <button type="button" class="drawer-save" id="iq-replied">Mark as replied</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- PHOTO: its caption, where it shows, its order; delete -->
+<dialog class="drawer" id="photo-drawer" aria-labelledby="pd-title">
+  <form class="drawer-inner" id="pd-form" novalidate>
+    <div class="drawer-head">
+      <span class="drawer-eyebrow">Photo</span>
+      <button type="button" class="drawer-close" id="pd-close">Close</button>
+    </div>
+    <h2 class="drawer-title" id="pd-title" tabindex="-1"></h2>
+    <div id="pd-photo"></div>
+    <div class="field-grid">
+      <div class="form-row">
+        <label for="pd-f-title">Title</label>
+        <input type="text" id="pd-f-title" maxlength="80" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label for="pd-f-occasion">Occasion</label>
+        <input type="text" id="pd-f-occasion" maxlength="60" autocomplete="off">
+      </div>
+    </div>
+    <p class="form-note" id="pd-caption"></p>
+    <div class="form-row">
+      <label for="pd-f-alt">What it shows</label>
+      <textarea id="pd-f-alt" rows="3" maxlength="250"></textarea>
+    </div>
+    <p class="form-note">Read aloud to visitors who can't see the photo. Describe the cake, as in "Chocolate drip cake crowned with fresh red roses".</p>
+    <div class="form-row">
+      <span class="form-legend">Shown on</span>
+      <label class="form-check"><input type="checkbox" data-gallery="home"> Home, recent work</label>
+      <label class="form-check"><input type="checkbox" data-gallery="weddings"> Weddings page</label>
+      <label class="form-check"><input type="checkbox" data-gallery="celebrations"> Celebration cakes page</label>
+      <label class="form-check"><input type="checkbox" data-gallery="portfolio"> Portfolio</label>
+    </div>
+    <p class="form-note">Home, Weddings and Celebration cakes each show their first six.</p>
+    <div class="form-row" id="pd-kind-row">
+      <label for="pd-f-kind">In the portfolio under</label>
+      <select id="pd-f-kind">
+        <option value="">Not chosen</option>
+        <option value="weddings">Weddings</option>
+        <option value="birthdays">Birthdays</option>
+        <option value="showers">Showers</option>
+        <option value="dessert-tables">Dessert tables</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <p class="form-note" id="pd-spots" hidden></p>
+    <div class="form-row">
+      <span class="form-legend">Order</span>
+      <div class="action-row">
+        <button type="button" class="linklike" id="pd-earlier">Move earlier</button>
+        <button type="button" class="linklike" id="pd-later">Move later</button>
+        <span class="meta" id="pd-position"></span>
+      </div>
+    </div>
+    <div class="form-row" id="pd-delete-panel" hidden>
+      <p class="form-note">Deleted for good, with both of its files.</p>
+      <div class="action-row">
+        <button type="button" class="btn btn--danger" id="pd-delete-confirm">Delete photo</button>
+        <button type="button" class="btn btn--ghost" id="pd-delete-cancel">Keep it</button>
+      </div>
+    </div>
+    <p class="form-note" id="pd-live" hidden>Your live site shows this photo. To delete it, take it off every page and publish first.</p>
+    <p class="form-error" id="pd-error" role="alert" hidden></p>
+    <div class="drawer-foot" id="pd-foot">
+      <button type="button" class="drawer-delete" id="pd-delete">Delete this photo</button>
+      <button type="submit" class="drawer-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- A PLACE ON A PAGE: choose its photo -->
+<dialog class="drawer" id="spot-drawer" aria-labelledby="sd-title">
+  <div class="drawer-inner">
+    <div class="drawer-head">
+      <span class="drawer-eyebrow">Choose a photo</span>
+      <button type="button" class="drawer-close" id="sd-close">Close</button>
+    </div>
+    <h2 class="drawer-title" id="sd-title" tabindex="-1"></h2>
+    <div class="card-grid" id="sd-grid" role="group" aria-label="Your photos"></div>
+    <p class="empty-state" id="sd-empty" hidden>No photos yet. Add some under Your photos first.</p>
+    <div class="action-row"><button type="button" class="linklike" id="sd-none">Leave it empty</button></div>
+    <p class="form-error" id="sd-error" role="alert" hidden></p>
+  </div>
+</dialog>
+
+<!-- TESTIMONIAL -->
+<dialog class="drawer" id="quote-drawer" aria-labelledby="qd-title">
+  <form class="drawer-inner" id="qd-form" novalidate>
+    <div class="drawer-head">
+      <span class="drawer-eyebrow">Testimonial</span>
+      <button type="button" class="drawer-close" id="qd-close">Close</button>
+    </div>
+    <h2 class="drawer-title" id="qd-title" tabindex="-1"></h2>
+    <div class="form-row">
+      <label for="qd-f-quote">Their words</label>
+      <textarea id="qd-f-quote" rows="5" maxlength="600"></textarea>
+    </div>
+    <div class="field-grid">
+      <div class="form-row">
+        <label for="qd-f-name">Their name, as they agreed</label>
+        <input type="text" id="qd-f-name" maxlength="60" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label for="qd-f-occasion">Occasion</label>
+        <input type="text" id="qd-f-occasion" maxlength="80" autocomplete="off">
+      </div>
+    </div>
+    <label class="form-check"><input type="checkbox" id="qd-f-permission"> They agreed to have this on the site</label>
+    <div class="form-row" id="qd-order">
+      <span class="form-legend">Order</span>
+      <div class="action-row">
+        <button type="button" class="linklike" id="qd-earlier">Move earlier</button>
+        <button type="button" class="linklike" id="qd-later">Move later</button>
+        <span class="meta" id="qd-position"></span>
+      </div>
+    </div>
+    <div class="form-row" id="qd-delete-panel" hidden>
+      <p class="form-note">Deleted for good.</p>
+      <div class="action-row">
+        <button type="button" class="btn btn--danger" id="qd-delete-confirm">Delete testimonial</button>
+        <button type="button" class="btn btn--ghost" id="qd-delete-cancel">Keep it</button>
+      </div>
+    </div>
+    <p class="form-error" id="qd-error" role="alert" hidden></p>
+    <div class="drawer-foot" id="qd-foot">
+      <button type="button" class="drawer-delete" id="qd-delete">Delete this testimonial</button>
+      <button type="submit" class="drawer-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import { signOut, hasMinRole } from './js/supabase-client.js'
+import { ensureAuth } from './js/hub-auth.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+import { enhanceWithin } from './js/hub-select.js'
+import { notify } from './js/hub-notify.js'
+import { droppedFiles } from './js/dropped-files.js'
+import { limits } from './js/photo-processor.js'
+import { fill } from './js/cake-fill.js'
+import * as api from './js/cake-client.js'
+
+const hub = mountHubHeader({
+  app: 'Cake Boutique',
+  eyebrow: 'Family Hub · Cake Boutique',
+  grace: 'cake.boutique, kept current.',
+  tabs: [
+    { id: 'inquiries', label: 'Inquiries' },
+    { id: 'photos', label: 'Photos' },
+    { id: 'details', label: 'Prices and details' },
+    { id: 'testimonials', label: 'Testimonials' },
+    { id: 'preview', label: 'Preview' },
+  ],
+  onTab: (id) => { show(id); if (id === 'inquiries') refreshInquiries() },
+})
+
+/* ── helpers ──────────────────────────────────────────────────────────────── */
+// Everything Ellah typed reaches the page through textContent, never as HTML.
+const $ = (id) => document.getElementById(id)
+function el(tag, className, text) {
+  const e = document.createElement(tag)
+  if (className) e.className = className
+  if (text != null) e.textContent = text
+  return e
+}
+const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`
+const clean = (s) => s.replace(/\s+/g, ' ').trim() || null
+const when = (iso) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+// The single photos, by page, in page order, each with how a photo's
+// caption names it.
+const SPOTS = [
+  ['hero', 'Top photo', 'Home', 'Home top photo'],
+  ['door-weddings', 'Weddings door', 'Home', 'Weddings door'],
+  ['door-celebrations', 'Celebration cakes door', 'Home', 'Celebrations door'],
+  ['door-dessert', 'Dessert tables door', 'Home', 'Dessert tables door'],
+  ['home-about', 'Meet Chef Ellah', 'Home', 'Meet Chef Ellah'],
+  ['weddings-lead', 'Top photo', 'Weddings', 'Weddings top photo'],
+  ['celebrations-lead', 'Top photo', 'Celebration cakes', 'Celebrations top photo'],
+  ['about-portrait', 'Photo of Ellah', 'About', 'About: photo of Ellah'],
+  ['about-work', 'Her hands at work', 'About', 'About: hands at work'],
+]
+const GALLERY = { home: 'Home', weddings: 'Weddings', celebrations: 'Celebration cakes', portfolio: 'Portfolio' }
+
+let data = null    // { details, places, photos, testimonials, published, inquiries }
+let draft = null   // { content, hash }: what Publish would put live
+let live = null    // the hash the site shows, or null
+let view = 'inquiries'
+
+async function refresh() {
+  ;[data, draft] = await Promise.all([api.loadAll(), api.siteContent()])
+  render()
+}
+
+async function refreshDraft() {
+  draft = await api.siteContent()
+  renderStrip()
+}
+
+function render() {
+  renderInquiries()
+  renderSpots()
+  renderPhotos()
+  renderQuotes()
+  renderStrip()
+}
+
+function show(id) {
+  view = id
+  for (const v of ['inquiries', 'photos', 'details', 'testimonials', 'preview']) $(`view-${v}`).hidden = v !== id
+  hub.setTab(id)
+  renderStrip()
+  if (id === 'preview') renderPreview()
+}
+
+/* ── the site's state: the strip and Publish ─────────────────────────────── */
+function siteState() {
+  if (!data.published) return { value: 'Not live', label: 'Nothing published yet' }
+  if (draft.hash !== data.published.hash) return { value: 'Changes', label: 'Saved, not published yet' }
+  if (live !== data.published.hash) return { value: 'Publishing', label: 'On the site in a few minutes' }
+  return { value: 'Live', label: 'The site shows everything saved' }
+}
+
+// Details the site still shows as [X].
+function unknownDetails() {
+  const d = data.details
+  return ['celebration_from', 'wedding_serving_from', 'minimum_order', 'wedding_typical_low', 'wedding_notice_weeks',
+          'celebration_notice_weeks', 'deposit_percent', 'reply_business_days', 'delivery_area', 'budget_steps']
+    .filter(k => d[k] == null).length + (d.dessert_quoted || d.dessert_from != null ? 0 : 1)
+}
+
+function renderStrip() {
+  if (view === 'inquiries') {
+    const waiting = data.inquiries.filter(q => !q.replied_at).length
+    hub.setStrip({
+      hero: { value: String(waiting), label: waiting === 1 ? 'Inquiry to answer' : 'Inquiries to answer' },
+      stats: [
+        { label: 'In all', value: String(data.inquiries.length) },
+        { label: 'Newest', value: data.inquiries.length ? when(data.inquiries[0].created_at) : 'None yet' },
+      ],
+    })
+    return
+  }
+  const state = siteState()
+  hub.setStrip({
+    hero: { value: state.value, label: state.label },
+    stats: [
+      { label: 'Details to fill in', value: String(unknownDetails()) },
+      { label: 'Photos on the pages', value: String(draft.content.photos.length) },
+      { label: 'Testimonials shown', value: `${draft.content.testimonials.length} of 3` },
+      { label: 'Last published', value: data.published ? when(data.published.published_at) : 'Never' },
+    ],
+  })
+}
+
+let watching = null
+// After a publish, the site's version.json says when the build is live.
+// GitHub caches it for up to 10 minutes, so this asks for 20.
+function watchLive() {
+  clearTimeout(watching)
+  if (!data.published || live === data.published.hash) return
+  const until = Date.now() + 20 * 60e3
+  const tick = async () => {
+    live = await api.liveHash()
+    renderStrip()
+    if (live === data.published.hash) {
+      notify({ tone: 'success', message: 'Your site now shows what you published.', key: 'cake-publish', timeout: 8000 })
+    } else if (Date.now() < until) {
+      watching = setTimeout(tick, 20e3)
+    }
+  }
+  watching = setTimeout(tick, 15e3)
+}
+
+async function publishNow() {
+  if (data.published && draft.hash === data.published.hash) {
+    notify({ message: live === draft.hash ? 'Your site already shows everything you saved.'
+                                          : 'That is published already. It shows on the site in a few minutes.',
+             key: 'cake-publish', timeout: 6000 })
+    return
+  }
+  notify({ message: 'Publishing…', key: 'cake-publish' })
+  try {
+    await api.publish()
+    await refresh()
+    notify({ tone: 'success', message: 'Published. Your site shows it in a few minutes.', key: 'cake-publish', timeout: 8000 })
+    watchLive()
+  } catch (e) {
+    notify({ tone: 'error', message: e.message, key: 'cake-publish' })
+  }
+}
+
+/* ── inquiries ────────────────────────────────────────────────────────────── */
+// "2027-03-14" is a day in the visitor's calendar, read as one here too.
+function eventDay(day) {
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
+const sentAt = (iso) => new Date(iso).toLocaleString('en-US',
+  { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+function renderInquiries() {
+  const list = data.inquiries
+  const waiting = list.filter(q => !q.replied_at).length
+  $('inquiries-meta').textContent = list.length ? `${waiting} new, ${list.length} in all` : ''
+  $('inquiries-empty').hidden = list.length > 0
+  $('inquiry-list').replaceChildren(...list.map((q) => {
+    const li = el('li', 'ingest-queue__item')
+    const main = el('div', 'ingest-queue__main')
+    main.append(el('div', 'ingest-queue__name', q.name),
+                el('div', 'ingest-queue__meta', `${q.occasion}, ${eventDay(q.event_date)}. Sent ${when(q.created_at)}`))
+    const actions = el('div', 'ingest-queue__actions')
+    const status = el('span', 'ingest-queue__status', q.replied_at ? 'Replied' : 'New')
+    status.classList.add(q.replied_at ? 'is-done' : 'is-attention')
+    const open = el('button', 'linklike', 'Open')
+    open.type = 'button'
+    open.setAttribute('aria-label', `Open the inquiry from ${q.name}`)
+    open.addEventListener('click', () => openInquiry(q.id))
+    actions.append(status, open)
+    li.append(main, actions)
+    return li
+  }))
+}
+
+async function refreshInquiries() {
+  try {
+    data.inquiries = await api.loadInquiries()
+    renderInquiries()
+    renderStrip()
+  } catch (e) {
+    notify({ tone: 'error', message: e.message, key: 'cake-inquiry' })
+  }
+}
+
+const inquiryDrawer = $('inquiry-drawer')
+let asking = null  // the inquiry open in the drawer
+
+function openInquiry(id) {
+  const q = data.inquiries.find(x => x.id === id)
+  if (!q) return
+  asking = q
+  $('iq-title').textContent = q.name
+  $('iq-sent').textContent = `Sent ${sentAt(q.created_at)}.` + (q.replied_at ? ` Marked replied ${when(q.replied_at)}.` : '')
+  $('iq-date').textContent = eventDay(q.event_date)
+  $('iq-occasion').textContent = q.occasion
+  $('iq-guests').textContent = q.guests.toLocaleString('en-US')
+  $('iq-budget').textContent = q.budget
+  $('iq-venue').textContent = q.venue
+  $('iq-details').textContent = q.details
+  $('iq-email').textContent = q.email
+  // Encoded, so an address holding ?bcc= or &body= can't add to the reply.
+  $('iq-email').href = 'mailto:' + encodeURIComponent(q.email).replace('%40', '@')
+  // A number typed by a visitor: the links use only its digits.
+  const digits = (q.phone ?? '').replace(/[^\d+]/g, '')
+  $('iq-phone-row').hidden = !q.phone
+  $('iq-phone').textContent = q.phone ?? ''
+  $('iq-phone').href = `tel:${digits}`
+  $('iq-text').href = `sms:${digits}`
+  $('iq-text').hidden = $('iq-text-sep').hidden = !digits
+  $('iq-replied').textContent = q.replied_at ? 'Mark as not replied' : 'Mark as replied'
+  $('iq-photos-row').hidden = !q.photos
+  $('iq-photos').replaceChildren()
+  $('iq-delete-panel').hidden = true
+  $('iq-foot').hidden = false
+  $('iq-error').hidden = true
+  inquiryDrawer.showModal()
+  $('iq-title').focus()
+  if (q.photos) showInquiryPhotos(q)
+}
+
+async function showInquiryPhotos(q) {
+  try {
+    const urls = await api.inquiryPhotos(q)
+    if (asking !== q) return
+    $('iq-photos').replaceChildren(...urls.map((url, i) => {
+      const a = el('a', 'card-grid__item')
+      a.href = url
+      a.target = '_blank'
+      a.rel = 'noopener'
+      const img = el('img')
+      img.src = url
+      img.alt = `Inspiration photo ${i + 1}, opens full size`
+      img.loading = 'lazy'
+      a.append(img)
+      return a
+    }))
+  } catch (e) {
+    inquiryError(e.message)
+  }
+}
+
+function inquiryError(message) {
+  $('iq-error').textContent = message
+  $('iq-error').hidden = false
+}
+
+async function toggleReplied() {
+  const q = asking
+  try {
+    await api.setReplied(q.id, !q.replied_at)
+    inquiryDrawer.close()
+    notify({ tone: 'success', message: q.replied_at ? 'Marked as not replied.' : 'Marked as replied.', key: 'cake-inquiry', timeout: 5000 })
+  } catch (e) {
+    inquiryError(e.message)
+  }
+  await refreshInquiries()
+}
+
+async function deleteInquiry() {
+  try {
+    await api.deleteInquiry(asking)
+    inquiryDrawer.close()
+    notify({ tone: 'success', message: 'Inquiry deleted.', key: 'cake-inquiry', timeout: 5000 })
+  } catch (e) {
+    inquiryError(e.message)
+  }
+  await refreshInquiries()
+}
+
+/* ── photos ───────────────────────────────────────────────────────────────── */
+function caption(title, sub, attention = false) {
+  const c = el('span', 'card-grid__caption')
+  const s = el('span', 'card-grid__sub', sub)
+  s.classList.toggle('is-attention', attention)
+  c.append(el('span', 'card-grid__title', title), s)
+  return c
+}
+
+function thumb(id, alt = '') {
+  const img = el('img')
+  img.src = api.photoUrl(id)
+  img.alt = alt
+  img.loading = 'lazy'
+  return img
+}
+
+function cardButton(label, onClick) {
+  const b = el('button', 'card-grid__item')
+  b.type = 'button'
+  b.setAttribute('aria-label', label)
+  b.addEventListener('click', onClick)
+  return b
+}
+
+const spotsOf = (id) => SPOTS.filter(([place]) => data.places[place] === id)
+const spotName = (spot) => spot[3]
+
+function renderSpots() {
+  $('spots-meta').textContent = `${SPOTS.filter(([place]) => data.places[place]).length} of ${SPOTS.length} filled`
+  $('spot-grid').replaceChildren(...SPOTS.map((spot) => {
+    const [place, name, page] = spot
+    const id = data.places[place]
+    const b = cardButton(`${page}, ${name}: ${id ? 'change the photo' : 'choose a photo'}`, () => openSpot(spot))
+    if (id) b.append(thumb(id))
+    else {
+      b.classList.add('card-grid__item--empty')
+      b.append(el('span', 'card-grid__empty', 'No photo yet'))
+    }
+    b.append(caption(name, page))
+    return b
+  }))
+}
+
+// What a photo still needs before the site can launch, or null.
+function needs(p) {
+  const used = p.galleries.length > 0 || spotsOf(p.id).length > 0
+  if (p.galleries.length && !p.title) return 'Needs a title'
+  if (used && !p.alt) return 'Needs a description'
+  if (p.galleries.includes('portfolio') && !p.kind) return 'Needs a portfolio filter'
+  return null
+}
+
+function renderPhotos() {
+  const photos = data.photos
+  $('photos-meta').textContent = plural(photos.length, 'photo')
+  $('photos-empty').hidden = photos.length > 0
+  $('photo-grid').replaceChildren(...photos.map((p) => {
+    const b = cardButton(`${p.title || 'Untitled photo'}: open`, () => openPhoto(p.id))
+    const where = [...p.galleries.map(g => GALLERY[g]), ...spotsOf(p.id).map(spotName)]
+    const need = needs(p)
+    b.append(thumb(p.id, p.alt || ''), caption(p.title || p.alt || 'No title', need || where.join(', ') || 'Not on the site', !!need))
+    return b
+  }))
+}
+
+/* Adding photos: one at a time, so a phone keeps its memory. Each goes
+   first in every gallery, in the order dropped, and shows nowhere until
+   Ellah says where. A row stays only while it works or when it failed. */
+async function addFiles(files) {
+  files = files.filter(f => /^image\//.test(f.type) || /\.hei[cf]$/i.test(f.name))
+  if (!files.length) return
+  if (files.length > limits.MAX_BATCH) {
+    notify({ tone: 'warn', message: `${limits.MAX_BATCH} photos at a time. The first ${limits.MAX_BATCH} are being added.`, timeout: 8000 })
+    files = files.slice(0, limits.MAX_BATCH)
+  }
+  const list = $('upload-list')
+  list.hidden = false
+  let position = Math.min(0, ...data.photos.map(p => p.position)) - files.length
+  const rows = files.map((file) => {
+    const li = el('li', 'ingest-queue__item')
+    const main = el('div', 'ingest-queue__main')
+    main.append(el('div', 'ingest-queue__name', file.name))
+    const status = el('div', 'ingest-queue__status', 'Waiting')
+    li.append(main, status)
+    list.append(li)
+    return { file, li, status, position: position++ }
+  })
+  let added = 0
+  for (const row of rows) {
+    try {
+      await api.addPhoto(row.file, row.position, (phase) => {
+        row.status.className = 'ingest-queue__status is-working'
+        row.status.textContent = phase === 'preparing' ? 'Preparing' : 'Uploading'
+      })
+      row.li.remove()
+      added++
+    } catch (e) {
+      row.status.className = 'ingest-queue__status is-failed'
+      row.status.textContent = 'Failed'
+      const err = el('div', 'ingest-queue__error', e.message)
+      const dismiss = el('button', 'linklike muted', 'Dismiss')
+      dismiss.type = 'button'
+      dismiss.addEventListener('click', () => { row.li.remove(); list.hidden = !list.children.length })
+      err.append(' ', dismiss)
+      row.li.append(err)
+    }
+  }
+  list.hidden = !list.children.length
+  if (added) {
+    await refresh()
+    notify({ tone: 'success', message: `${plural(added, 'photo')} added. Tap one to say where it shows.`, key: 'cake-add', timeout: 8000 })
+  }
+}
+
+/* ── the photo drawer ─────────────────────────────────────────────────────── */
+const photoDrawer = $('photo-drawer')
+let editing = null
+
+const livePhotos = () => new Set((data.published?.content?.photos ?? []).map(p => p.id))
+
+function openPhoto(id) {
+  const p = data.photos.find(x => x.id === id)
+  if (!p) return
+  editing = id
+  $('pd-title').textContent = p.title || 'Untitled photo'
+  const img = el('img', 'drawer-photo')
+  img.src = api.photoUrl(id)
+  img.alt = ''
+  $('pd-photo').replaceChildren(img)
+  $('pd-f-title').value = p.title ?? ''
+  $('pd-f-occasion').value = p.occasion ?? ''
+  $('pd-f-alt').value = p.alt ?? ''
+  $('pd-f-kind').value = p.kind ?? ''
+  $('pd-f-kind')._hubSelect?.refresh()
+  for (const box of photoDrawer.querySelectorAll('[data-gallery]')) box.checked = p.galleries.includes(box.dataset.gallery)
+  const spots = spotsOf(id)
+  $('pd-spots').hidden = !spots.length
+  $('pd-spots').textContent = spots.length ? `Also the photo for ${spots.map(spotName).join(', ')}. Change that under On the pages.` : ''
+  const isLive = livePhotos().has(id)
+  $('pd-delete').hidden = isLive
+  $('pd-live').hidden = !isLive
+  $('pd-delete-panel').hidden = true
+  $('pd-foot').hidden = false
+  $('pd-error').hidden = true
+  showCaption()
+  showPosition()
+  photoDrawer.showModal()
+  $('pd-title').focus()
+}
+
+// The caption as the galleries print it.
+function showCaption() {
+  const title = clean($('pd-f-title').value), occasion = clean($('pd-f-occasion').value)
+  const read = title ? `The caption reads: ${title}${occasion ? `, ${occasion}` : ''}.` : 'Without a title the galleries show [Title].'
+  const unsure = /[[\]]/.test(`${title ?? ''}${occasion ?? ''}`) ? ' Square brackets mean not confirmed yet: the site can\'t go live with them.' : ''
+  $('pd-caption').textContent = read + unsure
+  $('pd-kind-row').hidden = !photoDrawer.querySelector('[data-gallery="portfolio"]').checked
+}
+
+function showPosition() {
+  const i = data.photos.findIndex(p => p.id === editing)
+  $('pd-position').textContent = `${i + 1} of ${data.photos.length}`
+  $('pd-earlier').disabled = i <= 0
+  $('pd-later').disabled = i >= data.photos.length - 1
+}
+
+async function savePhoto(ev) {
+  ev.preventDefault()
+  const galleries = [...photoDrawer.querySelectorAll('[data-gallery]')].filter(b => b.checked).map(b => b.dataset.gallery)
+  try {
+    await api.savePhoto(editing, {
+      title: clean($('pd-f-title').value), occasion: clean($('pd-f-occasion').value),
+      alt: clean($('pd-f-alt').value), kind: $('pd-f-kind').value || null, galleries,
+    })
+    await refresh()
+    photoDrawer.close()
+    notify({ tone: 'success', message: 'Saved. Publish to put it on the site.', key: 'cake-save', timeout: 5000 })
+  } catch (e) {
+    $('pd-error').textContent = e.message
+    $('pd-error').hidden = false
+  }
+}
+
+async function movePhoto(step) {
+  const ids = data.photos.map(p => p.id)
+  const i = ids.indexOf(editing), j = i + step
+  if (j < 0 || j >= ids.length) return
+  ;[ids[i], ids[j]] = [ids[j], ids[i]]
+  try {
+    await api.orderPhotos(ids)
+    await refresh()
+    showPosition()
+  } catch (e) {
+    $('pd-error').textContent = e.message
+    $('pd-error').hidden = false
+  }
+}
+
+async function deletePhoto() {
+  try {
+    await api.deletePhoto(editing)
+    photoDrawer.close()
+    notify({ tone: 'success', message: 'Photo deleted.', key: 'cake-save', timeout: 5000 })
+  } catch (e) {
+    $('pd-error').textContent = e.message
+    $('pd-error').hidden = false
+  }
+  await refresh()
+}
+
+/* ── choosing the photo for a place on a page ─────────────────────────────── */
+const spotDrawer = $('spot-drawer')
+let spot = null
+
+function openSpot(s) {
+  spot = s
+  const [place, name, page] = s
+  $('sd-title').textContent = `${page}, ${name.toLowerCase()}`
+  $('sd-error').hidden = true
+  $('sd-empty').hidden = data.photos.length > 0
+  $('sd-none').hidden = !data.places[place]
+  $('sd-grid').replaceChildren(...data.photos.map((p) => {
+    const b = cardButton(p.title || p.alt || 'Untitled photo', () => choose(p.id))
+    b.setAttribute('aria-pressed', String(data.places[place] === p.id))
+    b.append(thumb(p.id, p.alt || ''), caption(p.title || p.alt || 'No title', p.galleries.map(g => GALLERY[g]).join(', ') || 'Not on the site'))
+    return b
+  }))
+  spotDrawer.showModal()
+  $('sd-title').focus()
+}
+
+async function choose(id) {
+  try {
+    await api.setPlace(spot[0], id)
+    await refresh()
+    spotDrawer.close()
+  } catch (e) {
+    $('sd-error').textContent = e.message
+    $('sd-error').hidden = false
+  }
+}
+
+/* ── prices and details, saved as they are typed ──────────────────────────── */
+const MONEY = { celebration_from: 99999, wedding_serving_from: 999, minimum_order: 99999, dessert_from: 99999 }
+const COUNT = { wedding_notice_weeks: 52, celebration_notice_weeks: 52, deposit_percent: 100, reply_business_days: 30 }
+
+// "$1,500" → 1500, "6.50" → 6.5, "" → null, anything else → NaN.
+function money(s) {
+  const t = s.replace(/[$,\s]/g, '')
+  if (!t) return null
+  return /^\d+(\.\d{1,2})?$/.test(t) ? Number(t) : NaN
+}
+function whole(s) {
+  const t = s.replace(/[%\s]/g, '')
+  if (!t) return null
+  return /^\d+$/.test(t) ? Number(t) : NaN
+}
+const dollars = (n) => n == null ? '' : Number(n).toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })
+const steps = (list) => list ? list.map(s => `$${dollars(s)}`) : null
+
+function fillDetails() {
+  const d = data.details
+  for (const k of Object.keys(MONEY)) $(`f-${k}`).value = dollars(d[k])
+  for (const k of Object.keys(COUNT)) $(`f-${k}`).value = d[k] ?? ''
+  $('f-wedding_typical_low').value = dollars(d.wedding_typical_low)
+  $('f-wedding_typical_high').value = dollars(d.wedding_typical_high)
+  $('f-delivery_area').value = d.delivery_area ?? ''
+  $('f-budget_steps').value = d.budget_steps ? d.budget_steps.join(', ') : ''
+  showDessert(d.dessert_quoted ? 'quoted' : d.dessert_from != null ? 'from' : 'unknown')
+  showBudgets()
+}
+
+function showDessert(state) {
+  for (const b of $('f-dessert').children) b.setAttribute('aria-pressed', String(b.dataset.dessert === state))
+  $('row-dessert-from').hidden = state !== 'from'
+}
+
+function showBudgets() {
+  const s = steps(data.details.budget_steps)
+  $('budget-said').textContent = s
+    ? `The form offers: ${s.slice(1).map((to, i) => `${s[i]} to ${to}`).concat(`${s.at(-1)} and up`).join(', ')}, or "I'm not sure yet".`
+    : 'Until these are filled in, the form offers $[X] to $[X].'
+}
+
+// Checks a row as the database will, and returns the change to save, or
+// null after showing what is wrong.
+function patchFor(field) {
+  const v = (id) => $(id).value
+  if (field in MONEY) {
+    const n = money(v(`f-${field}`)), max = MONEY[field]
+    if (Number.isNaN(n) || (n != null && (n < 1 || n > max))) return fail(field, `Enter an amount from $1 to $${dollars(max)}, or leave it empty.`)
+    return field === 'dessert_from' ? { dessert_from: n, dessert_quoted: false } : { [field]: n }
+  }
+  if (field in COUNT) {
+    const n = whole(v(`f-${field}`)), max = COUNT[field]
+    if (Number.isNaN(n) || (n != null && (n < 1 || n > max))) return fail(field, `Enter a whole number from 1 to ${max}, or leave it empty.`)
+    return { [field]: n }
+  }
+  if (field === 'wedding_typical') {
+    const lo = money(v('f-wedding_typical_low')), hi = money(v('f-wedding_typical_high'))
+    if (lo == null && hi == null) return { wedding_typical_low: null, wedding_typical_high: null }
+    if (lo == null || hi == null) return fail(field, 'Fill in both amounts, the smaller first, or leave both empty.')
+    if (Number.isNaN(lo) || Number.isNaN(hi) || lo < 1 || hi > 999999 || lo >= hi) {
+      return fail(field, 'Enter two amounts, the smaller first, or leave both empty.')
+    }
+    return { wedding_typical_low: lo, wedding_typical_high: hi }
+  }
+  if (field === 'delivery_area') return { delivery_area: clean(v('f-delivery_area')) }
+  if (field === 'budget_steps') {
+    const raw = v('f-budget_steps').split(/[,;\s]+/).filter(Boolean)
+    if (!raw.length) return { budget_steps: null }
+    const list = raw.map(money)
+    const ok = list.length >= 2 && list.length <= 6 && list.every((n, i) => Number.isInteger(n) && n >= 1 && n <= 999999 && (i === 0 || n > list[i - 1]))
+    if (!ok) return fail(field, 'Enter two to six whole-dollar amounts, smallest first, with commas between them.')
+    return { budget_steps: list }
+  }
+  return null
+}
+
+function fail(field, message) {
+  const row = document.querySelector(`#view-details [data-field="${field}"]`)
+  row.dataset.error = ''
+  const msg = row.querySelector('[data-msg]')
+  msg.textContent = message
+  msg.hidden = false
+  return null
+}
+
+function settle(field) {
+  const row = document.querySelector(`#view-details [data-field="${field}"]`)
+  delete row.dataset.error
+  row.querySelector('[data-msg]').hidden = true
+}
+
+const saidTimers = new WeakMap()
+function said(row, text) {
+  const out = row.closest('.section').querySelector('[data-said]')
+  out.textContent = text
+  clearTimeout(saidTimers.get(out))
+  if (text === 'Saved') saidTimers.set(out, setTimeout(() => { out.textContent = '' }, 4000))
+}
+
+async function saveField(field) {
+  settle(field)
+  const patch = patchFor(field)
+  if (!patch) return
+  const row = document.querySelector(`#view-details [data-field="${field}"]`)
+  const same = Object.entries(patch).every(([k, val]) => JSON.stringify(data.details[k] ?? null) === JSON.stringify(val))
+  if (same) return
+  try {
+    data.details = await api.saveDetails(patch)
+    said(row, 'Saved')
+    if (field === 'budget_steps') showBudgets()
+    await refreshDraft()
+  } catch (e) {
+    fail(field, e.message)
+  }
+}
+
+async function setDessert(state) {
+  showDessert(state)
+  if (state === 'from') { $('f-dessert_from').focus(); if (!data.details.dessert_quoted) return }
+  const patch = { dessert_quoted: state === 'quoted', dessert_from: null }
+  try {
+    data.details = await api.saveDetails(patch)
+    if (state === 'from') $('f-dessert_from').value = ''
+    said($('f-dessert'), 'Saved')
+    await refreshDraft()
+  } catch (e) {
+    said($('f-dessert'), e.message)
+  }
+}
+
+/* ── testimonials ─────────────────────────────────────────────────────────── */
+const quoteDrawer = $('quote-drawer')
+let quoting = null
+
+function renderQuotes() {
+  const quotes = data.testimonials
+  const shown = new Set(quotes.filter(t => t.permission).slice(0, 3).map(t => t.id))
+  $('quotes-meta').textContent = `${shown.size} of 3 on Home`
+  $('quotes-empty').hidden = quotes.length > 0
+  $('quote-list').replaceChildren(...quotes.map((t) => {
+    const li = el('li', 'ingest-queue__item')
+    const main = el('div', 'ingest-queue__main')
+    main.append(el('div', 'ingest-queue__name', `“${t.quote}”`),
+                el('div', 'ingest-queue__meta', [t.name, t.occasion].filter(Boolean).join(', ')))
+    const actions = el('div', 'ingest-queue__actions')
+    const status = el('span', 'ingest-queue__status',
+      !t.permission ? 'Not agreed yet' : shown.has(t.id) ? 'On Home' : 'Only three fit')
+    if (shown.has(t.id)) status.classList.add('is-done')
+    const edit = el('button', 'linklike', 'Edit')
+    edit.type = 'button'
+    edit.setAttribute('aria-label', `Edit the testimonial by ${t.name}`)
+    edit.addEventListener('click', () => openQuote(t.id))
+    actions.append(status, edit)
+    li.append(main, actions)
+    return li
+  }))
+}
+
+function openQuote(id) {
+  const t = data.testimonials.find(x => x.id === id)
+  quoting = t ? id : null
+  $('qd-title').textContent = t ? t.name : 'New testimonial'
+  $('qd-f-quote').value = t?.quote ?? ''
+  $('qd-f-name').value = t?.name ?? ''
+  $('qd-f-occasion').value = t?.occasion ?? ''
+  $('qd-f-permission').checked = t?.permission ?? false
+  $('qd-order').hidden = !t
+  $('qd-delete').hidden = !t
+  $('qd-delete-panel').hidden = true
+  $('qd-foot').hidden = false
+  $('qd-error').hidden = true
+  if (t) showQuotePosition()
+  quoteDrawer.showModal()
+  $('qd-title').focus()
+}
+
+function showQuotePosition() {
+  const i = data.testimonials.findIndex(t => t.id === quoting)
+  $('qd-position').textContent = `${i + 1} of ${data.testimonials.length}`
+  $('qd-earlier').disabled = i <= 0
+  $('qd-later').disabled = i >= data.testimonials.length - 1
+}
+
+function quoteError(message) {
+  $('qd-error').textContent = message
+  $('qd-error').hidden = false
+}
+
+async function saveQuote(ev) {
+  ev.preventDefault()
+  const quote = clean($('qd-f-quote').value), name = clean($('qd-f-name').value)
+  if (!quote || !name) return quoteError('Their words and their name are both needed.')
+  const fields = { quote, name, occasion: clean($('qd-f-occasion').value), permission: $('qd-f-permission').checked }
+  if (!quoting) fields.position = Math.max(0, ...data.testimonials.map(t => t.position)) + 1
+  try {
+    await api.saveTestimonial(quoting, fields)
+    await refresh()
+    quoteDrawer.close()
+    notify({ tone: 'success', message: fields.permission ? 'Saved. Publish to put it on the site.' : 'Saved. It shows once they agree.',
+             key: 'cake-save', timeout: 5000 })
+  } catch (e) {
+    quoteError(e.message)
+  }
+}
+
+async function moveQuote(step) {
+  const ids = data.testimonials.map(t => t.id)
+  const i = ids.indexOf(quoting), j = i + step
+  if (j < 0 || j >= ids.length) return
+  ;[ids[i], ids[j]] = [ids[j], ids[i]]
+  try {
+    await api.orderTestimonials(ids)
+    await refresh()
+    showQuotePosition()
+  } catch (e) {
+    quoteError(e.message)
+  }
+}
+
+async function deleteQuote() {
+  try {
+    await api.deleteTestimonial(quoting)
+    await refresh()
+    quoteDrawer.close()
+    notify({ tone: 'success', message: 'Testimonial deleted.', key: 'cake-save', timeout: 5000 })
+  } catch (e) {
+    quoteError(e.message)
+  }
+}
+
+/* ── preview ──────────────────────────────────────────────────────────────── */
+// The live page, filled again with what is saved, in a sandboxed frame:
+// its own scripts run (the menu, the portfolio filter) in an origin of its
+// own, and a link to another page of the site switches the preview.
+const LINKS = `document.addEventListener('click', function (e) {
+  var a = e.target.closest && e.target.closest('a[href]')
+  if (!a) return
+  e.preventDefault()
+  parent.postMessage({ cakePreview: a.getAttribute('href') }, '*')
+}, true)`
+
+let previewing = 0
+async function renderPreview() {
+  const page = $('preview-page').value
+  const turn = ++previewing
+  $('preview-meta').textContent = data.published && draft.hash === data.published.hash
+    ? 'What the site shows.' : 'With your saved changes, before you publish.'
+  $('preview-error').hidden = true
+  try {
+    const html = fill(await api.pageHtml(page), draft.content, { photos: api.photoBase() })
+    if (turn !== previewing) return
+    $('preview-frame').srcdoc = html.replace(/<head>/i, `<head><base href="${api.SITE}"><script>${LINKS}<\/script>`)
+  } catch (e) {
+    $('preview-error').textContent = e.message
+    $('preview-error').hidden = false
+  }
+}
+
+window.addEventListener('message', (ev) => {
+  if (ev.source !== $('preview-frame').contentWindow) return
+  const page = String(ev.data?.cakePreview ?? '').split('#')[0]
+  if (!api.PAGES.some(([p]) => p === page)) return
+  $('preview-page').value = page
+  $('preview-page')._hubSelect?.refresh()
+  renderPreview()
+})
+
+/* ── wiring ───────────────────────────────────────────────────────────────── */
+function wire() {
+  hub.setActions([
+    { id: 'publish', label: 'Publish', meta: 'Put your saved changes on the site.', onClick: publishNow },
+    { id: 'site', label: 'Open the site', meta: 'In a new tab.', onClick: () => window.open(api.SITE, '_blank', 'noopener') },
+  ])
+
+  $('iq-close').addEventListener('click', () => inquiryDrawer.close())
+  $('iq-replied').addEventListener('click', toggleReplied)
+  $('iq-delete').addEventListener('click', () => { $('iq-delete-panel').hidden = false; $('iq-foot').hidden = true; $('iq-delete-confirm').focus() })
+  $('iq-delete-cancel').addEventListener('click', () => { $('iq-delete-panel').hidden = true; $('iq-foot').hidden = false })
+  $('iq-delete-confirm').addEventListener('click', deleteInquiry)
+
+  // Photos: drop on the target or choose; a stray drop elsewhere does nothing.
+  const drop = $('photo-drop')
+  $('photo-choose').addEventListener('click', () => $('photo-file').click())
+  $('photo-file').addEventListener('change', () => { addFiles([...$('photo-file').files]); $('photo-file').value = '' })
+  drop.addEventListener('dragover', (ev) => { ev.preventDefault(); drop.classList.add('is-drag') })
+  drop.addEventListener('dragleave', () => drop.classList.remove('is-drag'))
+  drop.addEventListener('drop', async (ev) => {
+    ev.preventDefault()
+    drop.classList.remove('is-drag')
+    addFiles((await droppedFiles(ev.dataTransfer)).files)
+  })
+
+  $('pd-form').addEventListener('submit', savePhoto)
+  $('pd-close').addEventListener('click', () => photoDrawer.close())
+  $('pd-f-title').addEventListener('input', showCaption)
+  $('pd-f-occasion').addEventListener('input', showCaption)
+  photoDrawer.querySelector('[data-gallery="portfolio"]').addEventListener('change', showCaption)
+  $('pd-earlier').addEventListener('click', () => movePhoto(-1))
+  $('pd-later').addEventListener('click', () => movePhoto(1))
+  $('pd-delete').addEventListener('click', () => { $('pd-delete-panel').hidden = false; $('pd-foot').hidden = true; $('pd-delete-confirm').focus() })
+  $('pd-delete-cancel').addEventListener('click', () => { $('pd-delete-panel').hidden = true; $('pd-foot').hidden = false })
+  $('pd-delete-confirm').addEventListener('click', deletePhoto)
+
+  $('sd-close').addEventListener('click', () => spotDrawer.close())
+  $('sd-none').addEventListener('click', () => choose(null))
+
+  // Details: each field saves when it is left; Enter leaves it too.
+  for (const row of document.querySelectorAll('#view-details [data-field]')) {
+    for (const input of row.querySelectorAll('input')) input.addEventListener('change', () => saveField(row.dataset.field))
+  }
+  $('view-details').addEventListener('submit', (ev) => { ev.preventDefault(); document.activeElement?.blur() })
+  for (const b of $('f-dessert').children) b.addEventListener('click', () => setDessert(b.dataset.dessert))
+
+  $('quote-add').addEventListener('click', () => openQuote(null))
+  $('qd-form').addEventListener('submit', saveQuote)
+  $('qd-close').addEventListener('click', () => quoteDrawer.close())
+  $('qd-earlier').addEventListener('click', () => moveQuote(-1))
+  $('qd-later').addEventListener('click', () => moveQuote(1))
+  $('qd-delete').addEventListener('click', () => { $('qd-delete-panel').hidden = false; $('qd-foot').hidden = true; $('qd-delete-confirm').focus() })
+  $('qd-delete-cancel').addEventListener('click', () => { $('qd-delete-panel').hidden = true; $('qd-foot').hidden = false })
+  $('qd-delete-confirm').addEventListener('click', deleteQuote)
+
+  $('preview-page').replaceChildren(...api.PAGES.map(([file, name]) => new Option(name, file)))
+  $('preview-page').addEventListener('change', renderPreview)
+  for (const b of $('preview-width').children) {
+    b.addEventListener('click', () => {
+      for (const o of $('preview-width').children) o.setAttribute('aria-pressed', String(o === b))
+      $('preview-frame').classList.toggle('is-phone', b.dataset.width === 'phone')
+    })
+  }
+  enhanceWithin(document)
+}
+
+/* ── boot ─────────────────────────────────────────────────────────────────── */
+async function init() {
+  if (!(await ensureAuth())) return
+  $('signoutBtn').hidden = false
+  $('signoutBtn').addEventListener('click', async () => { await signOut(); location.reload() })
+  startIdleTimeout(() => location.reload())
+
+  // Parents and admins only, reads included; the database says the same.
+  if (!(await hasMinRole('parent'))) { $('state-denied').hidden = false; return }
+
+  const bar = $('state-loading')
+  const slow = setTimeout(() => { bar.hidden = false }, 600)
+  try {
+    ;[data, draft, live] = await Promise.all([api.loadAll(), api.siteContent(), api.liveHash()])
+  } catch (e) {
+    $('state-error').textContent = e.message
+    $('state-error').hidden = false
+    return
+  } finally {
+    clearTimeout(slow)
+    bar.hidden = true
+  }
+  wire()
+  fillDetails()
+  render()
+  show('inquiries')
+  watchLive()
+}
+
+// A stray drop never opens a photo in place of the page; text dragged into
+// a field still lands there.
+for (const t of ['dragover', 'drop']) {
+  document.addEventListener(t, (ev) => {
+    if (!ev.target.closest?.('input, textarea')) ev.preventDefault()
+  })
+}
+
+init()
+</script>
+</body>
+</html>

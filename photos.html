@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photos · The Nijsters</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080808">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/hub.css">
+</head>
+<body>
+
+<main>
+  <section class="flow-main" id="state-loading">
+    <div class="flow-col"><p class="eyebrow">Checking session…</p></div>
+  </section>
+
+  <section class="hub-main" id="state-ready" hidden>
+    <p class="note" id="photosLede">Drop new ones below; manage the archive underneath.</p>
+
+    <!-- Upload (parent + admin only; hidden for child) -->
+    <div id="uploadSection">
+      <p class="eyebrow">Upload</p>
+      <input type="file" id="fileInput" multiple accept="image/*" hidden>
+      <div class="dropzone" id="dropzone" tabindex="0">
+        <p class="dropzone__headline">Drop files here<br><span class="dropzone__or">or</span><br><button type="button" class="btn btn--primary" id="pickBtn">Choose files</button></p>
+      </div>
+      <p class="note">JPEG, PNG, WebP, HEIC (Safari only). Decoded, resized to a 2000&nbsp;px display copy and a 600&nbsp;px thumb, EXIF-stripped and re-encoded to WebP on your device. Originals never leave it.</p>
+
+      <div class="ingest-queue" id="queue" hidden></div>
+      <div class="action-row" id="actions" hidden>
+        <button id="clearBtn" class="btn btn--ghost">Clear list</button>
+        <span class="meta" id="summary"></span>
+      </div>
+    </div>
+
+    <!-- Library — every photo in the bucket, with score + delete -->
+    <div class="ruled-block">
+      <div class="card-grid" id="libraryGrid" data-filter="all"></div>
+      <div class="empty-state" id="libraryEmpty" hidden>No photos yet. Drop some in above.</div>
+    </div>
+  </section>
+</main>
+
+<script src="js/supabase-config.js"></script>
+<script type="module">
+import {
+  supabase, getAAL, signOut, uploadPhoto, removePhoto, deletePhoto,
+  clearDownvotes, listVariant, getPhotoScores, getCurrentRole,
+} from './js/supabase-client.js'
+import { ensureAuth } from './js/hub-auth.js'
+import { processOne, validateInput, newPhotoId, limits, formatBytes } from './js/photo-processor.js'
+import { startIdleTimeout } from './js/idle-timeout.js'
+import { mountHubHeader } from './js/hub-header.js'
+
+// Shared page framework. The All / Upvoted / Downvoted filter is the
+// header tab bar; the library tallies are the strip. Photos has no
+// app setup, so no gear.
+const hub = mountHubHeader({
+  app: 'Photos',
+  eyebrow: 'Family Hub · Photos',
+  grace: 'the archive.',
+  tabs: [
+    { id: 'all',  label: 'All' },
+    { id: 'up',   label: 'Upvoted' },
+    { id: 'down', label: 'Downvoted' },
+  ],
+  onTab: (id) => applyFilter(id),
+})
+
+const states = ['loading', 'ready']
+function go(state) {
+  for (const s of states) document.getElementById(`state-${s}`).hidden = (s !== state)
+  document.getElementById('signoutBtn').hidden = (state !== 'ready')
+}
+
+// Cached once per page load. Drives UI gating (upload section, manual delete,
+// downvote-reset flag). Server-side RLS / RPC checks are the source of truth;
+// these hides just keep the UI honest.
+let currentRole = 'child'
+
+async function gate() {
+  go('loading')
+  if (!(await ensureAuth())) return false
+  currentRole = (await getCurrentRole()) || 'child'
+  applyRoleUI()
+  go('ready')
+  // Sign out + bounce after 10 minutes of no interaction
+  startIdleTimeout(() => location.reload())
+  await loadLibrary()
+  return true
+}
+
+// Parent + admin can upload. Child is view-only on the library. Only admin
+// can manually delete a photo or reset its downvotes — the per-row controls
+// are skipped in loadLibrary() for non-admins. Adjust the page note so the
+// copy still reads true for a child.
+function applyRoleUI() {
+  const upload = document.getElementById('uploadSection')
+  if (currentRole === 'child') {
+    upload.hidden = true
+    const lede = document.getElementById('photosLede')
+    if (lede) lede.textContent =
+      "Browse the archive; uploads and removals are handled by your parents."
+  } else {
+    upload.hidden = false
+  }
+}
+
+// ── Library ──────────────────────────────────────────────────────────────
+const gridEl    = document.getElementById('libraryGrid')
+const emptyEl   = document.getElementById('libraryEmpty')
+let currentFilter = 'all'  // 'all' | 'up' | 'down'
+
+// Called by the shared header's tab bar (config.onTab). The header
+// owns the active-tab highlight; this only flips the CSS-only grid
+// filter and the empty-state copy.
+function applyFilter(filter) {
+  currentFilter = filter
+  gridEl.dataset.filter = filter
+  refreshEmptyState()
+}
+
+function visibleCount() {
+  let n = 0
+  for (const card of gridEl.children) {
+    if (currentFilter === 'all') n++
+    else if (currentFilter === 'up'   && card.hasAttribute('data-has-up'))   n++
+    else if (currentFilter === 'down' && card.hasAttribute('data-has-down')) n++
+  }
+  return n
+}
+
+function refreshEmptyState() {
+  const n = visibleCount()
+  if (n === 0) {
+    emptyEl.hidden = false
+    emptyEl.textContent =
+      currentFilter === 'up'   ? 'No upvoted photos yet.'
+    : currentFilter === 'down' ? 'No downvoted photos. The archive is healthy.'
+    :                            'No photos yet. Drop some in above.'
+  } else {
+    emptyEl.hidden = true
+  }
+}
+
+async function loadLibrary() {
+  const [photos, scoresMap] = await Promise.all([listVariant('thumb'), getPhotoScores()])
+  const list = photos || []
+  gridEl.innerHTML = ''
+  // Tallies for the filter buttons. Computed once here so the labels stay
+  // truthful as long as we re-call loadLibrary after every mutation
+  // (uploads, deletes, downvote resets).
+  let nUp = 0, nDown = 0
+  // Inline SVGs — same geometry as the hero's thumb buttons so the meaning
+  // is consistent across the site. Stroke-only (no fill) to feel editorial.
+  const THUMB_UP   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>'
+  const THUMB_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>'
+
+  for (const p of list) {
+    const s = scoresMap[p.id] || {}
+    const ups   = s.ups   || 0
+    const downs = s.downs || 0
+    if (ups   > 0) nUp++
+    if (downs > 0) nDown++
+    const card = document.createElement('div')
+    card.className = 'card-grid__item'
+    card.dataset.id = p.id
+    if (ups   > 0) card.setAttribute('data-has-up',   '')
+    if (downs > 0) card.setAttribute('data-has-down', '')
+
+    // The downvote flag is the only colored mark on the card. It exists
+    // only when there's actually a downvote — absence = healthy photo.
+    // Admin-only: it's also the downvote-reset button (clear_downvotes RPC
+    // rejects non-admins), so we hide it entirely for parent + child.
+    const flag = (downs > 0 && currentRole === 'admin')
+      ? `<button class="card-grid__flag" type="button" data-action="reset" aria-label="Reset downvotes" title="${downs} downvote${downs === 1 ? '' : 's'}, click to reset (auto-deletes at 2)">${THUMB_DOWN}<span>${downs}</span></button>`
+      : ''
+    // Upvote count is hover-revealed — informative but doesn't compete.
+    const ups_el = ups > 0
+      ? `<div class="card-grid__count" aria-label="${ups} upvote${ups === 1 ? '' : 's'}">${THUMB_UP}<span>${ups}</span></div>`
+      : ''
+    // Manual delete is admin-only. Parents and children never see the ×.
+    const del_el = currentRole === 'admin'
+      ? `<button class="card-grid__delete" type="button" aria-label="Delete photo" title="Delete">×</button>`
+      : ''
+
+    card.innerHTML = `
+      <img src="${p.url}" alt="" loading="lazy">
+      ${flag}
+      ${ups_el}
+      ${del_el}
+    `
+    const delBtn = card.querySelector('.card-grid__delete')
+    if (delBtn) {
+      delBtn.addEventListener('click', () => handleDelete(p.id, card))
+    }
+    const resetBtn = card.querySelector('[data-action="reset"]')
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => handleResetDownvotes(p.id))
+    }
+    gridEl.appendChild(card)
+  }
+  // Library-wide tallies are the shared header strip. App-wide and
+  // filter-stable (filtering hides cards, it doesn't change totals),
+  // so it is set once per loadLibrary.
+  hub.setStrip({
+    hero: { value: String(list.length), label: 'Photos' },
+    stats: [
+      { label: 'Upvoted',   value: String(nUp)   },
+      { label: 'Downvoted', value: String(nDown) },
+    ],
+  })
+  refreshEmptyState()
+}
+
+// Filtering is wired through the shared header's tab bar
+// (config.onTab -> applyFilter). It stays CSS-only via the grid's
+// data-filter attribute, so switching is instant even on hundreds of
+// cards; loadLibrary is never re-run on a filter change.
+
+async function handleResetDownvotes(photoId) {
+  if (!confirm('Reset downvotes on this photo? All downvotes from family members get cleared. Upvotes are left alone.')) return
+  try {
+    const { error } = await clearDownvotes(photoId)
+    if (error) throw error
+    await loadLibrary()
+  } catch (e) {
+    console.warn('reset downvotes failed', e)
+    alert('Reset failed: ' + (e?.message || String(e)))
+  }
+}
+
+async function handleDelete(photoId, card) {
+  if (!confirm('Delete this photo permanently? This removes both sizes from storage and clears all votes on it.')) return
+  card.classList.add('deleting')
+  try {
+    await deletePhoto(photoId)
+    // Re-fetch keeps the All/Upvoted/Downvoted counts and the empty-state
+    // copy in sync with the new state — simpler and less bug-prone than
+    // patching the DOM piecewise.
+    await loadLibrary()
+  } catch (e) {
+    console.warn('delete failed', e)
+    card.classList.remove('deleting')
+    alert('Delete failed: ' + (e?.message || String(e)))
+  }
+}
+
+// ── Queue ────────────────────────────────────────────────────────────────
+const queueEl = document.getElementById('queue')
+const actionsEl = document.getElementById('actions')
+const summaryEl = document.getElementById('summary')
+let queueRows = []
+
+function addQueueRow(file) {
+  if (queueEl.hidden) queueEl.hidden = false
+  if (actionsEl.hidden) actionsEl.hidden = false
+  const row = document.createElement('div')
+  row.className = 'ingest-queue__item'
+  row.innerHTML = `
+    <div class="ingest-queue__main">
+      <div class="ingest-queue__name"></div>
+      <div class="ingest-queue__meta"></div>
+    </div>
+    <div class="ingest-queue__status is-queued">Queued</div>
+  `
+  row.querySelector('.ingest-queue__name').textContent = file.name
+  row.querySelector('.ingest-queue__meta').textContent = formatBytes(file.size)
+  queueEl.appendChild(row)
+  const statusEl = row.querySelector('.ingest-queue__status')
+  return {
+    setPhase(label) {
+      statusEl.className = 'ingest-queue__status is-working'
+      statusEl.textContent = label
+    },
+    setSuccess(variants) {
+      statusEl.className = 'ingest-queue__status is-done'
+      statusEl.textContent = 'Done'
+      const meta = row.querySelector('.ingest-queue__meta')
+      const fullKB = (variants.full.blob.size / 1024).toFixed(0)
+      const thumbKB = (variants.thumb.blob.size / 1024).toFixed(0)
+      meta.textContent = `${formatBytes(file.size)} → ${fullKB} KB full · ${thumbKB} KB thumb`
+    },
+    setError(msg) {
+      statusEl.className = 'ingest-queue__status is-failed'
+      statusEl.textContent = 'Failed'
+      const err = document.createElement('div')
+      err.className = 'ingest-queue__error'
+      err.textContent = msg
+      row.appendChild(err)
+    },
+  }
+}
+
+function refreshSummary() {
+  const done = queueRows.filter(r => r.status === 'done').length
+  const failed = queueRows.filter(r => r.status === 'failed').length
+  const pending = queueRows.length - done - failed
+  const parts = []
+  if (done) parts.push(`${done} uploaded`)
+  if (failed) parts.push(`${failed} failed`)
+  if (pending) parts.push(`${pending} pending`)
+  summaryEl.textContent = parts.join(' · ')
+}
+
+async function handleFiles(fileList) {
+  const files = Array.from(fileList).slice(0, limits.MAX_BATCH)
+  if (fileList.length > limits.MAX_BATCH) {
+    alert(`Max ${limits.MAX_BATCH} files per batch. The first ${limits.MAX_BATCH} were queued.`)
+  }
+  const rows = files.map(f => ({ file: f, ui: addQueueRow(f), status: 'queued' }))
+  queueRows.push(...rows)
+  refreshSummary()
+
+  // Sequential processing — one at a time to keep memory pressure low for big files
+  let anySuccess = false
+  for (const row of rows) {
+    try {
+      validateInput(row.file)
+      row.status = 'working'
+      const { variants } = await processOne(row.file, { onPhase: p => row.ui.setPhase(p) })
+      const id = newPhotoId()
+      const fullPath = `full/${id}.webp`
+      const thumbPath = `thumb/${id}.webp`
+
+      row.ui.setPhase('uploading full')
+      const { error: fe } = await uploadPhoto(fullPath, variants.full.blob)
+      if (fe) throw fe
+
+      row.ui.setPhase('uploading thumb')
+      const { error: te } = await uploadPhoto(thumbPath, variants.thumb.blob)
+      if (te) {
+        // Roll back the full upload so the pair stays consistent
+        await removePhoto([fullPath]).catch(() => {})
+        throw te
+      }
+
+      row.ui.setSuccess(variants)
+      row.status = 'done'
+      anySuccess = true
+    } catch (err) {
+      row.ui.setError(err.message || String(err))
+      row.status = 'failed'
+    }
+    refreshSummary()
+  }
+  if (anySuccess) await loadLibrary()
+}
+
+// ── Drop zone wiring ─────────────────────────────────────────────────────
+const dz = document.getElementById('dropzone')
+const fileInput = document.getElementById('fileInput')
+const pickBtn = document.getElementById('pickBtn')
+
+pickBtn.addEventListener('click', () => fileInput.click())
+dz.addEventListener('click', (e) => {
+  // Don't double-trigger when the inner button is the actual click target
+  if (e.target === dz) fileInput.click()
+})
+dz.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click() }
+})
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) handleFiles(fileInput.files)
+  fileInput.value = '' // allow re-selecting the same file
+})
+
+;['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, (e) => {
+  e.preventDefault()
+  dz.classList.add('drag-over')
+}))
+;['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, (e) => {
+  e.preventDefault()
+  dz.classList.remove('drag-over')
+}))
+dz.addEventListener('drop', (e) => {
+  if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files)
+})
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  queueEl.innerHTML = ''
+  queueRows = []
+  queueEl.hidden = true
+  actionsEl.hidden = true
+  summaryEl.textContent = ''
+})
+
+document.getElementById('signoutBtn').addEventListener('click', async () => {
+  await signOut()
+  location.reload()
+})
+
+gate()
+</script>
+</body>
+</html>
